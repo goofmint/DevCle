@@ -1,0 +1,23 @@
+{
+  "name": "drm-monorepo",
+  "private": true,
+  "description": "DRM Monorepo workspace root",
+  "packageManager": "pnpm@8",
+  "workspaces": [
+    "core",
+    "plugins",
+    "posthog"
+  ],
+  "scripts": {
+    "dev": "pnpm -r run dev",
+    "build": "pnpm -r run build",
+    "test": "pnpm -r run test",
+    "lint": "pnpm -r run lint",
+    "format": "pnpm -r run format",
+    "typecheck": "pnpm -r run typecheck"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
+
