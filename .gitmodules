@@ -1,0 +1,9 @@
+[submodule "core"]
+	path = core
+	url = ../drm-core
+[submodule "posthog"]
+	path = posthog
+	url = ../drm-posthog
+[submodule "plugins"]
+	path = plugins
+	url = ../drm-plugins

@@ -1,3 +1,16 @@
-.tmp
-core
-plugins
+# Temporary files
+.tmp/*
+!.tmp/requirements.md
+!.tmp/design.md
+!.tmp/tasks.md
+!.tmp/tasks/
+
+# IDEs
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
