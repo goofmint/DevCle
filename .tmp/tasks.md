@@ -35,10 +35,10 @@
 #### Task 1.1: Monorepo環境セットアップ
 
 - [ ] pnpm workspace設定（packages/core, packages/posthog, packages/plugins）
-- [ ] TypeScript 5.9+設定（strict mode + exactOptionalPropertyTypes）
-- [ ] ESLint 9 flat config設定
+- [x] TypeScript 5.9+設定（strict mode + exactOptionalPropertyTypes）
+- [x] ESLint 9 flat config設定
 - [ ] Prettier設定
-- [ ] package.jsonスクリプト設定（dev, build, test, lint, format, typecheck）
+- [x] package.jsonスクリプト設定（dev, build, test, lint, format, typecheck）
 - **完了条件**: `pnpm install`が成功し、`pnpm typecheck`が通る
 - **依存**: なし
 - **推定時間**: 2-3時間
