@@ -1,3 +1,221 @@
+# タスクリスト - 予算モジュール (Budget)
+
+## 概要
+
+- 総タスク数: 20
+- 推定作業時間: 44-64時間（約6-8営業日）
+- 優先度: 高
+
+## タスク一覧
+
+### Phase 1: 準備・調査
+
+#### Task 1.1: スキーマ確定・インデックス設計
+
+- [ ] Drizzleスキーマ最終化（campaigns, budgets, cost_items。numeric(19,4), tenant_id, timestamps）
+- [ ] 外部キー/ON DELETE CASCADE設計
+- [ ] 主要インデックス設計（budgets(tenant_id,campaign_id,spent_at) ほか）
+- **完了条件**: スキーマ定義PR作成、マイグレーション生成成功
+- **依存**: なし
+- **推定時間**: 3h
+
+#### Task 1.2: OpenAPI I/F確定
+
+- [ ] `/api/budgets`(GET/POST/PATCH), `/api/campaigns`(GET/POST), `/api/roi`(GET) を定義
+- [ ] クエリ/ボディ/レスポンス/エラーのスキーマ確定（cursor, limit<=200, weighted等）
+- [ ] Swagger表示確認
+- **完了条件**: openapi.yamlがLint通過＆Swagger UIで表示
+- **依存**: Task 1.1
+- **推定時間**: 2h
+
+#### Task 1.3: Zodスキーマ設計
+
+- [ ] CreateBudgetBody, ListBudgetsQuery, RoiQuery のZod定義
+- [ ] 金額/日付の正規化（decimal文字列→Decimal, ISO→Date）
+- [ ] カテゴリ列挙と上限値・境界値の定義
+- **完了条件**: 型チェック通過、サンプル入力でvalidate成功
+- **依存**: Task 1.2
+- **推定時間**: 2h
+
+#### Task 1.4: RBAC/監査・Idempotency設計
+
+- [ ] エンドポイント×ロール（Admin/Manager/Viewer/AI）権限表の確定
+- [ ] Idempotency-Key運用（unique制約、保存列、期限）
+- [ ] 監査項目（created_by/updated_by/change_reason）の運用方針
+- **完了条件**: 設計反映、設定値ドラフト作成
+- **依存**: Task 1.2
+- **推定時間**: 2h
+
+### Phase 2: 実装
+
+#### Task 2.1: マイグレーション実装
+
+- [ ] テーブルとインデックスのDDL実装
+- [ ] 最小シード（campaign 1件）
+- [ ] ロールバック用スクリプト
+- **完了条件**: ローカルDockerでmigrate成功
+- **依存**: Task 1.1
+- **推定時間**: 3h
+
+#### Task 2.2: Repository実装
+
+- [ ] BudgetRepository（list/insert/update + 集計SQL）
+- [ ] CostItemRepository（CRUD）
+- [ ] CampaignRepository（CRUD + ensureExists）
+- **完了条件**: 単体テストでCRUDが通る
+- **依存**: Task 2.1
+- **推定時間**: 4h
+
+#### Task 2.3: BudgetService実装
+
+- [ ] create/list/update（TX, idempotency, 楽観ロック）
+- [ ] costItems合計とamount整合性チェック
+- [ ] 監査情報保存
+- **完了条件**: 単体テスト通過
+- **依存**: Task 2.2, Task 1.4, Task 1.3
+- **推定時間**: 4h
+
+#### Task 2.4: BudgetsController実装
+
+- [ ] GET/POST/PATCH ルートの作成
+- [ ] Zodバリデーション適用・RBAC適用
+- [ ] Cursorページング/limit制限実装
+- **完了条件**: 統合テストで3エンドポイント成功
+- **依存**: Task 2.3
+- **推定時間**: 4h
+
+#### Task 2.5: RoiCalculator実装
+
+- [ ] 投資合計（期間/カテゴリフィルタ）
+- [ ] 効果値取得スタブI/F（後続でCRM/ファネル接続）
+- [ ] weighted計算フック（PluginRegistry連携）
+- **完了条件**: 単体テストで計算式が正しい
+- **依存**: Task 2.2
+- **推定時間**: 3h
+
+#### Task 2.6: ROI API実装
+
+- [ ] GET /api/roi（weightedパラメータ対応）
+- [ ] 期間フィルタ/バリデーション
+- [ ] エラーハンドリング
+- **完了条件**: 統合テスト通過
+- **依存**: Task 2.5
+- **推定時間**: 2h
+
+#### Task 2.7: Campaigns API最小実装
+
+- [ ] GET/POST /api/campaigns
+- [ ] Zod/認可の適用
+- [ ] 予算参照前提の整合性を確認
+- **完了条件**: 統合テスト通過
+- **依存**: Task 2.2
+- **推定時間**: 2h
+
+#### Task 2.8: PluginRegistry接続（AI Attribution）
+
+- [ ] Registry I/F定義とDI
+- [ ] FEATURE_AI_ATTRIBUTION で有効/無効切替
+- [ ] モック実装で重み取得の疎通確認
+- **完了条件**: weighted=true時にモック重み反映
+- **依存**: Task 2.5
+- **推定時間**: 2h
+
+#### Task 2.9: エラーハンドラ/ロギング整備
+
+- [ ] 構造化ログ（requestId, tenantId）
+- [ ] エラーマッピング（400/401/403/404/409/429/5xx）
+- [ ] 重要操作の監査ログ出力
+- **完了条件**: 統合テスト時にログ/エラー型が期待通り
+- **依存**: Task 2.4, Task 2.6
+- **推定時間**: 2h
+
+### Phase 3: 検証・テスト
+
+#### Task 3.1: 単体テスト（サービス/計算/スキーマ）
+
+- [ ] BudgetService（idempotency/整合性）
+- [ ] RoiCalculator（weighted on/off境界値）
+- [ ] Zodスキーマ（境界値/無効値）
+- **完了条件**: 単体テストカバレッジ80%+
+- **依存**: Task 2.3, Task 2.5
+- **推定時間**: 3h
+
+#### Task 3.2: 統合テスト（API）
+
+- [ ] /api/budgets CRUD/検索/ページング/認可
+- [ ] Idempotency 409検証
+- [ ] /api/roi 正常/weighted/期間外
+- **完了条件**: Docker PostgreSQLで全テストが緑
+- **依存**: Task 2.4, Task 2.6
+- **推定時間**: 4h
+
+#### Task 3.3: 性能サニティチェック
+
+- [ ] サンプル1万行で一覧・集計の実行時間測定
+- [ ] インデックス有無の比較
+- [ ] 簡易キャッシュ方針（必要時）
+- **完了条件**: 主要クエリ<200ms@ローカルDB
+- **依存**: Task 3.2
+- **推定時間**: 2h
+
+### Phase 4: 仕上げ
+
+#### Task 4.1: ドキュメントとOpenAPI整備
+
+- [ ] OpenAPI例/エラーレスポンス例の追記
+- [ ] README（環境変数/マイグレーション/利用例）更新
+- [ ] 使用例スニペット（cURL/TS）
+- **完了条件**: ドキュメントレビュー完了
+- **依存**: Task 3.2
+- **推定時間**: 2h
+
+#### Task 4.2: 運用準備/設定
+
+- [ ] 環境変数整理（DATABASE_URL, FEATURE_AI_ATTRIBUTION 他）
+- [ ] マイグレーション自動適用設定
+- [ ] 重要通知のたたき台（Slack webhook箇所）
+- **完了条件**: dev/prodテンプレ整備
+- **依存**: Task 3.2
+- **推定時間**: 2h
+
+#### Task 4.3: リリースノート/移行手順
+
+- [ ] 新規テーブル説明
+- [ ] 既存データ影響（なし想定）明記
+- [ ] ロールバック手順記載
+- **完了条件**: ノート合意
+- **依存**: Task 4.1
+- **推定時間**: 1h
+
+## 実装順序
+
+1. Phase 1から順次実行（1.1→1.2→1.3→1.4）
+2. Phase 2は2.1→2.2→2.3→2.4を主経路に、2.5/2.6/2.7/2.8/2.9を並行・後続で接続
+3. Phase 3で単体→統合→性能の順に検証
+4. Phase 4でドキュメント/運用/リリース整備
+
+## リスクと対策
+
+- 十進数誤差: `numeric(19,4)` + Decimalユーティリティを使用、浮動小数は不使用
+- Idempotency競合: `tenant_id + idempotency_key`一意制約とTXで防止
+- テナント漏洩: すべてのクエリに`tenantId`条件必須、統合テストで検証
+- 外部依存（AI加重）: フィーチャーフラグでフォールバック、タイムアウト時は非加重結果
+- タイムゾーン差: `timestamptz`で保存、ISO/UTCに正規化
+- 集計負荷: 適切なインデックスとカーソル、必要時短期キャッシュ
+
+## 注意事項
+
+- 各タスクはコミット単位（1-4時間）で完結させる
+- タスク完了時は単体/統合の品質チェックを実行
+- 不明点は実装前に確認し、設計に反映する
+
+## 実装開始ガイド
+
+1. このタスクリストに従って順次実装を進めてください
+2. 各タスクの開始時に状態をin_progressへ更新
+3. 完了時はcompletedへ更新
+4. 問題発生時は速やかに報告してください
+
 # タスクリスト - DRM (Developer Relations Management) ツール
 
 ## 概要
@@ -6,6 +224,14 @@
 - **推定作業時間**: 220-290時間（約28-36営業日）
 - **優先度**: 高
 - **実装方針**: UI→API→サービス層の順で、早期PoC確認を優先
+
+### Meta
+
+- [ ] 詳細設計の完了とレビュー（Budgetモジュール）
+- [ ] Budget: Phase 1（設計確定）
+- [ ] Budget: Phase 2（API/Service/Repo実装）
+- [ ] Budget: Phase 3（テスト）
+- [ ] Budget: Phase 4（仕上げ/運用）
 
 ## 🚨 重要な開発方針
 
