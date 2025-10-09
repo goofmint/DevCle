@@ -8,6 +8,9 @@
     "plugins",
     "posthog"
   ],
+  "devDependencies": {
+    "@drm/core": "workspace:*"
+  },
   "scripts": {
     "dev": "pnpm -r run dev",
     "build": "pnpm -r run build",
@@ -20,4 +23,3 @@
     "node": ">=20.0.0"
   }
 }
-
