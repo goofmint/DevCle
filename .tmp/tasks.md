@@ -23,18 +23,19 @@
 
 ## Phase 1: 環境構築とインフラ基盤（デプロイ可能な最小構成）
 
-### Task 1.1: プロジェクト初期構造とcoreパッケージセットアップ
+### Task 1.1: プロジェクト初期構造とcoreパッケージセットアップ ✅
 
-- [ ] `core/`のpackage.json作成（Remix, TypeScript）
-- [ ] TypeScript strict設定（`exactOptionalPropertyTypes`含む）
-- [ ] ESLint 9 flat config設定
-- [ ] Prettier設定
-- [ ] `.gitignore`作成
+- [x] `core/`のpackage.json作成（Remix, TypeScript）
+- [x] TypeScript strict設定（`exactOptionalPropertyTypes`含む）
+- [x] ESLint 9 flat config設定
+- [x] Prettier設定
+- [x] `.gitignore`作成
 - **完了条件**: `pnpm install`がcoreパッケージで成功
 - **依存**: なし
 - **推定時間**: 2時間
 - **ドキュメント**: [.tmp/tasks/task-1.1-monorepo-setup.md](.tmp/tasks/task-1.1-monorepo-setup.md)
 - **注意**: プラグイン（posthog等）は不要。coreのみ構築。
+- **完了日**: 2025-10-10
 
 ### Task 1.2: Docker Compose構成ファイル作成
 
