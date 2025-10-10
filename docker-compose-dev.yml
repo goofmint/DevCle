@@ -21,16 +21,20 @@ services:
     environment:
       # Override NODE_ENV for development
       NODE_ENV: development
+      # Set CI flag for non-interactive pnpm install
+      CI: "true"
     volumes:
-      # Mount source code for hot reloading
-      - ./core:/app
-      # Exclude node_modules to use container's version
-      - /app/node_modules
+      # Mount source code for hot reloading from actual drm-core repository
+      - ../drm-core:/app
+      # Use named volume to preserve container's node_modules (Linux Alpine binaries)
+      # This prevents macOS host binaries from being used in Linux container
+      - core-node-modules:/app/node_modules
     ports:
       # Expose development server for direct access
       - "3000:3000"
-    # Override command to run development server
-    command: pnpm dev
+    # Override command to install dependencies and run development server
+    # This ensures Linux Alpine binaries are used instead of macOS host binaries
+    command: sh -c "pnpm install --frozen-lockfile && pnpm dev"
 
   postgres:
     ports:
@@ -41,3 +45,7 @@ services:
     ports:
       # Expose redis port for local tool access (e.g., Redis Commander)
       - "6379:6379"
+
+volumes:
+  # Named volume for core's node_modules to preserve Linux Alpine binaries
+  core-node-modules:

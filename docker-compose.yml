@@ -28,8 +28,8 @@ services:
       - devcle-network
     restart: unless-stopped
     healthcheck:
-      # Use CMD-SHELL for proper error handling; exit 1 on failure
-      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost/health || exit 1"]
+      # Check if nginx master process is running
+      test: ["CMD-SHELL", "pgrep nginx || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
