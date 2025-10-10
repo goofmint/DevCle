@@ -4,12 +4,15 @@
 
 ### Git Submodules
 - **core/** is a git submodule (points to ../drm-core)
+  - Actual repository location: `/Users/nakatsugawa/Code/DevRel/devcle/drm-core`
 - **plugins/** is a git submodule (points to ../drm-plugins)
+  - Actual repository location: `/Users/nakatsugawa/Code/DevRel/devcle/drm-plugins`
 
 ### When committing:
 - Files in `core/` and `plugins/` are managed by their own repositories
-- Only commit files in the main app repository
-- Never use `git add core/` or `git add plugins/`
+- To commit changes in core: `cd /Users/nakatsugawa/Code/DevRel/devcle/drm-core`
+- To commit changes in plugins: `cd /Users/nakatsugawa/Code/DevRel/devcle/drm-plugins`
+- Only commit files in the main app repository (never use `git add core/` or `git add plugins/`)
 
 ### Docker files location:
 - Dockerfile for core: `docker/Dockerfile.core` (NOT in core/)
