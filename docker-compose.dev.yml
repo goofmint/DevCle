@@ -45,7 +45,7 @@ services:
   posthog-zookeeper:
     image: wurstmeister/zookeeper
     restart: on-failure
-    networks: [default]
+    networks: [devcle]
 
   posthog-kafka:
     image: wurstmeister/kafka
@@ -55,7 +55,7 @@ services:
     environment:
       KAFKA_ADVERTISED_HOST_NAME: posthog-kafka
       KAFKA_ZOOKEEPER_CONNECT: posthog-zookeeper:2181
-    networks: [default]
+    networks: [devcle]
 
   posthog-clickhouse:
     image: yandex/clickhouse-server:21.6.5
@@ -66,7 +66,7 @@ services:
     volumes:
       - posthog-clickhouse-data:/var/lib/clickhouse
       - ./infra/posthog/clickhouse/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d:ro
-    networks: [default]
+    networks: [devcle]
 
   posthog-db:
     image: postgres:12-alpine
@@ -77,14 +77,14 @@ services:
       POSTGRES_PASSWORD: posthog
     volumes:
       - posthog-db-data:/var/lib/postgresql/data
-    networks: [default]
+    networks: [devcle]
 
   posthog-redis:
     image: redis:6.2-alpine
     restart: on-failure
     volumes:
       - posthog-redis-data:/data
-    networks: [default]
+    networks: [devcle]
 
   posthog-worker:
     image: posthog/posthog:latest-release
@@ -95,6 +95,7 @@ services:
       SITE_URL: https://ph.devcle.test
       DISABLE_SECURE_SSL_REDIRECT: 'true'
       IS_BEHIND_PROXY: 'true'
+      TRUSTED_PROXIES: ".*"
       DATABASE_URL: postgres://posthog:posthog@posthog-db:5432/posthog
       CLICKHOUSE_HOST: posthog-clickhouse
       CLICKHOUSE_DATABASE: posthog
@@ -112,7 +113,7 @@ services:
       - posthog-redis
       - posthog-clickhouse
       - posthog-kafka
-    networks: [default]
+    networks: [devcle]
 
   posthog-web:
     image: posthog/posthog:latest-release
@@ -143,7 +144,7 @@ services:
       - posthog-redis
       - posthog-clickhouse
       - posthog-kafka
-    networks: [default]
+    networks: [devcle]
 
   posthog-plugins:
     image: posthog/posthog:latest-release
@@ -155,12 +156,15 @@ services:
       KAFKA_HOSTS: posthog-kafka:9092
       REDIS_URL: redis://posthog-redis:6379/
       CLICKHOUSE_HOST: posthog-clickhouse
+      SECRET_KEY: please-set-posthog-secret
+      IS_BEHIND_PROXY: 'true'
+      TRUSTED_PROXIES: ".*"
     depends_on:
       - posthog-db
       - posthog-redis
       - posthog-clickhouse
       - posthog-kafka
-    networks: [default]
+    networks: [devcle]
 
 volumes:
   db-data: {}
