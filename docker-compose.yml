@@ -42,7 +42,10 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    command: ["bash", "-lc", "pnpm run start:worker"]
+    # Development placeholder until the actual worker is wired.
+    # Use a POSIX shell and keep the container alive without failing the stack.
+    entrypoint: ["/bin/sh", "-lc"]
+    command: "echo 'Worker placeholder running'; tail -f /dev/null"
     env_file:
       - .env
     environment:
@@ -54,4 +57,3 @@ services:
 
 networks:
   devcle: {}
-
