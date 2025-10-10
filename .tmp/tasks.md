@@ -1,1024 +1,790 @@
-# タスクリスト
-
-## タスク一覧
-
-### Phase 1: 基盤構築とPoC準備（1-2週間）
-
-#### Task 1.1: Monorepo環境セットアップ
-
-- [x] pnpm workspace設定（packages/core, packages/posthog, packages/plugins）
-- [x] TypeScript 5.9+設定（strict mode + exactOptionalPropertyTypes）
-- [x] ESLint 9 flat config設定
-- [x] Prettier設定
-- [x] package.jsonスクリプト設定（dev, build, test, lint, format, typecheck）
-- **完了条件**: `pnpm install`が成功し、`pnpm typecheck`が通る
-- **依存**: なし
-- **推定時間**: 2-3時間
-
-#### Task 1.2: Docker Compose環境構築
-
-- [ ] `docker/compose.development.yml`作成（PostgreSQL + Redis）
-- [ ] `docker/compose.production.yml`作成（アプリのみ）
-- [ ] `docker/compose.test.yml`作成（テスト環境）
-- [ ] Dockerfile作成
-- [ ] Caddyfile作成（リバースプロキシ）
-- [ ] .gitignore設定
-- **完了条件**: `docker compose -f docker/compose.development.yml up`でPostgreSQL + Redisが起動
-- **依存**: Task 1.1
-- **推定時間**: 2-3時間
-
-#### Task 1.3: データベーススキーマ設計（初期版）
-
-- [ ] Drizzle ORMセットアップ
-- [ ] developers, organizations, identifiers, activitiesテーブル定義
-- [ ] tenant_idカラム追加（全テーブル）
-- [ ] マイグレーションファイル生成
-- [ ] シードデータ作成（開発用）
-- **完了条件**: マイグレーション実行でテーブルが作成される
-- **依存**: Task 1.2
-- **推定時間**: 3-4時間
-
-#### Task 1.4: Remix UIプロジェクト初期化
-
-- [ ] Remix 2.xプロジェクト作成
-- [ ] Tailwind CSS 4.x設定
-- [ ] shadcn/uiセットアップ
-- [ ] 基本レイアウト作成（ヘッダー、ナビゲーション、フッター）
-- [ ] ルート構成設計（/dashboard, /developers, /organizations, /activities）
-- **完了条件**: `pnpm dev`でRemixアプリが起動し、基本レイアウトが表示される
-- **依存**: Task 1.1
-- **推定時間**: 3-4時間
-
-### Phase 2: UI先行実装（PoCフロント構築）（2-3週間）
-
-#### Task 2.1: ランディングページ（LP）実装
-
-- [ ] `/`ルート作成（未認証ユーザー向け）
-- [ ] Hero Section実装（見出し、説明、CTAボタン）
-- [ ] Features Section実装（ファネル分析、開発者プロフィール、プラグインシステム）
-- [ ] CTA Section実装
-- [ ] レスポンシブ対応（モバイル、タブレット、デスクトップ）
-- [ ] SEO対応（meta tags, OGP）
-- **完了条件**: `/`でLPが表示され、CTAボタンで`/login`に遷移
-- **依存**: Task 1.4
-- **推定時間**: 4-5時間
-- **テスト**: E2Eテスト（Playwright）でLP表示・CTA遷移確認
-
-#### Task 2.2: プライバシーポリシー・利用規約ページ実装
-
-- [ ] `/privacy`ルート作成
-- [ ] `/terms`ルート作成
-- [ ] Markdownファイル作成（/legal/privacy-en.md, privacy-ja.md, terms-en.md, terms-ja.md）
-- [ ] markedライブラリでMarkdown→HTML変換
-- [ ] フッターに全ページ共通リンク追加
-- [ ] 多言語対応（ロケールに応じてファイル切り替え）
-- **完了条件**: `/privacy`と`/terms`でポリシー・規約が表示される
-- **依存**: Task 1.4
-- **推定時間**: 3-4時間
-- **テスト**: E2Eテスト（Playwright）でページ表示・多言語切り替え確認
-
-#### Task 2.3: i18n（国際化）セットアップ
-
-- [ ] remix-i18next設定
-- [ ] 翻訳ファイル作成（en/common.json, ja/common.json, en/landing.json, ja/landing.json）
-- [ ] root.tsxでロケール検出・適用
-- [ ] 言語切り替えコンポーネント作成
-- [ ] LP・法的ページで翻訳キー適用
-- **完了条件**: 言語切り替えが動作し、LP・法的ページが多言語対応される
-- **依存**: Task 2.1, 2.2
-- **推定時間**: 3-4時間
-- **テスト**: 手動テストで言語切り替え確認
-
-#### Task 2.4: 認証画面実装（ログイン・サインアップ）
-
-- [ ] `/login`ルート作成
-- [ ] `/signup`ルート作成
-- [ ] ログインフォーム実装（email, password）
-- [ ] サインアップフォーム実装（email, password, 利用規約同意チェックボックス）
-- [ ] バリデーション UI実装（Zod）
-- [ ] 認証API呼び出し（スタブ実装）
-- [ ] セッション管理（Cookie）スタブ実装
-- **完了条件**: ログイン・サインアップフォームが動作し、`/dashboard`に遷移
-- **依存**: Task 2.3
-- **推定時間**: 4-5時間
-- **テスト**: E2Eテスト（Playwright）でフォーム入力・遷移確認
-
-#### Task 2.5: ダッシュボード画面（モックデータ）
-
-- [ ] `/dashboard`ルート作成（認証後）
-- [ ] ファネルチャート表示（Recharts + モックデータ）
-- [ ] サマリーカード表示（開発者数、組織数、アクティビティ数）
-- [ ] 期間フィルター UI作成
-- [ ] レスポンシブ対応
-- **完了条件**: モックデータでダッシュボードが表示される
-- **依存**: Task 2.4
-- **推定時間**: 4-6時間
-- **テスト**: E2Eテスト（Playwright）でページ表示確認
-
-#### Task 2.6: 開発者一覧画面（モックデータ）
-
-- [ ] `/developers`ルート作成
-- [ ] 開発者一覧テーブル表示（shadcn/ui Table）
-- [ ] ページネーション UI実装
-- [ ] 検索フィルター UI実装
-- [ ] ソート機能 UI実装
-- **完了条件**: モックデータで開発者一覧が表示される
-- **依存**: Task 2.4
-- **推定時間**: 3-4時間
-- **テスト**: E2Eテスト（Playwright）で一覧表示・検索・ソート確認
-
-#### Task 2.7: 開発者詳細画面（モックデータ）
-
-- [ ] `/developers/:id`ルート作成
-- [ ] 開発者プロフィール表示
-- [ ] 識別子リスト表示
-- [ ] アクティビティ履歴表示（タイムライン）
-- [ ] 編集ボタン・削除ボタン（モーダル）
-- **完了条件**: モックデータで開発者詳細が表示される
-- **依存**: Task 2.6
-- **推定時間**: 3-4時間
-- **テスト**: E2Eテスト（Playwright）で詳細表示確認
-
-#### Task 2.8: アクティビティ登録フォーム（モックデータ）
-
-- [ ] `/dashboard/activities/new`ルート作成
-- [ ] フォーム作成（type, source, timestamp, metadata, identifiers）
-- [ ] バリデーション UI実装（Zod + React Hook Form）
-- [ ] プレビュー機能
-- [ ] 送信ボタン（モック動作）
-- **完了条件**: フォームでデータ入力し、バリデーションが動作する
-- **依存**: Task 2.4
-- **推定時間**: 3-4時間
-- **テスト**: E2Eテスト（Playwright）でフォーム入力・バリデーション確認
-
-### Phase 3: API層実装（バックエンド接続）（2-3週間）
-
-#### Task 3.1: Hono APIサーバーセットアップ
-
-- [ ] Honoプロジェクト作成（packages/core/api）
-- [ ] ミドルウェア設定（CORS, Logger, Error Handler）
-- [ ] ルーター構成設計
-- [ ] 認証ミドルウェア（JWT）スタブ実装
-- [ ] Context型定義（tenantId, userId, plugins）
-- [ ] OpenAPI 3.0スキーマファイル作成（openapi.yaml）
-- [ ] Swagger UIセットアップ（@hono/swagger-ui）
-- **完了条件**: `pnpm dev`でAPIサーバーが起動し、/healthエンドポイントが応答、/api-docsでSwagger UI表示
-- **依存**: Task 1.3
-- **推定時間**: 4-5時間
-- **テスト**: 統合テスト（Vitest + Supertest）で/health確認
-
-#### Task 3.2: Developers API実装（基本CRUD）
-
-- [ ] DeveloperRepository実装（Drizzle ORM）
-- [ ] GET /v1/developers実装（一覧取得、ページネーション）
-- [ ] GET /v1/developers/:id実装（詳細取得）
-- [ ] POST /v1/developers実装（作成）
-- [ ] PATCH /v1/developers/:id実装（更新）
-- [ ] DELETE /v1/developers/:id実装（ソフトデリート）
-- [ ] Zodスキーマバリデーション
-- [ ] OpenAPIスキーマに各エンドポイント追加（paths, schemas）
-- **完了条件**: 全エンドポイントが動作し、DBに読み書きできる、Swagger UIで確認可能
-- **依存**: Task 3.1
-- **推定時間**: 6-7時間
-- **テスト**: 統合テスト（Vitest + Supertest + Docker PostgreSQL）で全CRUD確認
-
-#### Task 3.3: Organizations API実装（基本CRUD）
-
-- [ ] OrganizationRepository実装（Drizzle ORM）
-- [ ] GET /v1/organizations実装（一覧取得）
-- [ ] GET /v1/organizations/:id実装（詳細取得）
-- [ ] POST /v1/organizations実装（作成）
-- [ ] PATCH /v1/organizations/:id実装（更新）
-- [ ] DELETE /v1/organizations/:id実装（ソフトデリート）
-- [ ] Zodスキーマバリデーション
-- [ ] OpenAPIスキーマに各エンドポイント追加
-- **完了条件**: 全エンドポイントが動作し、DBに読み書きできる、Swagger UIで確認可能
-- **依存**: Task 3.1
-- **推定時間**: 5-6時間
-- **テスト**: 統合テスト（Vitest + Supertest + Docker PostgreSQL）で全CRUD確認
-
-#### Task 3.4: Activities API実装（基本CRUD）
-
-- [ ] ActivityRepository実装（Drizzle ORM）
-- [ ] GET /v1/activities実装（一覧取得、フィルター）
-- [ ] GET /v1/activities/:id実装（詳細取得）
-- [ ] POST /v1/activities実装（単一登録）
-- [ ] POST /v1/activities/batch実装（バッチ登録）
-- [ ] Zodスキーマバリデーション
-- [ ] OpenAPIスキーマに各エンドポイント追加
-- **完了条件**: 全エンドポイントが動作し、DBに読み書きできる、Swagger UIで確認可能
-- **依存**: Task 3.1
-- **推定時間**: 6-7時間
-- **テスト**: 統合テスト（Vitest + Supertest + Docker PostgreSQL）で全CRUD確認
-
-#### Task 3.5: RemixとAPIの接続（実データ表示）
-
-- [ ] Remix loader/actionでAPI呼び出し実装
-- [ ] ダッシュボード画面を実データで表示
-- [ ] 開発者一覧画面を実データで表示
-- [ ] 開発者詳細画面を実データで表示
-- [ ] アクティビティ登録フォームを実データで動作
-- [ ] エラーハンドリング実装
-- **完了条件**: 全画面が実データで動作する
-- **依存**: Task 3.2, 3.3, 3.4, Task 2.5, 2.6, 2.7, 2.8
-- **推定時間**: 6-8時間
-- **テスト**: E2Eテスト（Playwright + Docker環境）で実データ表示確認
-
-### Phase 4: コアサービス層実装（3-4週間）
-
-#### Task 4.1: ID Resolver Service実装
-
-- [ ] IDResolverService実装（email, domain, handle解決）
-- [ ] resolve()メソッド実装（ルールベースマッチング）
-- [ ] merge()メソッド実装（開発者統合）
-- [ ] split()メソッド実装（開発者分割）
-- [ ] 信頼度スコアリング実装
-- [ ] 監査ログ記録
-- **完了条件**: ID解決が正確に動作し、テストが通る
-- **依存**: Task 3.2
-- **推定時間**: 6-8時間
-- **テスト**: 単体テスト（Vitest + Docker PostgreSQL）で各シナリオ確認
-
-#### Task 4.2: Activity Manager Service実装
-
-- [ ] ActivityManager実装
-- [ ] ingest()メソッド実装（ID Resolver呼び出し）
-- [ ] batch()メソッド実装（バッチ処理）
-- [ ] classify()メソッド実装（ファネルステージ判定）
-- [ ] enrichment pipeline実装
-- [ ] PostHog連携（Capture API呼び出し）
-- **完了条件**: アクティビティ登録が正確に動作し、PostHogにイベント送信される
-- **依存**: Task 4.1
-- **推定時間**: 8-10時間
-- **テスト**: 統合テスト（Vitest + Docker PostgreSQL + PostHog）で全フロー確認
-
-#### Task 4.3: Funnel Engine実装
-
-- [ ] FunnelEngine実装
-- [ ] calculate()メソッド実装（SQL集計クエリ）
-- [ ] getStageActivities()メソッド実装
-- [ ] compareAnonymous()メソッド実装（PostHog Insights統合）
-- [ ] Redisキャッシュ実装（5分TTL）
-- [ ] Window functions活用
-- **完了条件**: ファネル集計が正確に動作し、キャッシュが効く
-- **依存**: Task 4.2
-- **推定時間**: 8-10時間
-- **テスト**: 統合テスト（Vitest + Docker PostgreSQL + Redis）でファネル計算確認
-
-#### Task 4.4: Funnel API実装
-
-- [ ] GET /v1/funnel実装（FunnelEngine呼び出し）
-- [ ] GET /v1/funnel/compare実装（PostHog比較）
-- [ ] GET /v1/funnel/stages/:stage実装
-- [ ] クエリパラメータバリデーション
-- [ ] キャッシュ戦略適用
-- **完了条件**: Funnel APIが動作し、ダッシュボードで実データ表示
-- **依存**: Task 4.3
-- **推定時間**: 4-5時間
-- **テスト**: 統合テスト（Vitest + Supertest）でAPI確認
-
-#### Task 4.5: PostHog Client実装
-
-- [ ] PostHogClient実装
-- [ ] capture()メソッド実装（Capture API）
-- [ ] getInsight()メソッド実装（Insights API）
-- [ ] getPersons()メソッド実装（Persons API）
-- [ ] mergeFunnels()メソッド実装
-- [ ] レート制限対応（exponential backoff）
-- **完了条件**: PostHog連携が動作し、匿名データが取得できる
-- **依存**: Task 1.2
-- **推定時間**: 5-6時間
-- **テスト**: 統合テスト（Vitest + PostHog セルフホスト版）で全API確認
-
-### Phase 5: ファイルインポート機能（1週間）
-
-#### Task 5.1: File Parser実装
-
-- [ ] CSVパーサー実装（papaparse）
-- [ ] JSONパーサー実装（Zodバリデーション）
-- [ ] エラー行記録機能
-- [ ] ファイルサイズ制限チェック
-- [ ] フォーマット検証
-- **完了条件**: CSV/JSONファイルを解析し、エラー行を記録できる
-- **依存**: なし
-- **推定時間**: 3-4時間
-- **テスト**: 単体テスト（Vitest）で各フォーマット確認
-
-#### Task 5.2: Activity Import API実装
-
-- [ ] POST /v1/activities/import実装
-- [ ] multipart/form-dataハンドリング
-- [ ] File Parser呼び出し
-- [ ] ActivityManager.batch()呼び出し
-- [ ] インポート結果レスポンス
-- **完了条件**: CSV/JSONファイルアップロードでアクティビティが一括登録される
-- **依存**: Task 5.1, Task 4.2
-- **推定時間**: 4-5時間
-- **テスト**: 統合テスト（Vitest + Supertest）でファイルアップロード確認
-
-#### Task 5.3: Activity Import UI実装
-
-- [ ] `/dashboard/activities/import`ルート作成
-- [ ] ファイルアップロードフォーム実装
-- [ ] ドラッグ&ドロップ対応
-- [ ] インポート進捗表示
-- [ ] エラー表示（行番号付き）
-- [ ] 成功/失敗サマリー表示
-- **完了条件**: UIからCSV/JSONファイルをアップロードし、結果が表示される
-- **依存**: Task 5.2
-- **推定時間**: 4-5時間
-- **テスト**: E2Eテスト（Playwright）でファイルアップロード・結果表示確認
-
-### Phase 6: メール配信機能（2-3週間）
-
-#### Task 6.1: Email Service実装
-
-- [ ] EmailService実装（Resend SDK）
-- [ ] send()メソッド実装
-- [ ] sendBatch()メソッド実装
-- [ ] verifyDomain()メソッド実装
-- [ ] バウンス処理Webhook実装
-- [ ] リトライ戦略実装
-- **完了条件**: Resend経由でメール送信できる
-- **依存**: なし
-- **推定時間**: 4-5時間
-- **テスト**: 統合テスト（Vitest + Resend Test Mode）でメール送信確認
-
-#### Task 6.2: URL Shortener Service実装
-
-- [ ] URLShortenerService実装
-- [ ] shorten()メソッド実装（nanoid生成）
-- [ ] redirect()メソッド実装（302リダイレクト + クリック記録）
-- [ ] generateQRCode()メソッド実装（qrcodeライブラリ）
-- [ ] getClickStats()メソッド実装（GeoIP統合）
-- [ ] Redisキャッシュ実装
-- **完了条件**: 短縮URL生成・リダイレクト・QRコード生成が動作する
-- **依存**: Task 1.2
-- **推定時間**: 6-8時間
-- **テスト**: 統合テスト（Vitest + Docker PostgreSQL + Redis）で全フロー確認
-
-#### Task 6.3: Email Campaign Manager実装
-
-- [ ] EmailCampaignManager実装
-- [ ] createTemplate()メソッド実装
-- [ ] createCampaign()メソッド実装
-- [ ] previewEmail()メソッド実装（変数置換）
-- [ ] sendCampaign()メソッド実装（BullMQジョブ化）
-- [ ] URL自動短縮実装
-- [ ] 購読解除トークン生成実装（HMAC-SHA256）
-- **完了条件**: メールキャンペーン作成・送信が動作する
-- **依存**: Task 6.1, Task 6.2
-- **推定時間**: 8-10時間
-- **テスト**: 統合テスト（Vitest + Docker環境）で全フロー確認
-
-#### Task 6.4: Email Campaign API実装
-
-- [ ] GET /v1/email/templates実装
-- [ ] POST /v1/email/templates実装
-- [ ] GET /v1/email/campaigns実装
-- [ ] POST /v1/email/campaigns実装
-- [ ] POST /v1/email/campaigns/:id/send実装
-- [ ] GET /v1/email/campaigns/:id/stats実装
-- [ ] GET /v1/email/unsubscribe/:token実装
-- **完了条件**: 全エンドポイントが動作する
-- **依存**: Task 6.3
-- **推定時間**: 6-8時間
-- **テスト**: 統合テスト（Vitest + Supertest）で全API確認
-
-#### Task 6.5: Email Campaign UI実装
-
-- [ ] `/dashboard/campaigns`ルート作成（一覧）
-- [ ] `/dashboard/campaigns/new`ルート作成（作成フォーム）
-- [ ] テンプレートエディタ実装（変数サポート）
-- [ ] 受信者フィルター UI実装
-- [ ] プレビュー機能実装
-- [ ] 送信確認モーダル実装
-- [ ] 統計ダッシュボード実装
-- **完了条件**: UIからメールキャンペーンを作成・送信できる
-- **依存**: Task 6.4
-- **推定時間**: 8-10時間
-- **テスト**: E2Eテスト（Playwright）でキャンペーン作成・送信確認
-
-#### Task 6.6: URL Shortener API実装
-
-- [ ] POST /v1/links実装
-- [ ] GET /v1/links実装
-- [ ] GET /v1/links/:shortCode/stats実装
-- [ ] GET /v1/links/:shortCode/qr実装
-- [ ] GET /:shortCode実装（リダイレクト）
-- **完了条件**: 全エンドポイントが動作する
-- **依存**: Task 6.2
-- **推定時間**: 4-5時間
-- **テスト**: 統合テスト（Vitest + Supertest）で全API確認
-
-#### Task 6.7: URL Shortener UI実装
-
-- [ ] `/dashboard/links`ルート作成（一覧）
-- [ ] `/dashboard/links/new`ルート作成（作成フォーム）
-- [ ] QRコードダウンロードボタン実装
-- [ ] クリック統計表示（チャート）
-- [ ] カスタムコード入力フォーム実装
-- **完了条件**: UIから短縮URL作成・統計確認できる
-- **依存**: Task 6.6
-- **推定時間**: 5-6時間
-- **テスト**: E2Eテスト（Playwright）でURL作成・統計表示確認
-
-### Phase 7: プラグインシステム（2-3週間）
-
-#### Task 7.1: Plugin Loader実装
-
-- [ ] PluginLoader実装
-- [ ] discover()メソッド実装（node_modules/@devcle/plugin-*スキャン）
-- [ ] validate()メソッド実装（署名検証、バージョンチェック）
-- [ ] load()メソッド実装（VM2サンドボックス）
-- [ ] unload()メソッド実装
-- [ ] DBと連携（enabled_plugins）
-- **完了条件**: プラグインを検出・ロードできる
-- **依存**: Task 1.3
-- **推定時間**: 6-8時間
-- **テスト**: 単体テスト（Vitest）でプラグインロード確認
-
-#### Task 7.2: Hook Manager実装
-
-- [ ] HookManager実装
-- [ ] on()メソッド実装（イベント登録）
-- [ ] emit()メソッド実装（イベント発火）
-- [ ] emitActivity()メソッド実装
-- [ ] タイムアウト制御実装（30秒）
-- [ ] エラーハンドリング実装（プラグイン隔離）
-- **完了条件**: プラグインフックが動作する
-- **依存**: Task 7.1
-- **推定時間**: 5-6時間
-- **テスト**: 単体テスト（Vitest）でフック動作確認
-
-#### Task 7.3: Registry実装
-
-- [ ] Registry実装
-- [ ] registerAPI()メソッド実装（Honoルーター動的追加）
-- [ ] registerJob()メソッド実装（BullMQ登録）
-- [ ] registerUI()メソッド実装（Remixコンポーネント登録）
-- [ ] getAPI(), getJobs(), getUISlot()実装
-- **完了条件**: プラグインがAPI/Job/UIを登録できる
-- **依存**: Task 7.2
-- **推定時間**: 5-6時間
-- **テスト**: 単体テスト（Vitest）で登録・取得確認
-
-#### Task 7.4: Plugin Manager Service実装
-
-- [ ] PluginManager実装
-- [ ] list()メソッド実装
-- [ ] enable()メソッド実装（DB記録 + hot reload）
-- [ ] disable()メソッド実装
-- [ ] updateConfig()メソッド実装（暗号化保存）
-- [ ] getConfig()メソッド実装
-- **完了条件**: プラグイン一覧・有効化・無効化が動作する
-- **依存**: Task 7.3
-- **推定時間**: 5-6時間
-- **テスト**: 統合テスト（Vitest + Docker PostgreSQL）で全操作確認
-
-#### Task 7.5: Plugin Management API実装
-
-- [ ] GET /v1/plugins実装
-- [ ] POST /v1/plugins/:id/enable実装
-- [ ] POST /v1/plugins/:id/disable実装
-- [ ] GET /v1/plugins/:id/config実装
-- [ ] PUT /v1/plugins/:id/config実装
-- **完了条件**: 全エンドポイントが動作する
-- **依存**: Task 7.4
-- **推定時間**: 3-4時間
-- **テスト**: 統合テスト（Vitest + Supertest）で全API確認
-
-#### Task 7.6: Plugin Management UI実装
-
-- [ ] `/dashboard/plugins`ルート作成
-- [ ] プラグイン一覧表示
-- [ ] Enable/Disableボタン実装
-- [ ] 設定モーダル実装
-- [ ] インストールガイド表示
-- **完了条件**: UIからプラグイン管理できる
-- **依存**: Task 7.5
-- **推定時間**: 4-5時間
-- **テスト**: E2Eテスト（Playwright）でプラグイン有効化・無効化確認
-
-#### Task 7.7: サンプルプラグイン作成（検証用）
-
-- [ ] @devcle/plugin-sample作成
-- [ ] plugin.json定義
-- [ ] definePlugin()実装
-- [ ] onInit hookでAPI登録
-- [ ] onActivity hook実装
-- [ ] READMEドキュメント作成
-- **完了条件**: サンプルプラグインがロード・動作する
-- **依存**: Task 7.6
-- **推定時間**: 3-4時間
-- **テスト**: 手動テストでプラグイン動作確認
-
-### Phase 8: 認証・認可（1週間）
-
-#### Task 8.1: JWT認証実装
-
-- [ ] JWTペイロード型定義
-- [ ] JWT発行実装
-- [ ] JWT検証ミドルウェア実装
-- [ ] ログイン/ログアウトAPI実装
-- [ ] リフレッシュトークン実装
-- **完了条件**: JWT認証が動作する
-- **依存**: Task 3.1
-- **推定時間**: 4-5時間
-- **テスト**: 統合テスト（Vitest + Supertest）で認証フロー確認
-
-#### Task 8.2: RBAC（Role-Based Access Control）実装
-
-- [ ] authorize()ミドルウェア実装
-- [ ] Role定義（admin, member, viewer）
-- [ ] 各エンドポイントに権限設定
-- [ ] 権限エラーハンドリング
-- **完了条件**: ロール別にアクセス制御が動作する
-- **依存**: Task 8.1
-- **推定時間**: 3-4時間
-- **テスト**: 統合テスト（Vitest + Supertest）で権限確認
-
-#### Task 8.3: ログイン/ログアウトUI実装
-
-- [ ] `/login`ルート作成
-- [ ] ログインフォーム実装
-- [ ] ログアウトボタン実装
-- [ ] セッション管理実装（Cookie）
-- [ ] 認証リダイレクト実装
-- **完了条件**: UIからログイン・ログアウトできる
-- **依存**: Task 8.1
-- **推定時間**: 3-4時間
-- **テスト**: E2Eテスト（Playwright）でログインフロー確認
-
-### Phase 9: セキュリティ強化（1週間）
-
-#### Task 9.1: PII暗号化実装
-
-- [ ] EncryptionService実装（AES-256-GCM）
-- [ ] KMS連携実装（AWS KMS or HashiCorp Vault）
-- [ ] developers.primary_email暗号化
-- [ ] identifiers.value暗号化
-- [ ] 暗号化マイグレーション実行
-- **完了条件**: PII暗号化が動作する
-- **依存**: Task 1.3
-- **推定時間**: 5-6時間
-- **テスト**: 統合テスト（Vitest + Docker PostgreSQL）で暗号化・復号化確認
-
-#### Task 9.2: レート制限実装
-
-- [ ] Redis使用レート制限ミドルウェア実装
-- [ ] テナント別レート制限実装
-- [ ] IP別レート制限実装
-- [ ] 429レスポンス実装（Retry-Afterヘッダー）
-- **完了条件**: レート制限が動作する
-- **依存**: Task 1.2
-- **推定時間**: 3-4時間
-- **テスト**: 統合テスト（Vitest + Docker Redis）でレート制限確認
-
-#### Task 9.3: 監査ログ実装
-
-- [ ] audit_logsテーブル作成
-- [ ] AuditLogService実装
-- [ ] CRUD操作で監査ログ記録
-- [ ] プラグイン操作で監査ログ記録
-- [ ] 監査ログ閲覧UI実装
-- **完了条件**: 監査ログが記録・閲覧できる
-- **依存**: Task 1.3
-- **推定時間**: 4-5時間
-- **テスト**: 統合テスト（Vitest + Docker PostgreSQL）でログ記録確認
-
-### Phase 10: パフォーマンス最適化（1週間）
-
-#### Task 10.1: DBインデックス最適化
-
-- [ ] 頻出クエリ分析
-- [ ] インデックス追加（tenant_id, ts, funnel_stage等）
-- [ ] 複合インデックス設計
-- [ ] EXPLAIN ANALYZE実行
-- [ ] マイグレーション作成
-- **完了条件**: クエリパフォーマンスが改善される
-- **依存**: Task 4.3
-- **推定時間**: 3-4時間
-- **テスト**: 統合テスト（Vitest）でクエリ速度確認
-
-#### Task 10.2: Redisキャッシュ拡張
-
-- [ ] Developer詳細キャッシュ実装（TTL 10分）
-- [ ] PostHog Insightsキャッシュ実装（TTL 1時間）
-- [ ] キャッシュinvalidation実装
-- **完了条件**: キャッシュが効き、レスポンスが高速化される
-- **依存**: Task 1.2
-- **推定時間**: 4-5時間
-- **テスト**: 統合テスト（Vitest + Docker Redis）でキャッシュ動作確認
-
-#### Task 10.3: BullMQジョブキュー実装
-
-- [ ] BullMQセットアップ
-- [ ] PostHog Captureジョブ実装（バックグラウンド）
-- [ ] メール送信ジョブ実装（バッチ処理）
-- [ ] プラグイン同期ジョブ実装（cron）
-- [ ] ジョブ監視UI実装（Bull Board）
-- **完了条件**: バックグラウンドジョブが動作する
-- **依存**: Task 4.2, Task 6.3
-- **推定時間**: 5-6時間
-- **テスト**: 統合テスト（Vitest + Docker Redis）でジョブ実行確認
-
-### Phase 11: セキュリティ監査（1週間）
-
-#### Task 11.1: セキュリティ監査
-
-- [ ] 依存関係脆弱性スキャン（npm audit）
-- [ ] OWASP Top 10チェック
-- [ ] PII暗号化確認
-- [ ] 認証・認可フロー確認
-- [ ] 監査レポート作成
-- **完了条件**: セキュリティ監査が完了し、重大な問題がない
-- **依存**: Phase 8-9完了
-- **推定時間**: 4-5時間
-
-## 実装順序
-
-### UI先行アプローチ（早期PoC確認）
-
-1. **Week 1-2**: Phase 1（基盤構築） + Phase 2（UIモック実装）
-   - → **PoC確認ポイント**: モックデータでUIが動作
-
-2. **Week 3-4**: Phase 3（API層実装） + Phase 2.5（実データ接続）
-   - → **PoC確認ポイント**: 実データでCRUD操作が動作
-
-3. **Week 5-7**: Phase 4（コアサービス層）
-   - → **PoC確認ポイント**: ファネル分析が動作
-
-4. **Week 8**: Phase 5（ファイルインポート）
-   - → **PoC確認ポイント**: CSV/JSONインポートが動作
-
-5. **Week 9-11**: Phase 6（メール配信）
-   - → **PoC確認ポイント**: メールキャンペーンが送信できる
-
-6. **Week 12-14**: Phase 7（プラグインシステム）
-   - → **PoC確認ポイント**: プラグインがロード・動作する
-
-7. **Week 15**: Phase 8（認証・認可）
-   - → **PoC確認ポイント**: ログインが動作し、権限制御される
-
-8. **Week 16**: Phase 9（セキュリティ強化）
-   - → **PoC確認ポイント**: PII暗号化が動作
-
-9. **Week 17**: Phase 10（パフォーマンス最適化）
-   - → **PoC確認ポイント**: レスポンスが高速化
-
-10. **Week 18**: Phase 11（セキュリティ監査）
-    - → **リリース準備完了**
-
-### 並行実行可能なタスク
-
-- Phase 2のUI実装タスクは並行実行可能
-- Phase 3のAPI実装タスクは並行実行可能
-- Phase 6のメール配信機能とPhase 7のプラグインシステムは一部並行可能
-
-## リスクと対策
-
-| リスク | 対策 |
-|---|---|
-| **PostHog連携が複雑** | Phase 4でPostHog Clientを早期実装し、動作確認 |
-| **プラグインシステムの複雑性** | Phase 7でサンプルプラグインを作成し、動作確認 |
-| **メール配信の到達率** | Task 6.1でResend Test Mode使用、DKIM/SPF設定ガイド作成 |
-| **セキュリティ脆弱性** | Phase 11で監査実施、依存関係は定期的に更新 |
-
-## テスト戦略
-
-### 🚨 絶対禁止事項（再掲）
-
-1. **モック絶対禁止**: 外部API、DB、プラグインのモック禁止
-2. **フォールバック絶対禁止**: テスト失敗時のフォールバック禁止
-3. **スキップ絶対禁止**: `it.skip()`等の使用禁止
-
-### テスト環境
-
-- **単体テスト**: Vitest + Docker環境（PostgreSQL, Redis, PostHog）
-- **統合テスト**: Vitest + Supertest + Docker環境
-- **E2Eテスト**: Playwright + Docker環境（全サービス起動）
-
-### テスト実施タイミング
-
-- **各タスク完了時**: 該当箇所のテスト作成・実行（単体/統合/E2E）
-- **Phase完了時**: 統合テスト実行
-- **継続的**: E2Eテストは各UIタスク完了時に作成し、常に実行される状態を保つ
-
-## 注意事項
-
-### コミット単位
-
-- 各タスクは1-2コミットで完結させる
-- コミットメッセージは明確に（`feat:`, `fix:`, `test:`, `docs:`）
-- PR作成時は該当Phaseのタスクをまとめる
-
-### 品質チェック
-
-- タスク完了時: `pnpm typecheck && pnpm lint && pnpm test`
-- Phase完了時: 統合テスト + E2Eテスト
-- 不明点は実装前に確認
-
-### PoC確認頻度
-
-- 各Phaseの主要タスク完了時にPoC確認
-- 問題発見時は即座に設計見直し
-- UI動作確認を最優先
-
-## 実装開始ガイド
-
-### ステップ1: 環境構築
-
-```bash
-# リポジトリクローン（既存の場合はスキップ）
-cd /Users/nakatsugawa/Code/DevRel/devcle/app
-
-# 依存関係インストール
-pnpm install
-
-# Docker環境起動
-docker compose -f docker/compose.development.yml up -d
-
-# DBマイグレーション
-pnpm db:migrate
-
-# シードデータ投入
-pnpm db:seed
-```
-
-### ステップ2: 実装開始
-
-1. TodoWriteで現在のタスクを`in_progress`に更新
-2. タスク内容を確認し、実装開始
-3. テストを随時作成・実行
-4. 完了条件を満たしたら`completed`に更新
-5. 次のタスクへ
-
-### ステップ3: PoC確認
-
-- Phase 1完了時: Docker環境とMonorepo動作確認
-- Phase 2完了時: UIモックデータ表示確認
-- Phase 3完了時: 実データCRUD動作確認
-- 以降、各Phase完了時に確認
-
-### ステップ4: 問題発生時
-
-1. エラーログを確認
-2. 関連テストを実行
-3. 必要に応じて設計を見直し
-4. ユーザーに報告・相談
-
-## 概要
-
-- 総タスク数: 20
-- 推定作業時間: 44-64時間（約6-8営業日）
-- 優先度: 高
-
-## タスク一覧
-
-### Phase 1: 準備・調査
-
-#### Task 1.1: スキーマ確定・インデックス設計
-
-- [x] Drizzleスキーマ最終化（campaigns, budgets, cost_items。numeric(19,4), tenant_id, timestamps）
-- [ ] 外部キー/ON DELETE CASCADE設計
-- [ ] 主要インデックス設計（budgets(tenant_id,campaign_id,spent_at) ほか）
-- **完了条件**: スキーマ定義PR作成、マイグレーション生成成功
-- **依存**: なし
-- **推定時間**: 3h
-
-#### Task 1.2: OpenAPI I/F確定
-
-- [ ] `/api/budgets`(GET/POST/PATCH), `/api/campaigns`(GET/POST), `/api/roi`(GET) を定義
-- [ ] クエリ/ボディ/レスポンス/エラーのスキーマ確定（cursor, limit<=200, weighted等）
-- [ ] Swagger表示確認
-- **完了条件**: openapi.yamlがLint通過＆Swagger UIで表示
-- **依存**: Task 1.1
-- **推定時間**: 2h
-
-#### Task 1.3: Zodスキーマ設計
-
-- [ ] CreateBudgetBody, ListBudgetsQuery, RoiQuery のZod定義
-- [ ] 金額/日付の正規化（decimal文字列→Decimal, ISO→Date）
-- [ ] カテゴリ列挙と上限値・境界値の定義
-- **完了条件**: 型チェック通過、サンプル入力でvalidate成功
-- **依存**: Task 1.2
-- **推定時間**: 2h
-
-#### Task 1.4: RBAC/監査・Idempotency設計
-
-- [ ] エンドポイント×ロール（Admin/Manager/Viewer/AI）権限表の確定
-- [ ] Idempotency-Key運用（unique制約、保存列、期限）
-- [ ] 監査項目（created_by/updated_by/change_reason）の運用方針
-- **完了条件**: 設計反映、設定値ドラフト作成
-- **依存**: Task 1.2
-- **推定時間**: 2h
-
-### Phase 2: 実装
-
-#### Task 2.1: マイグレーション実装
-
-- [ ] テーブルとインデックスのDDL実装
-- [ ] 最小シード（campaign 1件）
-- [ ] ロールバック用スクリプト
-- **完了条件**: ローカルDockerでmigrate成功
-- **依存**: Task 1.1
-- **推定時間**: 3h
-
-#### Task 2.2: Repository実装
-
-- [ ] BudgetRepository（list/insert/update + 集計SQL）
-- [ ] CostItemRepository（CRUD）
-- [ ] CampaignRepository（CRUD + ensureExists）
-- **完了条件**: 単体テストでCRUDが通る
-- **依存**: Task 2.1
-- **推定時間**: 4h
-
-#### Task 2.3: BudgetService実装
-
-- [ ] create/list/update（TX, idempotency, 楽観ロック）
-- [ ] costItems合計とamount整合性チェック
-- [ ] 監査情報保存
-- **完了条件**: 単体テスト通過
-- **依存**: Task 2.2, Task 1.4, Task 1.3
-- **推定時間**: 4h
-
-#### Task 2.4: BudgetsController実装
-
-- [ ] GET/POST/PATCH ルートの作成
-- [ ] Zodバリデーション適用・RBAC適用
-- [ ] Cursorページング/limit制限実装
-- **完了条件**: 統合テストで3エンドポイント成功
-- **依存**: Task 2.3
-- **推定時間**: 4h
-
-#### Task 2.5: RoiCalculator実装
-
-- [ ] 投資合計（期間/カテゴリフィルタ）
-- [ ] 効果値取得スタブI/F（後続でCRM/ファネル接続）
-- [ ] weighted計算フック（PluginRegistry連携）
-- **完了条件**: 単体テストで計算式が正しい
-- **依存**: Task 2.2
-- **推定時間**: 3h
-
-#### Task 2.6: ROI API実装
-
-- [ ] GET /api/roi（weightedパラメータ対応）
-- [ ] 期間フィルタ/バリデーション
-- [ ] エラーハンドリング
-- **完了条件**: 統合テスト通過
-- **依存**: Task 2.5
-- **推定時間**: 2h
-
-#### Task 2.7: Campaigns API最小実装
-
-- [ ] GET/POST /api/campaigns
-- [ ] Zod/認可の適用
-- [ ] 予算参照前提の整合性を確認
-- **完了条件**: 統合テスト通過
-- **依存**: Task 2.2
-- **推定時間**: 2h
-
-#### Task 2.8: PluginRegistry接続（AI Attribution）
-
-- [ ] Registry I/F定義とDI
-- [ ] FEATURE_AI_ATTRIBUTION で有効/無効切替
-- [ ] モック実装で重み取得の疎通確認
-- **完了条件**: weighted=true時にモック重み反映
-- **依存**: Task 2.5
-- **推定時間**: 2h
-
-#### Task 2.9: エラーハンドラ/ロギング整備
-
-- [ ] 構造化ログ（requestId, tenantId）
-- [ ] エラーマッピング（400/401/403/404/409/429/5xx）
-- [ ] 重要操作の監査ログ出力
-- **完了条件**: 統合テスト時にログ/エラー型が期待通り
-- **依存**: Task 2.4, Task 2.6
-- **推定時間**: 2h
-
-### Phase 3: 検証・テスト
-
-#### Task 3.1: 単体テスト（サービス/計算/スキーマ）
-
-- [ ] BudgetService（idempotency/整合性）
-- [ ] RoiCalculator（weighted on/off境界値）
-- [ ] Zodスキーマ（境界値/無効値）
-- **完了条件**: 単体テストカバレッジ80%+
-- **依存**: Task 2.3, Task 2.5
-- **推定時間**: 3h
-
-#### Task 3.2: 統合テスト（API）
-
-- [ ] /api/budgets CRUD/検索/ページング/認可
-- [ ] Idempotency 409検証
-- [ ] /api/roi 正常/weighted/期間外
-- **完了条件**: Docker PostgreSQLで全テストが緑
-- **依存**: Task 2.4, Task 2.6
-- **推定時間**: 4h
-
-#### Task 3.3: 性能サニティチェック
-
-- [ ] サンプル1万行で一覧・集計の実行時間測定
-- [ ] インデックス有無の比較
-- [ ] 簡易キャッシュ方針（必要時）
-- **完了条件**: 主要クエリ<200ms@ローカルDB
-- **依存**: Task 3.2
-- **推定時間**: 2h
-
-### Phase 4: 仕上げ
-
-#### Task 4.1: ドキュメントとOpenAPI整備
-
-- [ ] OpenAPI例/エラーレスポンス例の追記
-- [ ] README（環境変数/マイグレーション/利用例）更新
-- [ ] 使用例スニペット（cURL/TS）
-- **完了条件**: ドキュメントレビュー完了
-- **依存**: Task 3.2
-- **推定時間**: 2h
-
-#### Task 4.2: 運用準備/設定
-
-- [ ] 環境変数整理（DATABASE_URL, FEATURE_AI_ATTRIBUTION 他）
-- [ ] マイグレーション自動適用設定
-- [ ] 重要通知のたたき台（Slack webhook箇所）
-- **完了条件**: dev/prodテンプレ整備
-- **依存**: Task 3.2
-- **推定時間**: 2h
-
-#### Task 4.3: リリースノート/移行手順
-
-- [ ] 新規テーブル説明
-- [ ] 既存データ影響（なし想定）明記
-- [ ] ロールバック手順記載
-- **完了条件**: ノート合意
-- **依存**: Task 4.1
-- **推定時間**: 1h
-
-## 実装順序
-
-1. Phase 1から順次実行（1.1→1.2→1.3→1.4）
-2. Phase 2は2.1→2.2→2.3→2.4を主経路に、2.5/2.6/2.7/2.8/2.9を並行・後続で接続
-3. Phase 3で単体→統合→性能の順に検証
-4. Phase 4でドキュメント/運用/リリース整備
-
-## リスクと対策
-
-- 十進数誤差: `numeric(19,4)` + Decimalユーティリティを使用、浮動小数は不使用
-- Idempotency競合: `tenant_id + idempotency_key`一意制約とTXで防止
-- テナント漏洩: すべてのクエリに`tenantId`条件必須、統合テストで検証
-- 外部依存（AI加重）: フィーチャーフラグでフォールバック、タイムアウト時は非加重結果
-- タイムゾーン差: `timestamptz`で保存、ISO/UTCに正規化
-- 集計負荷: 適切なインデックスとカーソル、必要時短期キャッシュ
-
-## 注意事項
-
-- 各タスクはコミット単位（1-4時間）で完結させる
-- タスク完了時は単体/統合の品質チェックを実行
-- 不明点は実装前に確認し、設計に反映する
-
-## 実装開始ガイド
-
-1. このタスクリストに従って順次実装を進めてください
-2. 各タスクの開始時に状態をin_progressへ更新
-3. 完了時はcompletedへ更新
-4. 問題発生時は速やかに報告してください
-
-# タスクリスト - DRM (Developer Relations Management) ツール
-
-## 概要
-
-- **総タスク数**: 45タスク
-- **推定作業時間**: 220-290時間（約28-36営業日）
-- **優先度**: 高
-- **実装方針**: UI→API→サービス層の順で、早期PoC確認を優先
-
-### Meta
-
-- [ ] 詳細設計の完了とレビュー（Budgetモジュール）
-- [ ] Budget: Phase 1（設計確定）
-- [ ] Budget: Phase 2（API/Service/Repo実装）
-- [ ] Budget: Phase 3（テスト）
-- [ ] Budget: Phase 4（仕上げ/運用）
-
-## 🚨 重要な開発方針
-
-### OpenAPI
-- **OpenAPI 3.0スキーマとSwagger UIはTask 3.1で初期セットアップ**
-- **各API実装タスクで該当エンドポイントをopenapi.yamlに追加**
-- まとめてドキュメントを作成するタスクは不要
-
-### E2Eテスト
-- **各UIタスク完了時に該当画面のE2Eテストを作成**
-- 開発しながら常にE2Eテストを実行
-- まとめてE2Eテストを作成するタスクは不要
-
-### README.md
-- **開発中に常に更新**
-- セットアップ方法、環境変数、使い方を随時記載
-- まとめてREADMEを更新するタスクは不要
-
-### パフォーマンステスト
-- **負荷テストは不要**
-- 通常の統合テストでクエリ速度を確認
+# DRM - タスク分解
 
+**Version:** 1.0
+**Created:** 2025-10-10
+**Based on:** `.tmp/requirements.md`, `.tmp/design.md`
+
+---
+
+## 🎯 開発方針
+
+- **MVP優先**: 小さく始めて、徐々に作り込む
+- **UI+機能セット**: 各タスクで「見える機能」を完成させる
+- **常時デプロイ可能**: 全タスク完了後に動作する状態を維持
+- **docker-compose優先**: 環境構築を最優先、UI作成を重視
+- **プラグインアーキテクチャ徹底**: Developer関連機能は全てプラグインとして実装
+- **ナビゲーション動的生成**: 有効なプラグインから自動生成
+- **静的ページも忘れずに**: LP、利用規約、プライバシーポリシー、問い合わせ
+
+---
+
+## 📋 フェーズ構成
+
+| フェーズ | 目標 | 期間目安 |
+|---------|------|---------|
+| **Phase 1** | docker-compose + プラグイン基盤 + 認証 | 2週間 |
+| **Phase 2** | Developerプラグイン（一覧・詳細・CRUD） | 2週間 |
+| **Phase 3** | 分析プラグイン（Funnel/ROI表示） | 2週間 |
+| **Phase 4** | 外部連携プラグイン（PostHog等） + Worker | 2週間 |
+| **Phase 5** | SaaS化準備（テナント分離） | 1週間 |
+
+---
+
+## Phase 1: docker-compose + プラグイン基盤 + 認証（最優先）
+
+**目標**: `docker-compose up -d` → `http://localhost` でログインし、プラグインシステムが動作する状態
+
+**重要**: プラグインシステムを先に作り、Developer機能はプラグインとして実装
+
+### Task 1.1: docker-compose環境の構築 ✅
+
+**完了条件**: `docker-compose up -d` で全サービスが起動し、Remixアプリにアクセスできる
+
+#### サブタスク
+
+- [ ] 1.1.1 `docker-compose.yml` 作成
+  - サービス: `nginx`, `web` (Remix), `worker`, `db` (PostgreSQL), `redis`, `posthog`
+  - ネットワーク設定、ボリューム設定
+  - 完了: 全サービスが起動し、ヘルスチェックが通る
+
+- [ ] 1.1.2 `Dockerfile` 作成（Remix用）
+  - Node.js 20.x ベースイメージ
+  - pnpm インストール
+  - アプリケーションビルド
+  - 完了: `docker build` が成功し、コンテナが起動する
+
+- [ ] 1.1.3 `nginx.conf` 作成
+  - リバースプロキシ設定（web:8080へ転送）
+  - 静的ファイル配信設定
+  - 完了: `http://localhost` で Remix アプリにアクセスできる
+
+- [ ] 1.1.4 環境変数設定（`.env.example` 作成）
+  - `DATABASE_URL`, `REDIS_URL`, `SESSION_SECRET`
+  - PostHog API設定（Phase 4で使用）
+  - 完了: `.env` をコピーして各サービスが正常起動
+
+- [ ] 1.1.5 動作確認
+  - 全サービスの起動確認 (`docker-compose ps`)
+  - ログ確認（エラーがないこと）
+  - 完了: 全サービスが `healthy` または `running` 状態
+
+**見積もり**: 2日
+
+---
+
+### Task 1.2: Drizzle ORM セットアップ + マイグレーション
+
+**完了条件**: `pnpm db:push` でテーブルが作成され、PostgreSQLに接続できる
+
+#### サブタスク
+
+- [ ] 1.2.1 Drizzle ORM インストール
+  - `drizzle-orm`, `drizzle-kit`, `postgres` パッケージ追加
+  - `drizzle.config.ts` 作成
+  - 完了: `pnpm drizzle-kit` コマンドが使用可能
+
+- [ ] 1.2.2 コアスキーマ定義（プラグイン用テーブルのみ）
+  - `db/schema/plugins.ts` (id, name, slug, version, enabled, settings, created_at, updated_at)
+  - `db/schema/users.ts` (id, email, github_id, tenant_id, created_at, updated_at)
+  - `db/schema/tenants.ts` (id, name, subdomain, plan, created_at, updated_at)
+  - 完了: スキーマファイルが TypeScript エラーなく保存される
+
+- [ ] 1.2.3 マイグレーション実行
+  - `pnpm db:generate` でマイグレーションファイル生成
+  - `pnpm db:push` でテーブル作成
+  - 完了: PostgreSQL に3テーブルが作成される
+
+- [ ] 1.2.4 データベース接続確認
+  - `db/index.ts` でDrizzleクライアント初期化
+  - Remix loaderで接続テスト
+  - 完了: Remixから `SELECT 1` クエリが成功
+
+**見積もり**: 1日
+
+---
+
+### Task 1.3: プラグインローダー実装← プラグインシステムを先に作る！
+
+**完了条件**: プラグインが動的にロードされ、ナビゲーションに表示される
+
+#### サブタスク
+
+- [ ] 1.3.1 プラグインローダー実装 (`app/core/plugin-loader.ts`)
+  - プラグインディレクトリスキャン (`app/plugins/*`)
+  - `definePlugin` 関数定義
+  - プラグインメタデータ読み込み
+  - 完了: プラグインがロードされる
+
+- [ ] 1.3.2 プラグインAPI定義
+  ```typescript
+  interface Plugin {
+    id: string;
+    name: string;
+    slug: string; // URL用 (例: "developers")
+    description: string;
+    icon?: string;
+    navigation?: {
+      label: string;
+      path: string;
+      order: number;
+    };
+    dashboardWidgets?: DashboardWidget[];
+    routes?: PluginRoute[];
+    schema?: Record<string, TableSchema>; // プラグイン独自テーブル
+  }
+  ```
+  - 完了: 型定義が TypeScript エラーなく保存される
+
+- [ ] 1.3.3 プラグインコンテキスト実装
+  - `app/root.tsx` でプラグインをロード
+  - 有効なプラグイン一覧をコンテキストに保存
+  - 完了: コンテキストから有効なプラグインが取得できる
+
+- [ ] 1.3.4 動作確認
+  - サンプルプラグインを作成してロード
+  - プラグイン一覧がログに出力される
+  - 完了: プラグインローダーが正常動作
+
+**見積もり**: 2日
+
+---
+
+### Task 1.4: 動的ナビゲーション実装
+
+**完了条件**: 有効なプラグインから自動生成されたナビゲーションが表示される
+
+#### サブタスク
+
+- [ ] 1.4.1 ナビゲーションコンポーネント作成 (`app/components/Navigation.tsx`)
+  - プラグインコンテキストから有効なプラグインを取得
+  - `plugin.navigation` から動的にリンク生成
+  - デフォルトリンク: "Plugins", "Settings", "Account"
+  - 完了: ナビゲーションバーが表示される
+
+- [ ] 1.4.2 ルートレイアウト更新 (`app/root.tsx`)
+  - Navigation コンポーネントを追加
+  - 完了: 全ページでナビゲーションが表示される
+
+- [ ] 1.4.3 動作確認
+  - プラグインなし: デフォルトリンクのみ表示
+  - プラグインあり: プラグインリンクが追加表示
+  - 完了: ナビゲーションが動的に生成される
+
+**見積もり**: 0.5日
+
+---
+
+### Task 1.5: ダッシュボードUI（プラグインウィジェット対応）
+
+**完了条件**: `http://localhost` でダッシュボードが表示され、プラグインウィジェットが表示される
+
+#### サブタスク
+
+- [ ] 1.5.1 Remix ルート作成 (`app/routes/_index.tsx`)
+  - Loader: 有効なプラグインの dashboardWidgets を取得
+  - 完了: loader が TypeScript エラーなく保存される
+
+- [ ] 1.5.2 ダッシュボードUI実装（Tailwind CSS + shadcn/ui）
+  - ヘッダー: "DRM Dashboard"
+  - プラグインウィジェットを動的にレンダリング
+  - ウィジェットなし: "No plugins enabled" 表示
+  - 完了: ブラウザでダッシュボードが表示される
+
+- [ ] 1.5.3 動作確認
+  - プラグインなし: "No plugins enabled" 表示
+  - プラグインあり: ウィジェットが表示される
+  - 完了: ダッシュボードが動作する
+
+**見積もり**: 1日
+
+---
+
+### Task 1.6: プラグイン管理画面
+
+**完了条件**: `http://localhost/plugins` でプラグイン一覧と有効化・無効化が可能
+
+#### サブタスク
+
+- [ ] 1.6.1 Remix ルート作成 (`app/routes/plugins._index.tsx`)
+  - Loader: 全プラグイン一覧（enabled/disabled）取得
+  - 完了: loader が TypeScript エラーなく保存される
+
+- [ ] 1.6.2 UI実装
+  - プラグインカード表示（名前、説明、ステータス）
+  - 有効化/無効化トグルボタン
+  - 完了: プラグイン一覧が表示される
+
+- [ ] 1.6.3 プラグイン有効化/無効化Action実装
+  - Action: プラグインテーブルの enabled カラム更新
+  - 完了: トグルボタンで有効化・無効化できる
+
+- [ ] 1.6.4 動作確認
+  - プラグインを無効化 → ナビゲーションから消える
+  - プラグインを有効化 → ナビゲーションに表示される
+  - 完了: プラグイン管理が動作する
+
+**見積もり**: 1日
+
+---
+
+### Task 1.7: システム設定画面
+
+**完了条件**: `http://localhost/settings` でシステム情報が表示される
+
+#### サブタスク
+
+- [ ] 1.7.1 Remix ルート作成 (`app/routes/settings._index.tsx`)
+  - Loader: データベース接続状態、Redis接続状態、バージョン情報
+  - 完了: loader が TypeScript エラーなく保存される
+
+- [ ] 1.7.2 UI実装
+  - システムステータス表示（DB: Connected, Redis: Connected）
+  - バージョン情報表示（DRM Core v0.1.0）
+  - 完了: 設定画面が表示される
+
+- [ ] 1.7.3 動作確認
+  - 接続状態が正しく表示されることを確認
+  - 完了: すべてのステータスが "Connected" と表示される
+
+**見積もり**: 0.5日
+
+---
+
+### Task 1.8: 認証機能実装（GitHub OAuth）← セキュアな状態にする
+
+**完了条件**: GitHub OAuth でログインでき、未認証時はリダイレクトされる
+
+#### サブタスク
+
+- [ ] 1.8.1 Remix Auth セットアップ
+  - `remix-auth`, `remix-auth-github` インストール
+  - OAuth設定（GitHub App作成）
+  - 完了: ログインフローが動作する
+
+- [ ] 1.8.2 セッション管理実装
+  - Cookie-based sessions
+  - セッションストレージ（Redis使用）
+  - 完了: ログイン状態が維持される
+
+- [ ] 1.8.3 認証ルート作成
+  - `/auth/github` - GitHub OAuthリダイレクト
+  - `/auth/github/callback` - OAuth コールバック
+  - `/auth/logout` - ログアウト
+  - 完了: ログイン・ログアウトが動作する
+
+- [ ] 1.8.4 認証ミドルウェア追加
+  - 全ルートで認証チェック
+  - 未認証時は `/auth/github` へリダイレクト
+  - 完了: 未ログイン時はダッシュボードにアクセスできない
+
+- [ ] 1.8.5 ナビゲーションにユーザー情報表示
+  - ログインユーザー名とアバター表示
+  - ログアウトボタン追加
+  - 完了: ユーザー情報が表示される
+
+**見積もり**: 2日
+
+---
+
+### Task 1.9: 静的ページ作成（利用規約、プライバシーポリシー、問い合わせ）← 最後でOK
+
+**完了条件**: 各ページが表示され、ナビゲーションからアクセスできる
+
+#### サブタスク
+
+- [ ] 1.9.1 利用規約ページ作成 (`app/routes/terms.tsx`)
+  - 基本的な利用規約テキスト（テンプレート使用）
+  - 完了: `http://localhost/terms` で利用規約が表示される
+
+- [ ] 1.9.2 プライバシーポリシーページ作成 (`app/routes/privacy.tsx`)
+  - データ収集・利用・保護に関する記載
+  - 完了: `http://localhost/privacy` でポリシーが表示される
+
+- [ ] 1.9.3 問い合わせページ作成 (`app/routes/contact.tsx`)
+  - フォーム: 名前、メール、内容（Phase 1では送信機能なし、UIのみ）
+  - 完了: `http://localhost/contact` でフォームが表示される
+
+- [ ] 1.9.4 フッター追加（全ページ共通）
+  - リンク: "Terms", "Privacy", "Contact"
+  - 完了: フッターが全ページに表示される
+
+**見積もり**: 1日
+
+---
+
+### Task 1.10: Phase 1 統合テスト
+
+**完了条件**: すべての機能が正常動作し、デプロイ可能な状態
+
+#### サブタスク
+
+- [ ] 1.10.1 E2Eテスト実行
+  - 認証フローの確認
+  - ダッシュボードの表示確認
+  - プラグイン管理の確認
+  - 静的ページのリンク確認
+  - 完了: すべてのテストがパス
+
+- [ ] 1.10.2 パフォーマンステスト
+  - ページ読み込み時間測定（< 2秒）
+  - プラグインロード時間測定（< 500ms）
+  - 完了: パフォーマンス基準をクリア
+
+- [ ] 1.10.3 Docker環境でのビルド・起動確認
+  - `docker-compose down && docker-compose up --build -d`
+  - すべてのサービスが正常起動
+  - 完了: クリーンビルドで問題なく動作
+
+- [ ] 1.10.4 README更新
+  - セットアップ手順、起動方法、開発コマンド
+  - GitHub OAuth設定手順
+  - プラグイン開発ガイド
+  - 完了: 第三者が README を見て環境構築できる
+
+**見積もり**: 1日
+
+---
+
+## Phase 2: Developerプラグイン（一覧・詳細・CRUD）
+
+**目標**: Developerプラグインとして、Developer・Activity の閲覧・登録・編集・削除が可能になる
+
+### Task 2.1: Developerプラグイン基盤作成
+
+**完了条件**: Developerプラグインがロードされ、ナビゲーションに表示される
+
+#### サブタスク
+
+- [ ] 2.1.1 プラグインディレクトリ作成 (`app/plugins/developers/`)
+  - `index.ts` - プラグイン定義
+  - `plugin.json` - メタデータ
+  - 完了: ディレクトリ構造が作成される
+
+- [ ] 2.1.2 プラグインスキーマ定義
+  - `schema/developers.ts` (id, tenant_id, display_name, primary_email, org_id, consent_analytics, metadata, created_at, updated_at)
+  - `schema/activities.ts` (id, tenant_id, developer_id, type, source, metadata, ts)
+  - `schema/organizations.ts` (id, tenant_id, name, domain, metadata, created_at, updated_at)
+  - 完了: スキーマファイルが TypeScript エラーなく保存される
+
+- [ ] 2.1.3 プラグイン定義 (`index.ts`)
+  ```typescript
+  export default definePlugin({
+    id: "developers",
+    name: "Developers",
+    slug: "developers",
+    description: "Developer relationship management",
+    navigation: {
+      label: "Developers",
+      path: "/developers",
+      order: 1,
+    },
+    dashboardWidgets: [
+      {
+        id: "developer-stats",
+        title: "Developer Statistics",
+        component: DeveloperStatsWidget,
+      },
+    ],
+    schema: { developers, activities, organizations },
+  });
+  ```
+  - 完了: プラグイン定義が保存される
+
+- [ ] 2.1.4 マイグレーション実行
+  - プラグインスキーマをDBに反映
+  - 完了: PostgreSQL に3テーブルが作成される
+
+- [ ] 2.1.5 Seed data 投入
+  - Organization 3件、Developer 10件、Activity 50件
+  - 完了: `pnpm db:seed` でデータが投入される
+
+- [ ] 2.1.6 動作確認
+  - ナビゲーションに "Developers" リンクが表示される
+  - 完了: プラグインがロードされる
+
+**見積もり**: 1日
+
+---
+
+### Task 2.2: ダッシュボードウィジェット実装
+
+**完了条件**: ダッシュボードにDeveloper統計ウィジェットが表示される
+
+#### サブタスク
+
+- [ ] 2.2.1 ウィジェットコンポーネント作成 (`app/plugins/developers/widgets/DeveloperStatsWidget.tsx`)
+  - 総Developer数、総Activity数を表示
+  - カード形式のUI
+  - 完了: ウィジェットが表示される
+
+- [ ] 2.2.2 動作確認
+  - ダッシュボードにウィジェットが表示される
+  - Seed dataの件数が正しく表示される
+  - 完了: "Total Developers: 10", "Total Activities: 50" が表示される
+
+**見積もり**: 0.5日
+
+---
+
+### Task 2.3: Developer一覧画面（プラグイン）
+
+**完了条件**: `http://localhost/developers` でDeveloper一覧がテーブル表示される
+
+#### サブタスク
+
+- [ ] 2.3.1 Remix ルート作成 (`app/plugins/developers/routes/index.tsx`)
+  - Loader: Developerリスト取得（organization情報も含む）
+  - 完了: loader が TypeScript エラーなく保存される
+
+- [ ] 2.3.2 テーブルUI実装
+  - カラム: 名前、メール、所属組織、最終活動日
+  - shadcn/ui Table コンポーネント使用
+  - 完了: 10件のDeveloperがテーブルに表示される
+
+- [ ] 2.3.3 検索機能追加
+  - 検索フォーム追加
+  - Loader: クエリパラメータで検索処理
+  - 完了: 検索ワード入力でテーブルが絞り込まれる
+
+- [ ] 2.3.4 ページネーション追加
+  - 1ページ10件表示
+  - shadcn/ui Pagination コンポーネント使用
+  - 完了: ページネーションが動作する
+
+**見積もり**: 1.5日
+
+---
+
+### Task 2.4: Developer詳細画面（プラグイン）
+
+**完了条件**: `http://localhost/developers/:id` でDeveloper詳細とActivity一覧が表示される
+
+#### サブタスク
+
+- [ ] 2.4.1 Remix ルート作成 (`app/plugins/developers/routes/$id.tsx`)
+  - Loader: Developer情報、関連Activity一覧取得
+  - 完了: 詳細ページが表示される
+
+- [ ] 2.4.2 UI実装
+  - Developer基本情報表示
+  - Activity タイムライン表示（時系列）
+  - 完了: 情報とタイムラインが表示される
+
+- [ ] 2.4.3 編集ボタン追加
+  - "Edit" ボタン → 編集画面へ遷移
+  - 完了: ボタンが動作する
+
+**見積もり**: 1日
+
+---
+
+### Task 2.2: Developer登録・編集フォーム
+
+**完了条件**: Developer の登録・編集が可能になる
+
+#### サブタスク
+
+- [ ] 2.2.1 登録フォーム作成 (`app/routes/developers.new.tsx`)
+  - フォーム: 名前、メール、所属組織、consent_analytics
+  - Zod バリデーション
+  - Action: Drizzle で INSERT
+  - 完了: フォーム送信でDeveloperが登録される
+
+- [ ] 2.2.2 編集フォーム作成 (`app/routes/developers.$id.edit.tsx`)
+  - 既存データをフォームに表示
+  - Action: Drizzle で UPDATE
+  - 完了: フォーム送信でDeveloperが更新される
+
+- [ ] 2.2.3 削除機能追加
+  - 削除ボタン + 確認ダイアログ
+  - Action: Drizzle で DELETE
+  - 完了: 削除ボタンでDeveloperが削除される
+
+**見積もり**: 1.5日
+
+---
+
+### Task 2.3: Activity登録フォーム
+
+**完了条件**: Activityを手動登録できる
+
+#### サブタスク
+
+- [ ] 2.3.1 登録フォーム作成 (`app/routes/activities.new.tsx`)
+  - フォーム: Developer選択、type (event/post/github_pr/inquiry)、source、メタデータ
+  - Zod バリデーション
+  - Action: Drizzle で INSERT
+  - 完了: フォーム送信でActivityが登録される
+
+- [ ] 2.3.2 Developer詳細画面から登録
+  - "Add Activity" ボタン → 登録フォームへ遷移（developer_id をプリセット）
+  - 完了: Developer詳細画面から直接Activity登録できる
+
+**見積もり**: 1日
+
+---
+
+### Task 2.4: Activity一覧画面
+
+**完了条件**: `http://localhost/activities` でActivity一覧が表示される
+
+#### サブタスク
+
+- [ ] 2.4.1 Remix ルート作成 (`app/routes/activities._index.tsx`)
+  - Loader: Activity一覧取得（Developer情報も含む）
+  - 完了: 一覧ページが表示される
+
+- [ ] 2.4.2 テーブルUI実装
+  - カラム: Developer名、type、source、日時
+  - フィルター: type別絞り込み
+  - 完了: 一覧とフィルターが動作する
+
+**見積もり**: 1日
+
+---
+
+### Task 2.5: CSV一括アップロード機能
+
+**完了条件**: CSVファイルをアップロードしてDeveloper・Activityを一括登録できる
+
+#### サブタスク
+
+- [ ] 2.5.1 CSVアップロードフォーム作成 (`app/routes/import.tsx`)
+  - ファイル選択、アップロードボタン
+  - 完了: フォームが表示される
+
+- [ ] 2.5.2 CSVパース処理実装
+  - `papaparse` ライブラリ使用
+  - カラムマッピング（name → display_name など）
+  - 完了: CSVがパースされ、データが抽出される
+
+- [ ] 2.5.3 バルクINSERT実装
+  - Drizzle の `insert().values()` で一括登録
+  - 重複チェック（メールアドレスで判定）
+  - 完了: CSVデータがデータベースに登録される
+
+- [ ] 2.5.4 動作確認
+  - サンプルCSVで登録テスト
+  - 完了: 一括登録が成功する
+
+**見積もり**: 1.5日
+
+---
+
+## Phase 3: 分析機能（Funnel/ROI表示）
+
+**目標**: ファネル分析とROI可視化が可能になる
+
+### Task 3.1: Funnel View実装
+
+**完了条件**: `http://localhost/funnel` でファネル段階別人数が可視化される
+
+#### サブタスク
+
+- [ ] 3.1.1 Funnel Stage テーブル追加
+  - `db/schema/funnel_stages.ts` (developer_id, stage, updated_at)
+  - マイグレーション実行
+  - 完了: テーブルが作成される
+
+- [ ] 3.1.2 Funnel Stage 自動更新ロジック実装
+  - Activityから推定（event → Awareness, github_pr → Adoption など）
+  - Remix Action で更新処理
+  - 完了: Activityに応じてFunnel Stageが更新される
+
+- [ ] 3.1.3 Funnel View UI実装 (`app/routes/funnel.tsx`)
+  - Loader: 各Stage人数集計
+  - UI: Recharts/Tremor でファネルグラフ表示
+  - 完了: ファネルが可視化される
+
+**見積もり**: 2日
+
+---
+
+### Task 3.2: ROI View実装
+
+**完了条件**: `http://localhost/roi` で施策別ROIが表示される
+
+#### サブタスク
+
+- [ ] 3.2.1 Budget/Campaign テーブル追加
+  - `db/schema/budgets.ts` (campaign_id, category, amount, date)
+  - `db/schema/campaigns.ts` (id, name, type, start_date, end_date, metadata)
+  - マイグレーション実行
+  - 完了: テーブルが作成される
+
+- [ ] 3.2.2 Campaign登録フォーム作成 (`app/routes/campaigns.new.tsx`)
+  - フォーム: 施策名、type、予算、開始日、終了日
+  - 完了: Campaignが登録される
+
+- [ ] 3.2.3 ROI計算ロジック実装
+  - `services/roi.ts` で ROI = (効果値 - 投資額) / 投資額
+  - 効果値 = Activity数 × 重み付け
+  - 完了: ROI計算関数が動作する
+
+- [ ] 3.2.4 ROI View UI実装 (`app/routes/roi.tsx`)
+  - Loader: Campaign別ROI計算結果取得
+  - UI: 棒グラフでROI表示
+  - 完了: ROIが可視化される
+
+**見積もり**: 2日
+
+---
+
+## Phase 4: プラグインシステム基盤 + Worker
+
+**目標**: プラグインのインストール・有効化・実行が可能になる、Workerでバックグラウンド処理が実行できる
+
+### Task 4.1: BullMQ + Worker セットアップ
+
+**完了条件**: Workerコンテナが起動し、ジョブキューが動作する
+
+#### サブタスク
+
+- [ ] 4.1.1 BullMQ インストール
+  - `bullmq`, `ioredis` パッケージ追加
+  - 完了: `package.json` に依存関係が追加される
+
+- [ ] 4.1.2 Queue初期化 (`workers/queue.ts`)
+  - Redis接続設定
+  - `pluginQueue` 定義
+  - 完了: ファイルが TypeScript エラーなく保存される
+
+- [ ] 4.1.3 Worker実装 (`workers/index.ts`)
+  - ジョブ処理ロジック（Phase 4ではログ出力のみ）
+  - 完了: Worker起動時にエラーが出ない
+
+- [ ] 4.1.4 docker-compose設定更新
+  - `worker` サービスに `command: pnpm worker:start` 追加
+  - 完了: `docker-compose up worker` でWorkerが起動
+
+- [ ] 4.1.5 動作確認
+  - テストジョブをキューに追加
+  - Workerがジョブを処理することを確認
+  - 完了: ログに処理完了メッセージが出力される
+
+**見積もり**: 1日
+
+---
+
+### Task 4.2: プラグインローダー実装
+
+**完了条件**: プラグインが動的にロードされ、フックが実行される
+
+#### サブタスク
+
+- [ ] 4.2.1 Plugin テーブル追加
+  - `db/schema/plugins.ts` (id, name, version, enabled, settings)
+  - マイグレーション実行
+  - 完了: テーブルが作成される
+
+- [ ] 4.2.2 プラグインローダー実装 (`core/plugin-loader.ts`)
+  - プラグインディレクトリスキャン
+  - `definePlugin` 関数定義
+  - フック登録機構
+  - 完了: プラグインがロードされる
+
+- [ ] 4.2.3 Audit Log プラグイン実装
+  - `plugins/audit-log/index.ts`
+  - Action Hook で各操作を記録
+  - 完了: Audit Logが記録される
+
+**見積もり**: 2日
+
+---
+
+### Task 4.3: PostHog連携プラグイン実装
+
+**完了条件**: PostHogからイベントデータを取得し、Activityとして登録される
+
+#### サブタスク
+
+- [ ] 4.3.1 PostHog Capture API連携
+  - `posthog/api.ts` で Capture API クライアント実装
+  - distinct_id = click_id でイベント送信
+  - 完了: PostHogにイベントが送信される
+
+- [ ] 4.3.2 PostHog → DRM ETL実装
+  - Workerでイベントを定期取得
+  - Activityに変換して登録
+  - 完了: PostHogイベントがActivityとして同期される
+
+**見積もり**: 2日
+
+---
+
+## Phase 5: SaaS化準備（テナント分離）
+
+**目標**: マルチテナント対応が完了し、データが完全に分離される
+
+### Task 5.1: テナント分離実装
+
+**完了条件**: 各テナントのデータが完全に分離される
+
+#### サブタスク
+
+- [ ] 5.1.1 Tenant テーブル追加
+  - `db/schema/tenants.ts` (id, name, subdomain, plan)
+  - 完了: テーブルが作成される
+
+- [ ] 5.1.2 RLS (Row Level Security) 設定
+  - PostgreSQL で tenant_id ベースの RLS ポリシー設定
+  - 完了: 他テナントのデータが取得できない
+
+- [ ] 5.1.3 全テーブルに tenant_id 追加確認
+  - マイグレーション実行
+  - 全クエリに tenant_id フィルター追加
+  - 完了: マルチテナント対応完了
+
+**見積もり**: 2日
+
+---
+
+## 📊 開発スケジュール概算
+
+| フェーズ | タスク数 | 見積もり合計 |
+|---------|---------|------------|
+| Phase 1 | 10タスク | 11日 |
+| Phase 2 | 5タスク | 5.5日 |
+| Phase 3 | 2タスク | 4日 |
+| Phase 4 | 3タスク | 5日 |
+| Phase 5 | 1タスク | 2日 |
+| **合計** | **21タスク** | **27.5日（約5.5週間）** |
+
+---
+
+## ✅ チェックリスト（Phase 1最優先）
+
+### Phase 1: docker-compose + プラグイン基盤 + 認証
+
+- [x] Task 1.1: docker-compose環境の構築 ✅
+- [ ] Task 1.2: Drizzle ORM セットアップ + マイグレーション（コア機能のみ）
+- [ ] Task 1.3: プラグインローダー実装 ← **プラグインシステムを先に作る！**
+- [ ] Task 1.4: 動的ナビゲーション実装
+- [ ] Task 1.5: ダッシュボードUI（プラグインウィジェット対応）
+- [ ] Task 1.6: プラグイン管理画面
+- [ ] Task 1.7: システム設定画面
+- [ ] Task 1.8: 認証機能実装（GitHub OAuth）
+- [ ] Task 1.9: 静的ページ作成（利用規約、プライバシーポリシー、問い合わせ）
+- [ ] Task 1.10: Phase 1 統合テスト
+
+---
+
+## 🚀 次のステップ
+
+Phase 1のタスクを順次実装していきます。各タスク完了後にデプロイ可能な状態を維持します。
+
+**実装順序の理念**:
+1. **Task 1.1** ✅ - docker-compose環境の構築（完了）
+2. **Task 1.2** - Drizzle ORM セットアップ（プラグイン用テーブルのみ）
+3. **Task 1.3** - プラグインローダー実装（**プラグインシステムを先に！**）
+4. **Task 1.4** - 動的ナビゲーション実装（プラグインから自動生成）
+5. **Task 1.5** - ダッシュボードUI（プラグインウィジェット表示）
+6. **Task 1.6** - プラグイン管理画面（有効化・無効化）
+7. **Task 1.7** - システム設定画面
+8. **Task 1.8** - 認証機能実装（**セキュアな状態にする**）
+9. **Task 1.9** - 静的ページ作成（最後でOK）
+10. **Task 1.10** - Phase 1 統合テスト
+
+**重要**: Phase 2以降でDeveloperプラグインを作成し、Developer機能を実装します。
+
+**次に取り組むべきタスク**: Task 1.2 - Drizzle ORM セットアップ + マイグレーション

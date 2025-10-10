@@ -1,8 +1,0 @@
-# pnpm workspace definition (interface + rationale)
-# - Lists local packages to be managed together.
-# - Enables recursive script execution via `pnpm -r`.
-packages:
-  - core
-  - plugins
-  - posthog
-

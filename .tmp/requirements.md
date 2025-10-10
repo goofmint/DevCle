@@ -1,340 +1,304 @@
-# DRM (Developer Relations Management) ツール 仕様書 v2.0
+# DRM（Developer Relations Management）ツール 技術仕様書
 
-> 本仕様は、DevRel活動を定量的に可視化・分析するための  
-> **DRMツールのOSS構成・クラウド拡張・PostHog連携** の3層アーキテクチャを定義する。
-
-## 🧭 全体概要
-
-### 規定
-
-ドメインは `devcle.com` とする。
-
-### 目的
-
-- DevRel活動における「個人・組織単位のファネル分析」と「匿名ベースの施策貢献分析」を両立する。
-- OSSでコアデータ管理・ファネル構築を提供し、クラウド版で外部API連携やAI分析を拡張する。
-- ファーストパーティCookieを使わず、サーバーtoサーバー連携と一時ID（click_id等）で計測を成立させる。
-
-## 🏗 アーキテクチャ構成
-
-```
-
-/core/       ... OSSコア機能（ID統合・ファネル・データ管理）
-/plugins/    ... Cloudプラグイン群（外部API・AI分析・自動化）
-/posthog/    ... 匿名分析用モジュール（PostHog API連携・匿名指標統合）
-
-```
-```
-
-┌──────────────────────────────────┐
-│            DRM Cloud SaaS            │
-│ ┌────────────┐  ┌────────────┐ │
-│ │ Cloud Plugins │  │ PostHog Proxy │ │
-│ └────────────┘  └────────────┘ │
-│         ▲ API連携 / 分析結果統合       │
-└────────┬────────────────────────┘
-│
-▼
-┌───────────────────────────┐
-│        DRM Core (OSS)         │
-│ Person / Org / Activity / ... │
-│ Plugin Loader / UI Hooks      │
-└───────────────────────────┘
-
-````
+**Version:** 2.1  
+**Author:** Atsushi Nakatsugawa  
+**License:** OSS Core under MIT/BSL, Plugins under commercial license  
+**Architecture:** OSS（docker-compose構成）＋ SaaS（マルチテナント構成）
 
 ---
 
-## 🧩 コア仕様 (`/core`)
+## 🧭 概要
 
-### 目的
-OSS部分は **自社ホストでも動作する完全独立構成**。  
-データの収集・ID統合・ファネル分析の最小単位を担う。
+本システムは、DevRel（Developer Relations）活動の定量化を目的とした  
+**ROI可視化＋ファネル分析＋AI分析対応のDevRel CRM** である。  
 
-### 主な機能
-| 機能カテゴリ | 内容 |
-|---------------|------|
-| **データ管理** | Person / Organization / Activity / Identifier モデル |
-| **ID解決** | email/domain/handleベースのルール型統合 |
-| **ファネル分析** | Awareness → Engagement → Adoption → Advocacy |
-| **API** | `/v1/people`, `/v1/orgs`, `/v1/activities` |
-| **UI** | Remixベースのダッシュボード |
-| **DB** | PostgreSQL + Prisma、RLS（tenant分離）対応 |
-| **プラグイン拡張** | `/core/plugin-loader.ts` 経由で外部機能を追加可能 |
-
-### 代表的エンティティ
-```mermaid
-erDiagram
-    Person ||--o{ Activity : has
-    Person ||--o{ Identifier : has
-    Organization ||--o{ Person : includes
-
-    Person {
-        uuid person_id
-        string display_name
-        string primary_email
-        string org_id
-        boolean consent_analytics
-    }
-
-    Activity {
-        uuid activity_id
-        string type
-        string source
-        jsonb metadata
-        timestamptz ts
-    }
-
-    Identifier {
-        uuid identifier_id
-        string kind
-        string value
-        float confidence
-    }
-````
+OSS版とSaaS版の2形態で提供する。  
+OSSは自社ホスティングでの利用を想定し、SaaSは複数テナントの管理を行う。
 
 ---
 
-## 🔌 プラグイン仕様 (`/plugins`)
+## 🏗 システム構成
 
-### 概要
+### OSS版
+- **構成**: `nginx + Remix + PostgreSQL (Drizzle ORM) + PostHog`
+- **構築方式**: `docker-compose`
+- **SSL/TLS**: Cloudflare経由（Flexible SSL）
+- **想定用途**: 自社利用、PoC、プライベート環境でのDevRelデータ分析
 
-* pluginsの中に、フォルダごとに独立したプラグインを配置。
-* Cloudモジュールはすべて「**プラグイン**」として独立配布される。
-* コアを一切変更せずに、API/UI/ジョブ/ETLを追加可能。
-* OSS環境では無償プラグイン、Cloud契約では署名付き有償プラグインが使用可能。
+### SaaS版
+- **構成**: マルチテナント（`tenant_id`ベース）
+- **データ分離**: Row Level Security (RLS) + PostgreSQL Schema per Tenant
+- **認証**: JWT + OAuth（GitHub / Google対応）
+- **拡張**: 商用プラグイン・AI連携・有料API接続
 
-### ディレクトリ構成
+---
+
+## ⚙️ 基本機能一覧
+
+### 1. DRM（Developer Relations Management）
+
+| 機能 | 内容 |
+|------|------|
+| **アクティビティ登録** | イベント・投稿・問い合わせ・GitHub活動などを登録 |
+| **デベロッパー可視化** | Person単位で行動履歴を時系列に可視化 |
+| **ID統合** | メール・SNS・イベント参加履歴をもとに名寄せ（重複統合） |
+| **組織管理** | Organization単位で関連開発者を表示 |
+| **スコアリング** | Engagementスコア・貢献度スコアを算出 |
+
+#### データ登録方法
+1. **フォーム入力**（Web UIから登録）  
+2. **API経由**（Webhook, REST API）  
+3. **CSVアップロード**（イベントリストなど一括登録）
+
+---
+
+### 2. ROI（投資対効果分析）
+
+| 機能 | 内容 |
+|------|------|
+| **スポンサード・施策登録** | イベント、広告、ブログなどの施策を登録 |
+| **予算入力** | カテゴリ別（人件費・広告費・制作費など）のコスト入力 |
+| **ROI可視化** | 投資額と成果（登録数・導入数）を可視化 |
+| **AI分析サポート** | 投資額と効果の関係をAIで最適化提案 |
+| **短縮URL・QRコード** | クリック計測をPostHog/GAイベントと突合 |
+| **レポート出力** | 施策別ROIサマリをダウンロード（CSV/PDF） |
+
+#### ROI計算式
+```
+
+ROI = (効果値 - 投資額) / 投資額
+ROI_weighted = Σ(施策貢献度 × 効果値) / Σ(投資額)
 
 ```
-/plugins/
-├─ drm-plugin-slack/
-│  ├─ plugin.json
-│  └─ dist/plugin.js
-├─ drm-plugin-discord/
-├─ drm-plugin-connpass/
-├─ drm-plugin-x/
-├─ drm-plugin-crm/
-└─ drm-plugin-ai-attribution/
-```
 
-### プラグイン定義例
+---
 
-**plugin.json**
+### 3. ファネル分析
 
-```json
-{
-  "name": "drm-plugin-slack",
-  "version": "1.0.0",
-  "provider": "DRM Cloud",
-  "license": "commercial",
-  "entry": "./dist/plugin.js",
-  "requires": { "drm-core": ">=1.0.0" },
-  "permissions": ["network", "scheduler", "secrets"]
-}
-```
+| 機能 | 内容 |
+|------|------|
+| **匿名データ収集** | PostHog / Google Analytics のイベントをAPI連携 |
+| **ファネル表示** | Awareness → Engagement → Adoption → Advocacy |
+| **ドロップ率表示** | 各ステージの離脱ポイントを可視化 |
+| **改善トラッキング** | 前期比較で改善率・滞留期間を算出 |
+| **ステータス更新** | デベロッパーごとの進捗を自動更新（AI補完対応） |
 
-**plugin.ts**
+---
+
+### 4. AI機能
+
+| カテゴリ | 機能 |
+|-----------|------|
+| **ROI分析支援** | 投資効果をAIで再推定し、次の施策を提案 |
+| **施策壁打ち** | DevRel施策の想定効果を試算し、ROI予測を出力 |
+| **Developer Journey 推定** | 開発者の関心→採用→布教フェーズをAI分類 |
+| **アトリビューションAI** | どの施策が最終行動に寄与したかを推定 |
+| **要約AI** | Slack/Discordの会話を要約し、話題・感情・影響者を抽出 |
+
+---
+
+### 5. プラグイン機構
+
+| 機能 | 内容 |
+|------|------|
+| **リソース別拡張** | Slack, Discord, X, Web検索, connpass などをモジュール化 |
+| **設定管理** | 各プラグインにキー・ルーティング・認証情報を保存 |
+| **インストール方式** | npmパッケージ (`drm-plugin-*`) で追加 |
+| **有効化管理** | 管理画面からON/OFF可能 |
+| **データ収集** | バックグラウンドで定期実行（cron or job queue） |
+| **UI拡張** | プラグイン側が表示方法を規定（一覧・グラフ・カード等） |
+| **商用プラグイン** | DRM Cloud経由で署名付き配布・自動更新対応 |
+
+#### プラグイン登録例
 
 ```ts
-import { definePlugin } from "@drm/core";
-
 export default definePlugin({
   id: "slack",
   name: "Slack Integration",
   hooks: {
-    onInit({ registerAPI, registerJob, registerUI }) {
-      registerAPI("/integrations/slack/events", slackWebhookHandler);
-      registerJob("slack.sync", { cron: "*/15 * * * *" }, syncSlackMessages);
-      registerUI("dashboard.panel", SlackAnalyticsPanel);
+    onInit({ registerJob, registerAPI, registerUI }) {
+      registerJob("slack.sync", { cron: "*/15 * * * *" }, syncSlackData);
+      registerUI("dashboard.panel", SlackSummaryChart);
     },
   },
+  settings: {
+    apiToken: { type: "string", title: "Slack API Token", required: true, description: "xoxb-xxxx..."},
+  },
+  widgets: [
+    { type: "chart", title: "Slack Activity", component: SlackActivityChart },
+    { type: "list", title: "Recent Messages", component: RecentMessagesList}
+  ],
 });
 ```
 
 ---
 
-## ⚙️ プラグイン読み込み仕組み
+### 6. データの登録方法
 
-**`/core/plugin-loader.ts`**
+| 方法            | 対象            | 備考          |
+| ------------- | ------------- | ----------- |
+| **フォーム**      | 施策、アクティビティ、予算 | 管理画面上で操作可能  |
+| **API**       | 外部サービス連携      | JWT認証対応     |
+| **CSVアップロード** | イベント・リード・費用など | 自動マッピング機能付き |
 
-```ts
-import { loadPlugins } from "@drm/core/plugin-system";
-import path from "path";
+---
 
-export function registerPlugins(app) {
-  const pluginDirs = [
-    path.resolve(process.cwd(), "plugins"),       // local OSS plugins
-    "/var/lib/drm/cloud-plugins"                  // Cloud mount point
-  ];
-  loadPlugins(pluginDirs, app);
-}
+## 🧱 データベース構造（Drizzle ORM）
+
+主要テーブル：
+
+* `persons`（開発者情報）
+* `organizations`（組織）
+* `activities`（行動記録）
+* `budgets`（費用情報）
+* `campaigns`（施策情報）
+* `roi_results`（ROI算出結果）
+* `funnel_stages`（ファネル状態）
+* `plugins`（拡張モジュール）
+* `tenants`（SaaS用テナント管理）
+
+テナントスコープには `tenant_id` を必須カラムとして保持。
+RLSでデータ分離。
+
+---
+
+## 📈 ダッシュボード機能
+
+| セクション             | 内容                             |
+| ----------------- | ------------------------------ |
+| **Overview**      | 総アクティビティ数、ROI平均、開発者数、導入数       |
+| **Funnel View**   | ファネル段階別人数・ドロップ率可視化             |
+| **ROI View**      | 投資カテゴリ別・施策別ROI表示               |
+| **AI Insights**   | AIによる提案・トレンド・異常検知              |
+| **Plugin Panels** | 各プラグイン固有の分析ビュー（Slack、Discord等） |
+
+---
+
+## ☁️ SaaS版追加要件
+
+| 項目            | 内容                             |
+| ------------- | ------------------------------ |
+| **テナント管理**    | `tenant_id`で一意管理               |
+| **認証**        | OAuth2 + JWT                   |
+| **監査ログ**      | すべての操作を `audit_logs` テーブルに記録   |
+| **プラグイン署名検証** | 商用プラグインのみRSA署名必須               |
+| **課金**        | Stripe API + ライセンスキー検証         |
+| **メトリクス**     | Prometheus + Grafana で利用統計を可視化 |
+
+---
+
+## 🔐 セキュリティ・権限
+
+| ロール           | 権限                  |
+| ------------- | ------------------- |
+| **Admin**     | すべての管理・予算登録・プラグイン設定 |
+| **Manager**   | 施策登録・ROI閲覧          |
+| **Viewer**    | ダッシュボード閲覧のみ         |
+| **AI Engine** | 学習用読み取り権限           |
+
+---
+
+## 🧠 AIモジュール構成（Cloud専用）
+
+| モジュール名           | 役割           |
+| ---------------- | ------------ |
+| `ai/attribution` | 施策ごとの貢献スコア推定 |
+| `ai/journey`     | 開発者のファネル位置推定 |
+| `ai/summary`     | Slack等の要約    |
+| `ai/recommend`   | 改善施策提案       |
+| `ai/predict`     | ROI予測・異常検知   |
+
+モデル例：
+
+* Scikit-learn / LightGBM / Prophet
+* LLM API（OpenAI, Claude, Geminiなど）
+
+---
+
+## 📦 外部連携
+
+| サービス                      | 目的        | モード     |
+| ------------------------- | --------- | ------- |
+| **PostHog**               | 匿名行動データ収集 | OSS必須   |
+| **Google Analytics**      | イベント突合    | オプション   |
+| **Slack / Discord / X**   | アクティビティ収集 | プラグイン経由 |
+| **connpass / Doorkeeper** | イベントデータ同期 | プラグイン経由 |
+| **Salesforce / HubSpot**  | CRM連携     | クラウド専用  |
+
+---
+
+## 🧩 docker-compose構成例（OSS）
+
+```yaml
+version: '3.9'
+services:
+  web:
+    build: ./remix
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+      - posthog
+  nginx:
+    image: nginx:latest
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+    ports:
+      - "80:80"
+      - "443:443"
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: drm
+      POSTGRES_PASSWORD: drm_pass
+      POSTGRES_DB: drm_core
+    volumes:
+      - ./postgresql/data:/var/lib/postgresql/data
+  posthog:
+    image: posthog/posthog:latest
+    environment:
+      - DATABASE_URL=postgres://posthog:posthog@db:5432/posthog
 ```
 
-### ロード順序
-
-1. OSSプラグインを `/plugins` から読み込み
-2. クラウドプラグインを `/var/lib/drm/cloud-plugins` から追加ロード
-3. `plugin.json` を検証 → 署名確認（クラウド配布のみ）
-4. `definePlugin()` 経由でAPI/UI/Jobを登録
-
 ---
 
-## 🔒 クラウドプラグイン認証・配布
-
-| 項目           | 内容                                                    |
-| ------------ | ----------------------------------------------------- |
-| **配布形態**     | 署名付きZIP（RSA256）                                       |
-| **検証方法**     | `drm verify-plugin` コマンドで署名検証                         |
-| **認証API**    | DRM Cloud License APIでライセンスキー確認                       |
-| **インストール**   | `drm plugin install drm-plugin-slack --license <key>` |
-| **更新**       | `drm plugin update drm-plugin-slack`                  |
-| **アンインストール** | `drm plugin remove drm-plugin-slack`                  |
-
----
-
-## ☁️ クラウドプラグイン機能群
-
-| プラグイン名                    | 内容                             | 備考             |
-| ------------------------- | ------------------------------ | -------------- |
-| **Slack**                 | チャンネル/メッセージ分析・Bot接続            | OAuth＋トークン自動更新 |
-| **Discord**               | 投稿/リアクション収集                    |                |
-| **connpass / Doorkeeper** | イベント参加者→Person自動登録             | rate-limit対応   |
-| **X (Twitter)**           | メンション/ポスト解析                    | API有料枠をクラウド側負担 |
-| **CRM連携**                 | Salesforce / HubSpot 2way sync | 商用顧客向け         |
-| **AI Attribution**        | 施策ごとの貢献度自動推定                   | SaaS限定MLモデル    |
-
----
-
-## 🧠 PostHog連携モジュール (`/posthog`)
-
-### 目的
-
-匿名行動データを統合的に分析し、施策貢献を評価する。
-PostHog Cloud もしくは自社ホストのAPIと連携し、**匿名指標をDRMファネルに重ね合わせる。**
-
-### 主な機能
-
-| 機能                    | 内容                                   |
-| --------------------- | ------------------------------------ |
-| **Capture API (S2S)** | サーバー側で匿名イベント送信（distinct_id=click_id） |
-| **Insights API**      | PostHogのファネル/トレンドを再掲                 |
-| **Persons API**       | 匿名クラスタの人数/経路を参照                      |
-| **統合ビュー**             | DRM内で施策別貢献を比較（匿名＋実名ファネル）             |
-
-### 実装例
-
-**匿名イベント送信**
-
-```ts
-await fetch("https://app.posthog.com/capture/", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    api_key: process.env.POSTHOG_API_KEY,
-    event: "first_api_call",
-    distinct_id: click_id,
-    properties: { campaign_id: "camp_2025_10", route: "/v1/items" }
-  })
-});
-```
-
-**ダッシュボード統合**
-
-* PostHog Insightsを`/posthog/insights/:id`経由で取得
-* DRMファネルと期間・施策でマージして比較表示
-
----
-
-## 🧱 プロジェクト構成ディレクトリ
+## 🔄 データ連携フロー概要
 
 ```
-drm/
-├─ core/                # OSSコア機能
-│  ├─ api/
-│  ├─ db/
-│  ├─ models/
-│  ├─ plugin-loader.ts
-│  └─ ui/
-├─ plugins/             # プラグイン群
-│  ├─ drm-plugin-slack/
-│  ├─ drm-plugin-crm/
-│  ├─ drm-plugin-ai-attribution/
-│  └─ ...
-├─ posthog/             # 匿名分析モジュール
-│  ├─ api/
-│  ├─ services/
-│  └─ insights/
-├─ cli/
-│  ├─ drm.ts            # CLI（install/update/verify）
-│  └─ commands/
-├─ docker/
-│  └─ compose.yml
-└─ docs/
-   └─ SPEC.md (本ドキュメント)
+[ユーザー行動]
+   ↓ (クリック/QR)
+[PostHogイベント]
+   ↓
+[DRM APIで突合]
+   ↓
+[ファネル更新 / ROI再計算]
+   ↓
+[AI Attributionモデル]
+   ↓
+[ダッシュボード表示]
 ```
 
 ---
 
-## 🔐 セキュリティ・ライセンス設計
+## 🧩 見逃しがちな補足項目
 
-| 項目          | 内容                     |
-| ----------- | ---------------------- |
-| **コア**      | OSS（MITまたはBSL）         |
-| **プラグイン**   | 商用（署名＋クラウド認証）          |
-| **署名**      | RSA256署名検証（公開鍵同梱）      |
-| **ライセンス検証** | 月次クラウドAPIチェック          |
-| **データ保護**   | PIIは暗号化保存、匿名指標は統計化して集計 |
-| **監査ログ**    | プラグインの操作履歴を監査テーブルに記録   |
-
----
-
-## 📊 ダッシュボード要件
-
-* ファネル比較（匿名PostHog vs 実名DRM）
-* 施策別ROI表示（campaign単位）
-* 組織別・期間別集計
-* 未解決イベント数、重複率、AIスコア信頼度
-* Slack通知連携（プラグイン経由）
+| 項目            | 対応方法                       |
+| ------------- | -------------------------- |
+| **監査ログ**      | `audit_logs`テーブルで管理（SaaS）  |
+| **データエクスポート** | JSON / CSV / PDF対応         |
+| **非同期処理**     | BullMQ / Redisキュー採用検討      |
+| **Webhooks**  | 施策更新・ROI再計算時に通知            |
+| **権限継承**      | Organization単位でロール共有可能     |
+| **APIレート制限**  | per-tenant / per-pluginで適用 |
 
 ---
 
-## 💼 商用モデル
+## ✅ 今後の拡張案
 
-| プラン                 | 提供範囲                           | 想定価格    |
-| ------------------- | ------------------------------ | ------- |
-| **Community (OSS)** | コア機能・CSV取込・手動分析                | 無料      |
-| **Cloud Standard**  | OSS＋Slack/Discord/connpass/X連携 | 月$300〜  |
-| **Cloud Pro**       | + CRM連携・AIアトリビューション・チーム機能      | 月$1000〜 |
-| **Enterprise**      | SLA・SSO・監査・専用VPC               | 年$10k〜  |
-
----
-
-## ✅ 今後の開発フェーズ
-
-| フェーズ        | 内容                                 |
-| ----------- | ---------------------------------- |
-| **Phase 1** | コア機能完成・プラグインAPI定義・PostHog接続        |
-| **Phase 2** | OSSリリース              |
-| **Phase 2** | Cloudプラグイン開発（Slack, connpass, CRM） |
-| **Phase 3** | ダッシュボード統合 / AIアトリビューション実装          |
-| **Phase 4** | Cloud販売開始                   |
-| **Phase 5** | OSS Marketplace構築（外部開発者がプラグイン公開）   |
-
----
-
-## 🔭 補足：設計思想
-
-* **コアは安定・透明・普及重視**
-  OSSとして信頼性と拡張性を最大化。
-* **クラウドは価値・保証・継続性重視**
-  外部API維持、AI精度、SLAを差別化軸に。
-* **PostHogは第三の分析軸**
-  匿名傾向を補足し、実名データと融合してDevRel ROIを見える化。
-
----
-
-**Author:**
-DRM Project (by Atsushi Nakatsugawa)
-**Version:** 2.0
-**License:** Core under MIT/BSL, Plugins under commercial license.
+* AI施策シミュレーター（ROI予測＋提案）
+* プラグインマーケットプレイス（OSS/Cloud共通）
+* PostHogデータの自動特徴量抽出
+* チームKPIダッシュボード（DevRelチーム別成果分析）
+* 「監査ログ」と「Webhook連携」を仕様に含めると、SaaS化時の監査要件を満たせます。  
+*  「BullMQなどのジョブキュー」導入を検討すれば、プラグイン実行を安定運用できます。  
+*  「APIレート制限」設定で、外部連携が多い環境でも安全。  
