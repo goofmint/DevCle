@@ -1,4 +1,10 @@
-# 詳細設計書 - DRM (Developer Relations Management) ツール
+# 詳細設計書 - DRM（Developer Relations Management）ツール
+
+**Version:** 2.2
+**Author:** Atsushi Nakatsugawa
+**Based on:** requirements.md v2.2
+
+---
 
 **Version:** 2.1
 **Based on:** requirements.md v2.1
@@ -200,77 +206,93 @@ export const developers = pgTable('developers', {
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                         Cloudflare (SSL/TLS)                     │
-└────────────────────────────┬────────────────────────────────────┘
-                             │
-                             ▼
+│                         User (Browser)                          │
+└────────────────────────┬────────────────────────────────────────┘
+                         │ HTTPS (Cloudflare SSL)
+                         ↓
 ┌─────────────────────────────────────────────────────────────────┐
-│                           nginx (80/443)                         │
-└────────────────────────────┬────────────────────────────────────┘
-                             │
-                             ▼
+│                        nginx (Reverse Proxy)                     │
+│  - SSL Termination                                              │
+│  - Load Balancing                                               │
+│  - Static File Serving                                          │
+└────────────────────────┬────────────────────────────────────────┘
+                         │ HTTP
+                         ↓
 ┌─────────────────────────────────────────────────────────────────┐
-│                      Remix App (Port 8080)                       │
-│  ┌──────────────────────────────────────────────────────────┐  │
-│  │  UI Layer (Remix Routes)                                  │  │
-│  │  - Dashboard, Funnel, ROI, Plugins, Settings             │  │
-│  ├──────────────────────────────────────────────────────────┤  │
-│  │  API Layer (Remix Resource Routes)                       │  │
-│  │  - REST API, Webhooks, Auth                              │  │
-│  ├──────────────────────────────────────────────────────────┤  │
-│  │  Services Layer                                           │  │
-│  │  - DeveloperService, ActivityService, ROIService         │  │
-│  │  - FunnelService, PluginService                          │  │
-│  ├──────────────────────────────────────────────────────────┤  │
-│  │  Plugin System                                            │  │
-│  │  - Plugin Loader, Hook Manager, Sandbox Runner          │  │
-│  ├──────────────────────────────────────────────────────────┤  │
-│  │  Data Layer (Drizzle ORM)                                │  │
-│  │  - Models, Migrations, Query Builder                     │  │
-│  └──────────────────────────────────────────────────────────┘  │
-└────────────────────────────┬────────────────────────────────────┘
-                             │
-                    ┌────────┴────────┐
-                    ▼                 ▼
-         ┌──────────────────┐  ┌──────────────────┐
-         │  PostgreSQL 15   │  │  PostHog         │
-         │  - drm_core DB   │  │  - Event Store   │
-         │  - RLS Enabled   │  │  - Analytics     │
-         └──────────────────┘  └──────────────────┘
+│                    Remix Application (core/)                     │
+│  ┌───────────────────────────────────────────────────────────┐ │
+│  │  UI Layer (routes/)                                        │ │
+│  │    - Dashboard Views                                       │ │
+│  │    - Admin Console                                         │ │
+│  │    - Plugin Management UI                                  │ │
+│  └───────────────────────────────────────────────────────────┘ │
+│  ┌───────────────────────────────────────────────────────────┐ │
+│  │  API Layer (routes/api/)                                   │ │
+│  │    - Remix Resource Routes                                 │ │
+│  │    - REST Endpoints (action/loader)                        │ │
+│  │    - Webhook Handlers                                      │ │
+│  └───────────────────────────────────────────────────────────┘ │
+│  ┌───────────────────────────────────────────────────────────┐ │
+│  │  Service Layer (services/)                                 │ │
+│  │    - DRM Service (Developer/Organization/Activity)         │ │
+│  │    - ROI Service (Campaign/Budget)                         │ │
+│  │    - Funnel Service (Stages/Analytics)                     │ │
+│  │    - AI Service (SaaS only)                                │ │
+│  └───────────────────────────────────────────────────────────┘ │
+│  ┌───────────────────────────────────────────────────────────┐ │
+│  │  Plugin System (plugin-system/)                            │ │
+│  │    - Plugin Loader                                         │ │
+│  │    - Hook Registry                                         │ │
+│  │    - Job Scheduler (Redis Queue)                           │ │
+│  └───────────────────────────────────────────────────────────┘ │
+│  ┌───────────────────────────────────────────────────────────┐ │
+│  │  Data Layer (db/)                                          │ │
+│  │    - Drizzle ORM                                           │ │
+│  │    - Migration System                                      │ │
+│  │    - Tenant Isolation (RLS)                                │ │
+│  └───────────────────────────────────────────────────────────┘ │
+└────────┬──────────────────────────────┬────────────────────┬────┘
+         │                              │                    │
+         ↓                              ↓                    ↓
+┌─────────────────┐         ┌─────────────────┐   ┌─────────────────┐
+│   PostgreSQL    │         │      Redis      │   │    Plugins      │
+│   (Database)    │         │  (Queue/Cache)  │   │  (plugins/)     │
+│  - Core Data    │         │  - Jobs         │   │  - PostHog      │
+│  - Tenants      │         │  - Sessions     │   │  - Webhook      │
+│  - RLS Policies │         │  - Rate Limit   │   │  - (Future)     │
+└─────────────────┘         └─────────────────┘   └─────────────────┘
 ```
 
 ### 1.2 技術スタック
 
-#### フロントエンド
-- **Framework**: Remix v2.x
-- **Language**: TypeScript 5.9+
-- **UI Components**: Radix UI / shadcn/ui
-- **Styling**: Tailwind CSS
-- **Charts**: Recharts / Tremor
-- **State Management**: Remix Loaders/Actions (Server-First)
+#### 言語
+- **TypeScript 5.9+** (Strict mode with `exactOptionalPropertyTypes`)
+- **Node.js 20+** (LTS)
 
-#### バックエンド
-- **Framework**: Remix v2.x (Full-stack)
-- **ORM**: Drizzle ORM v0.30+
-- **Database**: PostgreSQL 15+
-- **Cache/Queue**: Redis 7+
-- **Job Queue**: BullMQ (プラグイン実行、外部API連携)
-- **Auth**: Remix Auth + OAuth2 (GitHub, Google)
-- **Session**: Cookie-based sessions (remix-sessions)
-- **Validation**: Zod
+#### フレームワーク
+- **Remix 2.x** - UI/SSR framework + API routes
+- **Drizzle ORM** - Type-safe database access
+- **Vitest** - Testing framework
 
-#### インフラ (OSS版)
-- **Container**: Docker + docker-compose
-- **Reverse Proxy**: nginx
-- **SSL/TLS**: Cloudflare Flexible SSL
-- **Analytics**: PostHog (self-hosted or cloud)
+#### ライブラリ
+- **Zod** - Schema validation
+- **React 18** - UI components
+- **PostHog Node SDK** - Analytics integration
+- **BullMQ** - Job queue (Redis-based)
+- **jose** - JWT handling
+- **csv-parse** - CSV import
 
-#### 開発ツール
-- **Package Manager**: pnpm (workspace monorepo)
-- **Testing**: Vitest
-- **Linting**: ESLint 9 (flat config)
-- **Formatting**: Prettier
-- **CI/CD**: GitHub Actions
+#### ツール
+- **pnpm** - Package manager (workspace monorepo)
+- **ESLint 9** - Linting (flat config)
+- **Prettier** - Code formatting
+- **Docker & Docker Compose** - Container orchestration
+
+#### Infrastructure
+- **PostgreSQL 15+** - Primary database with RLS
+- **Redis 7** - Queue, cache, rate limiting
+- **nginx** - Reverse proxy and SSL termination
+- **Cloudflare** - DNS, DDoS protection, SSL
 
 ---
 
@@ -280,557 +302,374 @@ export const developers = pgTable('developers', {
 
 | コンポーネント名 | 責務 | 依存関係 |
 |----------------|------|---------|
-| **UI Layer** | ユーザーインターフェース、Remix Routes | Services, Plugin UI |
-| **API Layer** | REST API、Webhooks、認証 | Services, Validation |
-| **Services** | ビジネスロジック、データ操作 | Data Layer, Plugin System |
-| **Plugin System** | プラグインのロード、実行、UI統合 | Plugin Registry, Sandbox |
-| **Data Layer** | データベースアクセス、マイグレーション | Drizzle ORM, PostgreSQL |
-| **PostHog Integration** | 匿名イベント収集、ファネル突合 | PostHog API, Services |
-
-**開発優先順位**:
-1. **Phase 1**: docker-compose環境構築 + 基本UI（ダッシュボード、Developer一覧）
-2. **Phase 2**: Developer詳細画面 + Activity登録UI
-3. **Phase 3**: Services層実装 + データ連携
-4. **Phase 4**: プラグインシステム + PostHog連携
+| **UI Layer** | ユーザーインターフェース、ダッシュボード、管理画面 | Service Layer, Plugin System |
+| **API Layer** | REST/GraphQL エンドポイント、Webhook ハンドラ | Service Layer, Plugin System |
+| **Service Layer** | ビジネスロジック、DRM/ROI/Funnel/AI処理 | Data Layer |
+| **Plugin System** | プラグイン読込、フック実行、ジョブスケジューラ | Data Layer, Redis |
+| **Data Layer** | データベースアクセス、マイグレーション、RLS | PostgreSQL |
+| **PostHog Plugin** | 匿名データ収集・ファネル統合 | PostHog API, Service Layer |
+| **Webhook Plugin** | 外部システム連携（例示用） | API Layer |
 
 ### 2.2 各コンポーネントの詳細
 
-#### UI Layer (Remix Routes)
+#### UI Layer (`core/ui/`)
 
-**目的**: ユーザーが操作するダッシュボード、フォーム、可視化画面を提供
-
-**Routes構成**:
-```
-app/routes/
-  _index.tsx                # Dashboard (Overview) [Phase 1]
-  developers._index.tsx     # Developer一覧 [Phase 1]
-  developers.$id.tsx        # Developer詳細 [Phase 2]
-  activities._index.tsx     # Activity一覧 [Phase 2]
-  activities.new.tsx        # Activity登録 [Phase 2]
-  funnel.tsx                # Funnel View [Phase 3]
-  roi.tsx                   # ROI View [Phase 3]
-  campaigns.$id.tsx         # Campaign詳細 [Phase 3]
-  plugins._index.tsx        # Plugin管理 [Phase 4]
-  plugins.$id.tsx           # Plugin設定 [Phase 4]
-  settings.tsx              # システム設定 [Phase 1]
-  api.activities.tsx        # API: Activity管理 (Resource Route)
-  api.developers.$id.tsx    # API: Developer操作 (Resource Route)
-  api.roi.calculate.tsx     # API: ROI計算 (Resource Route)
-  api.funnel.tsx            # API: Funnel取得 (Resource Route)
-  api.plugins.$id.tsx       # API: Plugin操作 (Resource Route)
-  api.webhooks.posthog.tsx  # Webhook: PostHog (Resource Route)
-```
-
-**公開インターフェース**:
-```typescript
-// Remix Loader Pattern
-export async function loader({ request, params }: LoaderFunctionArgs) {
-  const tenantId = await getTenantFromRequest(request);
-  const data = await service.getData(tenantId, params.id);
-  return json(data);
-}
-
-// Remix Action Pattern
-export async function action({ request }: ActionFunctionArgs) {
-  const formData = await request.formData();
-  const result = await service.processAction(formData);
-  return redirect('/success');
-}
-```
-
-**内部実装方針**:
-- Server-Firstアプローチ（Loaders/Actionsでデータ取得）
-- クライアント側の状態管理は最小限に
-- プラグインUIは動的に`<PluginWidget />`コンポーネントで埋め込み
-
----
-
-#### API Layer (Remix Resource Routes)
-
-**目的**: 外部連携、Webhook受信、REST API提供
-
-**公開インターフェース**:
-```typescript
-// app/routes/api.activities.tsx
-import type { ActionFunctionArgs } from "@remix-run/node";
-import { json } from "@remix-run/node";
-import { z } from "zod";
-import { ActivityService } from "~/services/activity.service";
-import { getTenantFromSession } from "~/utils/auth.server";
-
-const ActivitySchema = z.object({
-  type: z.string(),
-  source: z.string(),
-  metadata: z.record(z.unknown()).optional(),
-  ts: z.string().datetime(),
-});
-
-export async function action({ request }: ActionFunctionArgs) {
-  // 認証チェック
-  const tenantId = await getTenantFromSession(request);
-  if (!tenantId) {
-    return json({ error: "Unauthorized" }, { status: 401 });
+- **目的**: ユーザーに対するダッシュボード、管理画面、プラグイン管理UIの提供
+- **公開インターフェース**:
+  ```typescript
+  // routes/dashboard.tsx
+  export default function Dashboard() {
+    const data = useLoaderData<DashboardData>();
+    return <OverviewPanel data={data} />;
   }
 
-  // リクエストボディのパース & バリデーション
-  const body = await request.json();
-  const validatedData = ActivitySchema.parse(body);
+  // routes/admin/plugins.tsx
+  export default function PluginsAdmin() {
+    const plugins = useLoaderData<Plugin[]>();
+    return <PluginList plugins={plugins} />;
+  }
+  ```
 
-  // サービス呼び出し
-  const activity = await ActivityService.recordActivity(tenantId, validatedData);
+- **内部実装方針**:
+  - Remix の `loader` / `action` で API 呼び出し
+  - プラグインが提供する UI ウィジェットを動的にレンダリング
+  - Chart.js または Recharts でグラフ表示
+  - TailwindCSS でレスポンシブデザイン
 
-  return json(activity, { status: 201 });
-}
+---
 
-// app/routes/api.webhooks.posthog.tsx
-export async function action({ request }: ActionFunctionArgs) {
-  // Webhook署名検証
-  const signature = request.headers.get("X-PostHog-Signature");
-  const body = await request.text();
+#### API Layer (`core/routes/api/`)
 
-  if (!verifyPostHogSignature(signature, body)) {
-    return json({ error: "Invalid signature" }, { status: 403 });
+- **目的**: 外部からのデータ登録、Webhook 受信、プラグイン API ルーティング
+- **公開インターフェース**:
+  ```typescript
+  // routes/api/activities.ts (Remix Resource Route)
+  import { type ActionFunctionArgs, type LoaderFunctionArgs, json } from '@remix-run/node';
+  import { z } from 'zod';
+
+  const activitySchema = z.object({
+    type: z.string(),
+    developer_id: z.string().uuid(),
+    source: z.string(),
+    metadata: z.record(z.any()),
+  });
+
+  export async function action({ request }: ActionFunctionArgs) {
+    if (request.method !== 'POST') {
+      return json({ error: 'Method not allowed' }, { status: 405 });
+    }
+
+    const body = activitySchema.parse(await request.json());
+    const activity = await activityService.create(body);
+    return json(activity, { status: 201 });
   }
 
-  // Webhook処理
-  const event = JSON.parse(body);
-  await handlePostHogWebhook(event);
+  export async function loader({ request }: LoaderFunctionArgs) {
+    const url = new URL(request.url);
+    const developerId = url.searchParams.get('developer_id');
 
-  return json({ success: true });
-}
-```
+    if (!developerId) {
+      return json({ error: 'Missing developer_id' }, { status: 400 });
+    }
 
-**内部実装方針**:
-- Remix Resource Routesで REST API + Webhook実装
-- 認証はRemix Authのセッション管理を活用
-- Zodでリクエストバリデーション
-- Webhook署名検証（PostHog, Slack等）
-- レート制限はミドルウェアで実装（per-tenant, per-plugin）
+    const activities = await activityService.list(developerId);
+    return json({ activities });
+  }
+  ```
 
----
-
-#### Services Layer
-
-**目的**: ビジネスロジックの実装、データ操作の抽象化
-
-**主要サービス**:
-
-1. **DeveloperService**
-```typescript
-interface DeveloperService {
-  createDeveloper(tenantId: string, data: CreateDeveloperInput): Promise<Developer>;
-  mergeDeveloper(tenantId: string, fromId: string, toId: string): Promise<void>;
-  getDeveloperTimeline(tenantId: string, developerId: string): Promise<Activity[]>;
-  updateEngagementScore(tenantId: string, developerId: string): Promise<number>;
-  listDevelopers(tenantId: string, filters?: DeveloperFilters): Promise<Developer[]>;
-}
-```
-
-2. **ActivityService**
-```typescript
-interface ActivityService {
-  recordActivity(tenantId: string, data: CreateActivityInput): Promise<Activity>;
-  linkActivityToDeveloper(activityId: string, developerId: string): Promise<void>;
-  getActivitiesBySource(tenantId: string, source: string): Promise<Activity[]>;
-  listActivities(tenantId: string, filters?: ActivityFilters): Promise<Activity[]>;
-}
-```
-
-3. **ROIService**
-```typescript
-interface ROIService {
-  calculateCampaignROI(tenantId: string, campaignId: string): Promise<ROIResult>;
-  recordBudget(tenantId: string, data: CreateBudgetInput): Promise<Budget>;
-  getROISummary(tenantId: string, dateRange: DateRange): Promise<ROISummary>;
-}
-```
-
-4. **FunnelService**
-```typescript
-interface FunnelService {
-  updateDeveloperStage(tenantId: string, developerId: string, stage: FunnelStage): Promise<void>;
-  getFunnelMetrics(tenantId: string): Promise<FunnelMetrics>;
-  mergeFunnelWithPostHog(tenantId: string): Promise<void>;
-}
-```
-
-5. **PluginService**
-```typescript
-interface PluginService {
-  installPlugin(tenantId: string, pluginId: string): Promise<void>;
-  enablePlugin(tenantId: string, pluginId: string): Promise<void>;
-  executePluginHook(tenantId: string, pluginId: string, hook: string, args: unknown): Promise<unknown>;
-  executeActionHooks(action: string, context: ActionContext): Promise<void>;
-  getPluginSettings(tenantId: string, pluginId: string): Promise<Record<string, unknown>>;
-}
-
-interface ActionContext {
-  tenantId: string;
-  userId: string;
-  action: string;
-  resourceId: string;
-  metadata: Record<string, unknown>;
-  request: Request;
-}
-```
-
-**内部実装方針**:
-- 各サービスはStateless（Dependency Injection可能）
-- トランザクションはDrizzle ORMの`db.transaction()`を使用
-- エラーは専用のエラークラスで表現（`DRMError`, `ValidationError`, `NotFoundError`）
+- **内部実装方針**:
+  - Remix Resource Routes で REST API を実装
+  - `action` で POST/PUT/DELETE、`loader` で GET
+  - Zod でリクエストバリデーション
+  - JWT トークンによる認証（SaaS）
+  - プラグインが登録した Webhook エンドポイントを動的にルーティング
 
 ---
 
-#### Plugin System
+#### Service Layer (`core/services/`)
 
-**目的**: 外部機能（Slack, Discord, AI等）をモジュールとして動的にロード・実行
+- **目的**: ビジネスロジックの実装（DRM、ROI、Funnel、AI）
+- **公開インターフェース**:
+  ```typescript
+  // services/drm.service.ts
+  export interface DRMService {
+    createDeveloper(data: CreateDeveloperInput): Promise<Developer>;
+    resolveDeveloper(identifiers: Identifier[]): Promise<Developer | null>;
+    mergeDevelopers(sourceId: string, targetId: string): Promise<void>;
+    listActivities(developerId: string, filters?: ActivityFilters): Promise<Activity[]>;
+  }
 
-**アーキテクチャ**:
+  // services/roi.service.ts
+  export interface ROIService {
+    createCampaign(data: CreateCampaignInput): Promise<Campaign>;
+    calculateROI(campaignId: string): Promise<ROIResult>;
+    trackClick(clickId: string, campaignId: string): Promise<void>;
+    generateShortURL(campaignId: string, target: string): Promise<string>;
+  }
+
+  // services/funnel.service.ts
+  export interface FunnelService {
+    classifyStage(activity: Activity): FunnelStage;
+    calculateDropRate(stage: FunnelStage): Promise<number>;
+    getTimeSeriesFunnel(from: Date, to: Date): Promise<FunnelTimeSeries>;
+  }
+  ```
+
+- **内部実装方針**:
+  - 各サービスは Data Layer を通じて DB アクセス
+  - トランザクション管理は Drizzle ORM で実施
+  - AI Service（SaaS 限定）は OpenAI / Claude / Gemini API を呼び出し
+  - ID 統合ロジックは `resolveDeveloper()` で一元管理
+
+---
+
+#### Plugin System (`core/plugin-system/`)
+
+- **目的**: プラグインの読み込み、フック実行、ジョブスケジューリング
+- **公開インターフェース**:
+  ```typescript
+  // plugin-system/types.ts
+  export interface Plugin {
+    id: string;
+    name: string;
+    version: string;
+    hooks: {
+      onInit?(ctx: PluginContext): void;
+      onActivityCreated?(activity: Activity): Promise<void>;
+      onCronJob?(schedule: string, job: JobHandler): void;
+    };
+  }
+
+  export interface PluginContext {
+    registerJob(name: string, schedule: string, handler: JobHandler): void;
+    registerUI(slot: string, component: React.ComponentType): void;
+    registerAPI(path: string, handler: RemixActionHandler): void;
+    db: DrizzleDB;
+    redis: RedisClient;
+  }
+
+  // plugin-system/loader.ts
+  export class PluginLoader {
+    async discoverPlugins(): Promise<Plugin[]>;
+    async loadPlugin(packageName: string): Promise<Plugin>;
+    async verifySignature(plugin: Plugin, signature: string): Promise<boolean>;
+    async enablePlugin(pluginId: string): Promise<void>;
+    async disablePlugin(pluginId: string): Promise<void>;
+    async getInstalledPlugins(): Promise<Array<{ name: string; version: string; enabled: boolean }>>;
+  }
+  ```
+
+- **内部実装方針**:
+  - プラグインは npm パッケージとして配布（`@drm-plugin/xxx` または `drm-plugin-xxx`）
+  - `pnpm add @drm-plugin/posthog` でインストール
+  - `node_modules/` からプラグインを検出・読み込み
+  - 管理画面でプラグインを有効化/無効化
+  - 有効化状態は DB（`plugins` テーブル）に保存
+  - プラグインの署名検証は RSA256 で実施（商用プラグインのみ）
+  - BullMQ で Redis ベースのジョブキュー管理
+  - プラグインが登録した UI コンポーネントを動的にレンダリング
+
+---
+
+#### Data Layer (`core/db/`)
+
+- **目的**: データベーススキーマ、マイグレーション、RLS ポリシー管理
+- **公開インターフェース**:
+  ```typescript
+  // db/schema.ts
+  import { pgTable, uuid, text, timestamp, jsonb, boolean } from 'drizzle-orm/pg-core';
+
+  export const developers = pgTable('developers', {
+    developer_id: uuid('developer_id').primaryKey().defaultRandom(),
+    tenant_id: text('tenant_id').notNull().default('default'),
+    display_name: text('display_name').notNull(),
+    primary_email: text('primary_email'),
+    organization_id: uuid('organization_id'),
+    consent_analytics: boolean('consent_analytics').default(false),
+    created_at: timestamp('created_at').defaultNow(),
+    updated_at: timestamp('updated_at').defaultNow(),
+  });
+
+  export const organizations = pgTable('organizations', {
+    organization_id: uuid('organization_id').primaryKey().defaultRandom(),
+    tenant_id: text('tenant_id').notNull().default('default'),
+    name: text('name').notNull(),
+    domain: text('domain'),
+    created_at: timestamp('created_at').defaultNow(),
+    updated_at: timestamp('updated_at').defaultNow(),
+  });
+
+  export const activities = pgTable('activities', {
+    activity_id: uuid('activity_id').primaryKey().defaultRandom(),
+    tenant_id: text('tenant_id').notNull().default('default'),
+    developer_id: uuid('developer_id').references(() => developers.developer_id),
+    type: text('type').notNull(),
+    source: text('source').notNull(),
+    metadata: jsonb('metadata'),
+    ts: timestamp('ts').notNull(),
+  });
+
+  export const plugins = pgTable('plugins', {
+    plugin_id: text('plugin_id').primaryKey(), // e.g., 'posthog', 'webhook'
+    tenant_id: text('tenant_id').notNull().default('default'),
+    package_name: text('package_name').notNull(), // e.g., '@drm-plugin/posthog'
+    version: text('version').notNull(),
+    enabled: boolean('enabled').default(false),
+    config: jsonb('config'), // プラグイン固有の設定
+    installed_at: timestamp('installed_at').defaultNow(),
+    enabled_at: timestamp('enabled_at'),
+  });
+
+  export const plugin_logs = pgTable('plugin_logs', {
+    log_id: uuid('log_id').primaryKey().defaultRandom(),
+    plugin_id: text('plugin_id').references(() => plugins.plugin_id),
+    tenant_id: text('tenant_id').notNull().default('default'),
+    status: text('status').notNull(), // 'success', 'error', 'warning'
+    message: text('message'),
+    stack: text('stack'),
+    created_at: timestamp('created_at').defaultNow(),
+  });
+  ```
+
+- **内部実装方針**:
+  - Drizzle ORM でスキーマ定義
+  - マイグレーションは `drizzle-kit` で管理
+  - PostgreSQL RLS で `tenant_id` によるデータ分離
+  - 暗号化は PII カラムに対して `pgcrypto` を使用
+
+---
+
+---
+
+#### プラグインのインストールと有効化フロー
+
 ```
-plugins/
-  slack/
-    plugin.json
-    index.ts
-    ui/
-      SlackActivityChart.tsx
-    jobs/
-      sync.ts
-  discord/
-    plugin.json
-    index.ts
-  webhook/
-    plugin.json
-    index.ts
-```
+1. npm パッケージのインストール
+   $ pnpm add @drm-plugin/posthog
 
-**Plugin定義API**:
-```typescript
-// plugins/slack/index.ts
-import { definePlugin } from '@drm/plugin-sdk';
+2. アプリケーション再起動（開発時は自動再起動）
+   $ docker-compose restart web
 
-export default definePlugin({
-  id: 'slack',
-  name: 'Slack Integration',
-  version: '1.0.0',
-  author: 'DRM Team',
-  license: 'MIT',
+3. プラグイン検出
+   - Plugin Loader が node_modules/ をスキャン
+   - @drm-plugin/* または drm-plugin-* パッケージを検出
+   - package.json の "drm-plugin" フィールドでメタデータ取得
 
-  // 設定スキーマ
-  settings: {
-    apiToken: {
-      type: 'string',
-      title: 'Slack API Token',
-      required: true,
-      secret: true,
-    },
-    workspaceId: {
-      type: 'string',
-      title: 'Workspace ID',
-      required: true,
-    },
-  },
+4. 管理画面で有効化
+   - /admin/plugins ページで未有効化プラグイン一覧を表示
+   - 「有効化」ボタンをクリック
+   - DB の plugins テーブルに { plugin_id, enabled: true } を保存
+   - onInit フックを実行してジョブ・UI・API を登録
 
-  // ライフサイクルフック
-  hooks: {
-    onInit({ registerJob, registerAPI, registerUI, registerActionHook }) {
-      // 定期実行ジョブ登録
-      registerJob('slack.sync', { cron: '*/15 * * * *' }, syncSlackData);
-
-      // API拡張
-      registerAPI('POST', '/slack/webhook', handleSlackWebhook);
-
-      // UI Widget登録
-      registerUI('dashboard.panel', SlackSummaryChart);
-
-      // アクションフック登録（監査ログ用）
-      registerActionHook('developer.create', logAction);
-      registerActionHook('developer.merge', logAction);
-    },
-
-    onEnable({ tenantId, settings }) {
-      console.log(`Slack plugin enabled for tenant ${tenantId}`);
-    },
-
-    onDisable({ tenantId }) {
-      console.log(`Slack plugin disabled for tenant ${tenantId}`);
-    },
-  },
-
-  // UIコンポーネント
-  widgets: [
-    {
-      type: 'chart',
-      title: 'Slack Activity',
-      component: SlackActivityChart,
-    },
-    {
-      type: 'list',
-      title: 'Recent Messages',
-      component: RecentMessagesList,
-    },
-  ],
-});
-```
-
-**Plugin Loader**:
-```typescript
-// core/plugin-system/loader.ts
-interface PluginLoader {
-  loadPlugin(pluginPath: string): Promise<PluginDefinition>;
-  verifySignature(pluginPath: string): Promise<boolean>; // 商用版のみ
-  registerPlugin(plugin: PluginDefinition): void;
-  unregisterPlugin(pluginId: string): void;
-}
-```
-
-**内部実装方針**:
-- プラグインは独立したnpmパッケージとして配布
-- OSS版は`/plugins`ディレクトリから自動ロード
-- SaaS版は署名検証必須（RSA256）
-- プラグイン実行は専用のSandboxで隔離（vm2 or isolated-vm検討）
-- エラーは本体に影響しないようcatch
-
-**プラグイン例: 監査ログ**:
-```typescript
-// plugins/audit-log/index.ts
-import { definePlugin } from '@drm/plugin-sdk';
-
-export default definePlugin({
-  id: 'audit-log',
-  name: 'Audit Log',
-  version: '1.0.0',
-  author: 'DRM Team',
-  license: 'Commercial',
-
-  // スキーマ定義
-  schema: {
-    auditLogs: {
-      id: 'uuid',
-      tenantId: 'uuid',
-      userId: 'uuid',
-      action: 'string', // 'developer.create', 'developer.merge', etc.
-      resourceType: 'string', // 'developer', 'activity', etc.
-      resourceId: 'uuid',
-      metadata: 'jsonb',
-      ipAddress: 'string',
-      userAgent: 'string',
-      createdAt: 'timestamp',
-    },
-  },
-
-  hooks: {
-    onInit({ registerActionHook, registerUI, db }) {
-      // すべてのアクションをフック
-      const actions = [
-        'developer.create',
-        'developer.update',
-        'developer.delete',
-        'developer.merge',
-        'activity.create',
-        'activity.update',
-        'activity.delete',
-        'campaign.create',
-        'campaign.update',
-        'plugin.enable',
-        'plugin.disable',
-      ];
-
-      actions.forEach((action) => {
-        registerActionHook(action, async (context) => {
-          await db.insert('audit_logs').values({
-            tenantId: context.tenantId,
-            userId: context.userId,
-            action: context.action,
-            resourceType: action.split('.')[0],
-            resourceId: context.resourceId,
-            metadata: context.metadata,
-            ipAddress: context.request.ip,
-            userAgent: context.request.headers['user-agent'],
-          });
-        });
-      });
-
-      // UI登録
-      registerUI('settings.audit', AuditLogViewer);
-    },
-  },
-
-  widgets: [
-    {
-      type: 'list',
-      title: 'Recent Audit Logs',
-      component: RecentAuditLogs,
-    },
-  ],
-});
+5. プラグイン実行
+   - 有効化されたプラグインのみが実行される
+   - ジョブスケジューラーでcronジョブを定期実行
 ```
 
-**コア側のアクションフック実装**:
-```typescript
-// services/developer.service.ts
-export class DeveloperService {
-  async createDeveloper(tenantId: string, userId: string, data: CreateDeveloperInput, request: Request): Promise<Developer> {
-    const developer = await db.insert(developers).values({
-      tenantId,
-      ...data,
-    });
-
-    // アクションフック実行（監査ログプラグインが記録）
-    await pluginSystem.executeActionHooks('developer.create', {
-      tenantId,
-      userId,
-      action: 'developer.create',
-      resourceId: developer.id,
-      metadata: { displayName: developer.displayName },
-      request,
-    });
-
-    return developer;
+**package.json の例**
+```json
+{
+  "name": "@drm-plugin/posthog",
+  "version": "1.0.0",
+  "main": "dist/index.js",
+  "drm-plugin": {
+    "id": "posthog",
+    "name": "PostHog Integration",
+    "description": "Integrate anonymous analytics data from PostHog",
+    "signature": "base64-encoded-signature-for-commercial-plugins"
   }
 }
 ```
 
 ---
 
-#### Data Layer (Drizzle ORM)
+#### PostHog Plugin (`@drm-plugin/posthog`)
 
-**目的**: データベーススキーマ定義、マイグレーション、クエリビルダー
+- **目的**: 匿名ユーザーの行動データを PostHog から取得し、DRM ファネルと統合
+- **公開インターフェース**:
+  ```typescript
+  // @drm-plugin/posthog/src/index.ts
+  import { definePlugin } from '@drm/core/plugin-system';
 
-**スキーマ定義**:
-```typescript
-// db/schema/developers.ts
-import { pgTable, uuid, varchar, timestamp, jsonb, boolean } from 'drizzle-orm/pg-core';
+  export default definePlugin({
+    id: 'posthog',
+    name: 'PostHog Integration',
+    version: '1.0.0',
+    hooks: {
+      onInit(ctx) {
+        ctx.registerJob('posthog.sync', '0 */6 * * *', syncPostHogData);
+        ctx.registerUI('dashboard.funnel', FunnelChart);
+      },
+    },
+  });
 
-export const developers = pgTable('developers', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  tenantId: uuid('tenant_id').notNull(),
-  displayName: varchar('display_name', { length: 255 }),
-  primaryEmail: varchar('primary_email', { length: 255 }),
-  orgId: uuid('org_id'),
-  consentAnalytics: boolean('consent_analytics').default(false),
-  metadata: jsonb('metadata'),
-  createdAt: timestamp('created_at').defaultNow(),
-  updatedAt: timestamp('updated_at').defaultNow(),
-});
-
-// db/schema/activities.ts
-export const activities = pgTable('activities', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  tenantId: uuid('tenant_id').notNull(),
-  developerId: uuid('developer_id'),
-  type: varchar('type', { length: 100 }).notNull(), // 'event', 'post', 'github', etc.
-  source: varchar('source', { length: 100 }), // 'slack', 'connpass', etc.
-  metadata: jsonb('metadata'),
-  ts: timestamp('ts').defaultNow(),
-});
-
-// db/schema/budgets.ts
-export const budgets = pgTable('budgets', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  tenantId: uuid('tenant_id').notNull(),
-  campaignId: uuid('campaign_id'),
-  category: varchar('category', { length: 100 }), // 'labor', 'ad', 'production'
-  amount: numeric('amount', { precision: 10, scale: 2 }),
-  currency: varchar('currency', { length: 3 }).default('JPY'),
-  createdAt: timestamp('created_at').defaultNow(),
-});
-```
-
-**RLS (Row Level Security)**:
-```sql
--- マイグレーションファイルで実行
-ALTER TABLE developers ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY tenant_isolation ON developers
-  USING (tenant_id = current_setting('app.current_tenant')::uuid);
-```
-
-**内部実装方針**:
-- Drizzle Kitでマイグレーション管理
-- RLSで完全なテナント分離（SaaS版）
-- インデックス戦略：`tenant_id`, `developer_id`, `ts`
-- JSONBカラムでメタデータの柔軟性確保
-
-**Phase 1での実装範囲**:
-- `developers`, `activities`, `organizations`テーブルのみ
-- Seed dataで動作確認用のサンプルデータ投入
-- マイグレーション実行確認
-
-**Workerの実装**:
-```typescript
-// workers/index.ts
-import { Queue, Worker } from 'bullmq';
-import { connection } from './redis';
-
-// キュー定義
-export const pluginQueue = new Queue('plugins', { connection });
-
-// ワーカー起動
-const worker = new Worker('plugins', async (job) => {
-  console.log(`Processing job ${job.id}: ${job.name}`);
-
-  switch (job.name) {
-    case 'sync.slack':
-      // Phase 4で実装
-      break;
-    case 'sync.connpass':
-      // Phase 4で実装
-      break;
-    default:
-      console.log(`Unknown job: ${job.name}`);
+  async function syncPostHogData(ctx: PluginContext) {
+    const events = await fetchPostHogEvents(ctx);
+    await mergeAnonymousFunnel(ctx, events);
   }
-}, { connection });
+  ```
 
-worker.on('completed', (job) => {
-  console.log(`Job ${job.id} completed`);
-});
+**インストール方法**
+```bash
+# プラグインをインストール
+pnpm add @drm-plugin/posthog
 
-worker.on('failed', (job, err) => {
-  console.error(`Job ${job?.id} failed:`, err);
-});
+# アプリケーションを再起動
+docker-compose restart web
+
+# 管理画面 (/admin/plugins) で有効化
 ```
+
+- **内部実装方針**:
+  - PostHog Node SDK で Capture API からイベント取得
+  - `distinct_id = click_id` で匿名データを識別
+  - DRM の `Activity` と統合してファネル分析に反映
+  - cron で定期的に同期（6時間ごと）
 
 ---
 
-#### PostHog Integration
+#### Webhook Plugin (`@drm-plugin/webhook`)
 
-**目的**: 匿名イベントとDRMファネルを統合
+- **目的**: 外部システムからのデータ受信（商用プラグイン例示）
+- **公開インターフェース**:
+  ```typescript
+  // @drm-plugin/webhook/src/index.ts
+  import { definePlugin } from '@drm/core/plugin-system';
 
-**データフロー**:
+  export default definePlugin({
+    id: 'webhook',
+    name: 'Webhook Integration',
+    version: '1.0.0',
+    hooks: {
+      onInit(ctx) {
+        ctx.registerAPI('/webhook/:eventType', handleWebhook);
+      },
+    },
+  });
+
+  async function handleWebhook({ request, params }: ActionFunctionArgs) {
+    const eventType = params.eventType;
+    const payload = await request.json();
+    await processWebhookEvent(eventType, payload);
+    return json({ success: true });
+  }
+  ```
+
+**インストール方法**
+```bash
+# プラグインをインストール
+pnpm add @drm-plugin/webhook
+
+# アプリケーションを再起動
+docker-compose restart web
+
+# 管理画面 (/admin/plugins) で有効化
 ```
-[匿名ユーザー]
-  ↓ click_id付きURL訪問
-[PostHog Capture API]
-  ↓ distinct_id = click_id
-[DRM Webhook受信]
-  ↓ click_id → developer_id マッピング
-[Funnel更新]
-```
 
-**公開インターフェース**:
-```typescript
-// posthog/api/capture.ts
-interface PostHogCapture {
-  sendEvent(clickId: string, event: string, properties: Record<string, unknown>): Promise<void>;
-  linkClickIdToDeveloper(clickId: string, developerId: string): Promise<void>;
-}
-
-// posthog/services/funnel-merge.ts
-interface FunnelMergeService {
-  mergeAnonymousEvents(tenantId: string, developerId: string): Promise<void>;
-  getAnonymousFunnelMetrics(tenantId: string): Promise<FunnelMetrics>;
-}
-```
-
-**Phase 1での実装範囲**:
-- PostHog連携はPhase 4まで延期
-- まずはDeveloper/Activity手動登録から開始
-
-**内部実装方針**:
-- PostHog Node SDKを使用
-- click_idは短縮URL生成時に発行（nanoid 16文字）
-- Webhookで`$identify`イベントを受信してマッピング
-- 匿名イベントは定期的にDRMファネルに統合
+- **内部実装方針**:
+  - Remix Resource Routes で Webhook エンドポイントを動的に登録
+  - イベントタイプに応じて Activity を作成
+  - 署名検証（HMAC-SHA256）でセキュリティ確保
 
 ---
 
@@ -839,71 +678,122 @@ interface FunnelMergeService {
 ### 3.1 データフロー図
 
 ```
-┌──────────────┐
-│ User Action  │ (フォーム入力、CSV、API)
-└──────┬───────┘
-       ▼
-┌───────────────────────────┐
-│ Remix Routes/Actions      │ (Validation, Auth)
-└──────┬────────────────────┘
-       ▼
-┌──────────────────┐
-│ Services Layer   │ (Business Logic)
-└──────┬───────────┘
-       ▼
-┌──────────────────┐
-│ Data Layer (ORM) │ (Drizzle ORM)
-└──────┬───────────┘
-       ▼
-┌──────────────────┐
-│ PostgreSQL       │ (Persistent Storage)
-└──────────────────┘
+┌───────────────────────────────────────────────────────────────────┐
+│                     データ登録フロー                                │
+└───────────────────────────────────────────────────────────────────┘
 
-[External Services]
-  ↓
-[Plugin System]
-  ↓
-[Services Layer] → [Data Layer] → [PostgreSQL]
+[User/External System]
+         │
+         ├─────────────┬─────────────┬─────────────┐
+         │             │             │             │
+         ↓             ↓             ↓             ↓
+    [Form Input]   [API POST]   [CSV Upload]  [Webhook]
+         │             │             │             │
+         └─────────────┴─────────────┴─────────────┘
+                       │
+                       ↓
+                 [API Layer]
+                  (Validation)
+                       │
+                       ↓
+                [Service Layer]
+             (Business Logic)
+                       │
+                       ↓
+                 [Data Layer]
+               (Drizzle ORM)
+                       │
+                       ↓
+                 [PostgreSQL]
+                       │
+                       ↓
+              [Plugin Hooks]
+           (onActivityCreated)
+                       │
+                       ↓
+             [Background Jobs]
+              (Redis Queue)
+
+
+┌───────────────────────────────────────────────────────────────────┐
+│                   ファネル分析フロー                                │
+└───────────────────────────────────────────────────────────────────┘
+
+[PostHog Events] ──┐
+                   │
+[DRM Activities] ──┼──→ [Funnel Service]
+                   │      - classifyStage()
+[Plugin Data] ─────┘      - calculateDropRate()
+                              │
+                              ↓
+                       [Dashboard UI]
+                         (Charts)
+
+
+┌───────────────────────────────────────────────────────────────────┐
+│                      ROI分析フロー                                 │
+└───────────────────────────────────────────────────────────────────┘
+
+[Campaign] ────────┐
+                   │
+[Budget] ──────────┼──→ [ROI Service]
+                   │      - calculateROI()
+[Click Tracking] ──┘      - aggregateContribution()
+                              │
+                              ↓
+                        [ROI Dashboard]
+                     (投資対効果グラフ)
 ```
 
 ### 3.2 データ変換例
 
-#### Example: イベント参加者のCSVアップロード
+#### 入力データ形式
 
-**入力データ形式** (CSV):
-```csv
-name,email,company,event_name,participated_at
-Alice,alice@example.com,ACME Inc,DevFest 2024,2024-03-15
-Bob,bob@example.com,ACME Inc,DevFest 2024,2024-03-15
+**Activity 登録 (JSON)**
+```json
+{
+  "type": "event_participation",
+  "developer_id": "550e8400-e29b-41d4-a716-446655440000",
+  "source": "connpass",
+  "metadata": {
+    "event_name": "DevRel Meetup Tokyo",
+    "attended": true,
+    "role": "speaker"
+  },
+  "ts": "2025-10-10T10:00:00Z"
+}
 ```
 
-**処理過程**:
-1. CSVパース（papaparseライブラリ）
-2. バリデーション（Zodスキーマ）
-3. Developer名寄せ（email, name）
-4. Organization自動生成（company）
-5. Activity登録（type='event', source='csv'）
+**CSV インポート (connpass エクスポート)**
+```csv
+nickname,email,event_title,attendance,date
+山田太郎,yamada@example.com,DevRel Meetup Tokyo,出席,2025-10-10
+```
 
-**出力データ形式** (Database):
-```typescript
-// developers table
-{
-  id: 'uuid-1',
-  tenant_id: 'tenant-uuid',
-  display_name: 'Alice',
-  primary_email: 'alice@example.com',
-  org_id: 'org-uuid-1',
-}
+#### 処理過程
 
-// activities table
+1. **バリデーション**: Zod スキーマでデータ検証
+2. **ID 統合**: メールアドレスから既存 Developer を検索または新規作成
+3. **ファネル分類**: Activity の type と metadata から Funnel Stage を推定
+4. **プラグイン通知**: `onActivityCreated` フックを実行
+5. **データ保存**: PostgreSQL に INSERT
+
+#### 出力データ形式
+
+**Activity レスポンス (JSON)**
+```json
 {
-  id: 'activity-uuid-1',
-  tenant_id: 'tenant-uuid',
-  developer_id: 'uuid-1',
-  type: 'event',
-  source: 'csv',
-  metadata: { event_name: 'DevFest 2024' },
-  ts: '2024-03-15T00:00:00Z',
+  "activity_id": "660e8400-e29b-41d4-a716-446655440001",
+  "developer_id": "550e8400-e29b-41d4-a716-446655440000",
+  "type": "event_participation",
+  "source": "connpass",
+  "metadata": {
+    "event_name": "DevRel Meetup Tokyo",
+    "attended": true,
+    "role": "speaker"
+  },
+  "ts": "2025-10-10T10:00:00Z",
+  "created_at": "2025-10-10T10:05:00Z"
 }
 ```
 
@@ -911,64 +801,176 @@ Bob,bob@example.com,ACME Inc,DevFest 2024,2024-03-15
 
 ## 4. APIインターフェース
 
-### 4.1 内部API（Services間）
+### 4.1 内部API（モジュール間）
+
+#### Service → Data Layer
 
 ```typescript
-// services/developer.service.ts → services/activity.service.ts
-const developer = await developerService.createDeveloper(tenantId, data);
-await activityService.recordActivity(tenantId, {
-  developerId: developer.id,
-  type: 'signup',
-  source: 'web',
-});
+// services/drm.service.ts
+import { db } from '@/db/connection';
+import { developers, activities } from '@/db/schema';
+
+export class DRMService {
+  async createDeveloper(data: CreateDeveloperInput): Promise<Developer> {
+    return db.insert(developers).values(data).returning();
+  }
+}
 ```
 
-### 4.2 外部API（REST API）
+#### Plugin → Service Layer
 
-**認証**: Cookie-based Session (Remix Auth)
+```typescript
+// plugins/posthog/sync.ts
+import { DRMService } from '@drm/core/services/drm.service';
 
-**エンドポイント一覧**:
-
-| Method | Endpoint | 説明 | Phase |
-|--------|----------|------|-------|
-| `GET` | `/api/developers` | Developer一覧取得 | Phase 1 |
-| `GET` | `/api/developers/:id` | Developer詳細取得 | Phase 2 |
-| `POST` | `/api/developers` | Developer新規登録 | Phase 2 |
-| `POST` | `/api/developers/:id/merge` | Developer統合 | Phase 3 |
-| `GET` | `/api/activities` | Activity一覧取得 | Phase 2 |
-| `POST` | `/api/activities` | Activity登録 | Phase 2 |
-| `GET` | `/api/funnel` | ファネルメトリクス | Phase 3 |
-| `POST` | `/api/roi/calculate` | ROI計算 | Phase 3 |
-| `POST` | `/api/webhooks/posthog` | PostHogイベント受信 | Phase 4 |
-| `GET` | `/api/plugins` | プラグイン一覧 | Phase 4 |
-| `POST` | `/api/plugins/:id/enable` | プラグイン有効化 | Phase 4 |
-
-**Example Request**:
-```bash
-curl -X POST https://drm.example.com/api/activities \
-  -H "Cookie: __session=YOUR_SESSION_COOKIE" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "type": "event",
-    "source": "connpass",
-    "metadata": {
-      "event_name": "DevFest 2024",
-      "url": "https://connpass.com/event/12345"
-    },
-    "ts": "2024-03-15T10:00:00Z"
-  }'
+export async function syncPostHogData(ctx: PluginContext) {
+  const drmService = new DRMService(ctx.db);
+  await drmService.createActivity({ ... });
+}
 ```
 
-**Example Response**:
-```json
+### 4.2 外部API（REST）
+
+#### Activity API
+
+**POST /api/activities**
+```typescript
+// Request
 {
-  "id": "activity-uuid",
-  "tenantId": "tenant-uuid",
-  "type": "event",
-  "source": "connpass",
-  "metadata": { "event_name": "DevFest 2024" },
-  "ts": "2024-03-15T10:00:00Z",
-  "createdAt": "2024-03-15T10:05:00Z"
+  "type": "github_contribution",
+  "developer_id": "uuid",
+  "source": "github",
+  "metadata": { "repo": "org/repo", "pr_number": 123 }
+}
+
+// Response (201)
+{
+  "activity_id": "uuid",
+  "created_at": "2025-10-10T10:00:00Z"
+}
+```
+
+**GET /api/activities?developer_id=uuid**
+```typescript
+// Response (200)
+{
+  "activities": [
+    {
+      "activity_id": "uuid",
+      "type": "github_contribution",
+      "ts": "2025-10-10T10:00:00Z"
+    }
+  ]
+}
+```
+
+#### ROI API
+
+**POST /api/campaigns**
+```typescript
+// Request
+{
+  "name": "DevRel Conference Sponsorship",
+  "budget": 500000,
+  "start_date": "2025-10-01",
+  "end_date": "2025-10-15"
+}
+
+// Response (201)
+{
+  "campaign_id": "uuid",
+  "short_url": "https://devcle.com/c/abc123"
+}
+```
+
+**GET /api/campaigns/:id/roi**
+```typescript
+// Response (200)
+{
+  "campaign_id": "uuid",
+  "budget": 500000,
+  "clicks": 1200,
+  "conversions": 80,
+  "roi": 0.32
+}
+```
+
+#### Plugin API
+
+**GET /api/plugins**
+```typescript
+// Response (200)
+{
+  "plugins": [
+    {
+      "id": "posthog",
+      "package_name": "@drm-plugin/posthog",
+      "name": "PostHog Integration",
+      "description": "Integrate anonymous analytics data from PostHog",
+      "version": "1.0.0",
+      "enabled": true,
+      "installed_at": "2025-10-10T10:00:00Z",
+      "enabled_at": "2025-10-10T10:05:00Z"
+    },
+    {
+      "id": "webhook",
+      "package_name": "@drm-plugin/webhook",
+      "name": "Webhook Integration",
+      "version": "1.0.0",
+      "enabled": false,
+      "installed_at": "2025-10-10T11:00:00Z"
+    }
+  ]
+}
+```
+
+**POST /api/plugins/:id/enable**
+```typescript
+// Request
+{
+  "config": {
+    "api_key": "phc_xxxxxx",
+    "project_id": "12345"
+  }
+}
+
+// Response (200)
+{
+  "success": true,
+  "plugin_id": "posthog",
+  "enabled": true
+}
+```
+
+**POST /api/plugins/:id/disable**
+```typescript
+// Response (200)
+{
+  "success": true,
+  "plugin_id": "posthog",
+  "enabled": false
+}
+```
+
+**GET /api/plugins/:id/logs**
+```typescript
+// Response (200)
+{
+  "logs": [
+    {
+      "log_id": "uuid",
+      "status": "success",
+      "message": "Synced 1200 events from PostHog",
+      "created_at": "2025-10-10T12:00:00Z"
+    },
+    {
+      "log_id": "uuid",
+      "status": "error",
+      "message": "Failed to connect to PostHog API",
+      "stack": "Error: Connection timeout...",
+      "created_at": "2025-10-10T06:00:00Z"
+    }
+  ]
 }
 ```
 
@@ -978,40 +980,100 @@ curl -X POST https://drm.example.com/api/activities \
 
 ### 5.1 エラー分類
 
-| エラータイプ | HTTPステータス | 対処方法 |
-|------------|--------------|---------|
-| `ValidationError` | 400 | リクエストデータの検証失敗。詳細をレスポンスに含める |
-| `AuthenticationError` | 401 | JWT検証失敗。再ログイン促す |
-| `AuthorizationError` | 403 | テナントアクセス権限なし。管理者に連絡促す |
-| `NotFoundError` | 404 | リソースが見つからない |
-| `PluginError` | 500 | プラグイン実行エラー。ログに記録し、本体は継続 |
-| `DatabaseError` | 500 | DB接続エラー。リトライ可能ならリトライ |
+#### 1. バリデーションエラー（400 Bad Request）
+- **発生条件**: 不正な入力データ
+- **対処方法**: Zod エラーメッセージを返却
+```typescript
+return json({
+  error: 'Validation failed',
+  details: zodError.errors
+}, { status: 400 });
+```
 
-### 5.2 エラー通知
+#### 2. 認証エラー（401 Unauthorized）
+- **発生条件**: JWT トークンが無効または期限切れ
+- **対処方法**: トークン再取得を促す
+```typescript
+return json({
+  error: 'Invalid token',
+  message: 'Please re-authenticate'
+}, { status: 401 });
+```
 
-**ロギング戦略**:
-- **構造化ログ**: JSON形式（pino or winston）
-- **ログレベル**: `error`, `warn`, `info`, `debug`
-- **エラートレース**: スタックトレース + テナントID + リクエストID
+#### 3. 権限エラー（403 Forbidden）
+- **発生条件**: テナント外のリソースへのアクセス
+- **対処方法**: RLS で自動的にブロック、ログに記録
+```typescript
+return json({
+  error: 'Access denied',
+  message: 'You do not have permission to access this resource'
+}, { status: 403 });
+```
 
-**エラーレスポンス例**:
-```json
-{
-  "error": {
-    "type": "ValidationError",
-    "message": "Invalid email format",
-    "details": {
-      "field": "email",
-      "value": "invalid-email"
-    },
-    "requestId": "req-uuid"
+#### 4. リソース未検出（404 Not Found）
+- **発生条件**: 存在しない Developer/Activity/Campaign
+- **対処方法**: 明確なエラーメッセージを返却
+```typescript
+return json({
+  error: 'Resource not found',
+  message: 'Developer with ID xxx not found'
+}, { status: 404 });
+```
+
+#### 5. プラグインエラー（500 Internal Server Error）
+- **発生条件**: プラグインの実行に失敗
+- **対処方法**: `plugin_logs` にエラー詳細を記録、管理画面に表示
+```typescript
+await db.insert(pluginLogs).values({
+  plugin_id: 'posthog',
+  status: 'error',
+  message: error.message,
+  stack: error.stack,
+});
+```
+
+#### 6. 外部API エラー（502 Bad Gateway）
+- **発生条件**: PostHog/GitHub などの外部 API が応答しない
+- **対処方法**: リトライロジック（指数バックオフ）、エラー通知
+```typescript
+for (let i = 0; i < 3; i++) {
+  try {
+    return await fetchPostHogAPI();
+  } catch (error) {
+    if (i === 2) throw error;
+    await sleep(2 ** i * 1000);
   }
 }
 ```
 
-**監視**:
-- PostHogで`$exception`イベント送信
-- SaaS版ではSentry連携検討
+### 5.2 エラー通知
+
+#### ログ戦略
+- **エラーレベル**: `error` (重大), `warn` (注意), `info` (情報)
+- **ログ出力先**: `stdout` (JSON形式) → Docker logs → CloudWatch/Datadog
+- **プラグインエラー**: `plugin_logs` テーブルに保存し、管理画面で閲覧可能
+
+#### 通知方法
+- **SaaS版**: Webhook で Slack/Discord に通知
+- **OSS版**: 管理画面のエラーログビューアで確認
+
+```typescript
+// services/notification.service.ts
+export async function notifyError(error: Error, context: Record<string, any>) {
+  console.error(JSON.stringify({
+    level: 'error',
+    message: error.message,
+    stack: error.stack,
+    context,
+    timestamp: new Date().toISOString(),
+  }));
+
+  // SaaS版のみ Webhook 通知
+  if (process.env.NODE_ENV === 'production') {
+    await sendSlackNotification(error, context);
+  }
+}
+```
 
 ---
 
@@ -1019,37 +1081,72 @@ curl -X POST https://drm.example.com/api/activities \
 
 ### 6.1 認証・認可
 
-**OSS版**:
-- ローカル認証（bcrypt）
-- セッションベース（cookie-session）
+#### OSS版
+- **基本認証**: 環境変数で設定したユーザー名/パスワード
+- **セッション管理**: Redis にセッション保存
+- **権限**: すべてのユーザーが Admin 権限
 
-**SaaS版**:
-- OAuth2（GitHub, Google）via Remix Auth
-- Cookie-based sessions (HTTP-only, Secure, SameSite=Lax)
-- Session storage: Redis or Database
+#### SaaS版
+- **OAuth2 / OpenID Connect**: Google, GitHub SSO
+- **JWT トークン**: `access_token` (15分), `refresh_token` (30日)
+- **ロールベース権限**: Admin / Manager / Viewer / AI Engine
+- **テナント分離**: JWT に `tenant_id` を含め、すべての API で検証
 
-**ロール**:
 ```typescript
-enum Role {
-  ADMIN = 'admin',       // 全権限
-  MANAGER = 'manager',   // 施策・ROI管理
-  VIEWER = 'viewer',     // 閲覧のみ
+// utils/auth.server.ts
+import { verify } from 'jose';
+import { redirect } from '@remix-run/node';
+
+export async function requireAuth(request: Request) {
+  const token = request.headers.get('Authorization')?.replace('Bearer ', '');
+  if (!token) {
+    throw json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const payload = await verify(token, JWT_SECRET);
+  return {
+    tenantId: payload.tenant_id as string,
+    userId: payload.user_id as string,
+    role: payload.role as string,
+  };
+}
+
+// routes/api/activities.ts での使用例
+export async function action({ request }: ActionFunctionArgs) {
+  const auth = await requireAuth(request);
+  // auth.tenantId, auth.userId, auth.role が利用可能
 }
 ```
 
 ### 6.2 データ保護
 
-| データ種別 | 保護方法 |
-|-----------|---------|
-| PII（メール、名前） | PostgreSQL暗号化カラム（pgcrypto） |
-| プラグインAPIキー | `settings`テーブル、`secret=true`フィールド |
-| Session Secret | 環境変数、`.env`でgitignore |
-| Database接続情報 | 環境変数、KMSで暗号化（SaaS版） |
+#### 暗号化
+- **PII（個人情報）**: `pgcrypto` で列レベル暗号化
+  - `primary_email`, `display_name` など
+- **API キー**: Hashicorp Vault または AWS Secrets Manager で管理
 
-**監査ログ**（プラグインで実装）:
-- 監査ログ機能はコアには含めず、プラグインとして実装
-- プラグインが各種アクション（developer.merge, plugin.enable等）をフック
-- 詳細は「プラグイン例: 監査ログ」セクション参照
+#### PostgreSQL RLS
+```sql
+-- developers テーブルの RLS ポリシー
+ALTER TABLE developers ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY tenant_isolation_policy ON developers
+  USING (tenant_id = current_setting('app.tenant_id')::text);
+
+-- organizations テーブルの RLS ポリシー
+ALTER TABLE organizations ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY tenant_isolation_policy ON organizations
+  USING (tenant_id = current_setting('app.tenant_id')::text);
+```
+
+#### Redis セキュリティ
+- **認証**: `requirepass` で Redis パスワード設定
+- **ネットワーク**: Docker 内部ネットワークのみアクセス可能
+
+#### HTTPS/SSL
+- **Cloudflare**: Flexible SSL または Full SSL
+- **nginx**: Let's Encrypt 証明書自動更新
 
 ---
 
@@ -1057,63 +1154,81 @@ enum Role {
 
 ### 7.1 単体テスト
 
-**カバレッジ目標**: 80%以上
+#### カバレッジ目標
+- **Service Layer**: 90%以上
+- **Data Layer**: 80%以上
+- **Plugin System**: 85%以上
 
-**テストフレームワーク**: Vitest
+#### テストフレームワーク
+- **Vitest**: 高速な単体テスト
+- **Test Containers**: PostgreSQL/Redis のテスト用コンテナ
 
-**テスト対象**:
-- Services層のビジネスロジック
-- Utility関数（ROI計算、ファネル集計）
-- バリデーションスキーマ（Zod）
-
-**Example**:
 ```typescript
-// services/__tests__/roi.service.test.ts
-import { describe, it, expect } from 'vitest';
-import { ROIService } from '../roi.service';
+// services/drm.service.test.ts
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { DRMService } from './drm.service';
+import { setupTestDB, teardownTestDB } from '@/test/utils';
 
-describe('ROIService', () => {
-  it('should calculate ROI correctly', () => {
-    const roi = ROIService.calculateROI({ investment: 100, return: 150 });
-    expect(roi).toBe(0.5); // 50% ROI
+describe('DRMService', () => {
+  beforeAll(async () => {
+    await setupTestDB();
+  });
+
+  afterAll(async () => {
+    await teardownTestDB();
+  });
+
+  it('should create a developer', async () => {
+    const service = new DRMService(testDB);
+    const developer = await service.createDeveloper({
+      display_name: 'Test User',
+      primary_email: 'test@example.com',
+    });
+    expect(developer.developer_id).toBeDefined();
   });
 });
 ```
 
 ### 7.2 統合テスト
 
-**アプローチ**:
-- PostgreSQL（Testcontainers or docker-compose）でテスト用DB
-- APIエンドポイントのE2Eテスト（supertest）
+#### テストシナリオ
+1. **Activity 登録フロー**: API → Service → DB → Plugin Hook
+2. **ROI 計算フロー**: Campaign 作成 → Click 追跡 → ROI 算出
+3. **PostHog 同期フロー**: PostHog API → Funnel 統合 → Dashboard 表示
 
-**Example**:
 ```typescript
-// routes/__tests__/api.activities.test.ts
+// integration/activity-flow.test.ts
 import { describe, it, expect } from 'vitest';
-import { createRemixStub } from '@remix-run/testing';
-import { action } from '../api.activities';
+import { testClient } from '@/test/utils';
 
-describe('POST /api/activities', () => {
-  it('should create activity', async () => {
-    const request = new Request('http://localhost/api/activities', {
-      method: 'POST',
-      body: JSON.stringify({ type: 'event', source: 'test' }),
-      headers: { 'Content-Type': 'application/json' },
+describe('Activity Registration Flow', () => {
+  it('should register activity via API and trigger plugin hook', async () => {
+    const res = await testClient.post('/api/activities', {
+      json: {
+        type: 'event_participation',
+        developer_id: 'test-uuid',
+        source: 'test',
+        metadata: {},
+      },
     });
+    expect(res.status).toBe(201);
 
-    const response = await action({ request, params: {}, context: {} });
-    const data = await response.json();
-
-    expect(response.status).toBe(201);
-    expect(data).toHaveProperty('id');
+    // Plugin hook が実行されたか確認
+    const logs = await db.select().from(pluginLogs).where(...);
+    expect(logs).toHaveLength(1);
   });
 });
 ```
 
-### 7.3 プラグインテスト
+### 7.3 E2Eテスト
 
-- プラグインは独立したテストスイート
-- Mockサーバーで外部API（Slack, connpass）をシミュレート
+#### ツール
+- **Playwright**: ブラウザ自動化テスト
+
+#### テストシナリオ
+1. **ダッシュボード表示**: ログイン → Overview → Funnel → ROI
+2. **Activity 登録**: フォーム入力 → 保存 → 一覧表示
+3. **プラグイン管理**: プラグイン有効化 → 設定入力 → データ同期
 
 ---
 
@@ -1121,388 +1236,238 @@ describe('POST /api/activities', () => {
 
 ### 8.1 想定される負荷
 
-**OSS版**:
-- 開発者数: ~1,000人
-- 月間アクティビティ: ~10,000件
-- 同時接続数: ~10ユーザー
+#### OSS版
+- **ユーザー数**: 10-50人
+- **Activity 登録**: 1000件/日
+- **ダッシュボードアクセス**: 100回/日
 
-**SaaS版**:
-- テナント数: ~100
-- 総開発者数: ~100,000人
-- 月間アクティビティ: ~1,000,000件
-- 同時接続数: ~100ユーザー
+#### SaaS版
+- **テナント数**: 100-1000
+- **Activity 登録**: 100,000件/日
+- **ダッシュボードアクセス**: 10,000回/日
 
 ### 8.2 最適化方針
 
-| 施策 | 効果 |
-|------|------|
-| **DB Indexing** | `tenant_id`, `developer_id`, `ts`にIndex |
-| **Query Optimization** | N+1問題を回避（Drizzleの`with`で一括取得） |
-| **Caching** | Redis（ファネルメトリクス、ROIサマリ） |
-| **CDN** | 静的アセット配信（Cloudflare） |
-| **Job Queue** | 重い処理（AI分析、外部API同期）を非同期化 |
-| **Connection Pool** | PostgreSQL接続プール（pg-pool） |
-
-**Example**: Redis Cache
-```typescript
-// services/funnel.service.ts
-async getFunnelMetrics(tenantId: string): Promise<FunnelMetrics> {
-  const cacheKey = `funnel:${tenantId}`;
-  const cached = await redis.get(cacheKey);
-  if (cached) return JSON.parse(cached);
-
-  const metrics = await this.calculateFunnelMetrics(tenantId);
-  await redis.set(cacheKey, JSON.stringify(metrics), 'EX', 300); // 5分キャッシュ
-  return metrics;
-}
+#### データベース
+- **インデックス**: `developer_id`, `tenant_id`, `ts` に複合インデックス
+```sql
+CREATE INDEX idx_activities_developer_ts ON activities (developer_id, ts DESC);
+CREATE INDEX idx_activities_tenant ON activities (tenant_id);
 ```
+
+- **パーティショニング**: `activities` テーブルを月次パーティション
+```sql
+CREATE TABLE activities_2025_10 PARTITION OF activities
+  FOR VALUES FROM ('2025-10-01') TO ('2025-11-01');
+```
+
+#### キャッシュ
+- **Redis**: ダッシュボードデータを 5 分間キャッシュ
+```typescript
+const cacheKey = `dashboard:${tenantId}:overview`;
+const cached = await redis.get(cacheKey);
+if (cached) return JSON.parse(cached);
+
+const data = await fetchDashboardData(tenantId);
+await redis.setex(cacheKey, 300, JSON.stringify(data));
+return data;
+```
+
+#### バックグラウンドジョブ
+- **BullMQ**: Redis ベースのジョブキュー
+- **並列実行**: 複数のワーカープロセスで処理
+```typescript
+// worker.ts
+import { Worker } from 'bullmq';
+
+const worker = new Worker('plugin-jobs', async (job) => {
+  await executePluginJob(job.data);
+}, { connection: redisConnection });
+```
+
+#### 静的ファイル配信
+- **nginx**: `/public` ディレクトリを直接配信
+- **CDN**: Cloudflare CDN でキャッシュ
 
 ---
 
 ## 9. デプロイメント
 
-### 9.1 デプロイ構成（OSS版）
+### 9.1 デプロイ構成
 
-**docker-compose構成**:
+#### OSS版（docker-compose）
+
 ```yaml
+# docker-compose.yml
 version: '3.9'
 services:
   web:
-    build: .
-    ports:
-      - "8080:8080"
+    build: ./core
     environment:
-      DATABASE_URL: postgres://drm:drm_pass@db:5432/drm_core
+      DATABASE_URL: postgresql://drm:drm_pass@db:5432/drm_core
       REDIS_URL: redis://redis:6379
-      POSTHOG_API_KEY: ${POSTHOG_API_KEY}
-      SESSION_SECRET: ${SESSION_SECRET}
-    depends_on:
-      - db
-      - redis
-      - posthog
-
-  worker:
-    build: .
-    command: pnpm worker:start
-    environment:
-      DATABASE_URL: postgres://drm:drm_pass@db:5432/drm_core
-      REDIS_URL: redis://redis:6379
-      POSTHOG_API_KEY: ${POSTHOG_API_KEY}
     depends_on:
       - db
       - redis
 
   nginx:
     image: nginx:latest
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
     ports:
       - "80:80"
       - "443:443"
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
-    depends_on:
-      - web
 
   db:
     image: postgres:15
-    environment:
-      POSTGRES_USER: drm
-      POSTGRES_PASSWORD: drm_pass
-      POSTGRES_DB: drm_core
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
 
   redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
+    image: redis:7
     volumes:
       - redis_data:/data
-
-  posthog:
-    image: posthog/posthog:latest
-    environment:
-      DATABASE_URL: postgres://posthog:posthog@db:5432/posthog
-      REDIS_URL: redis://redis:6379
-    depends_on:
-      - db
-      - redis
-    ports:
-      - "8000:8000"
-
-volumes:
-  postgres_data:
-  redis_data:
 ```
 
-**起動手順**:
+**起動コマンド**
 ```bash
-# 1. 環境変数設定
-cp .env.example .env
-vim .env  # 編集
-
-# 2. Docker起動
 docker-compose up -d
-
-# 3. マイグレーション
 docker-compose exec web pnpm db:migrate
-
-# 4. 初期データ投入
 docker-compose exec web pnpm db:seed
+```
+
+#### SaaS版（Kubernetes）
+
+```yaml
+# k8s/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: drm-web
+spec:
+  replicas: 3
+  template:
+    spec:
+      containers:
+      - name: web
+        image: drm/core:latest
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: url
+```
+
+**デプロイコマンド**
+```bash
+kubectl apply -f k8s/
+kubectl rollout status deployment/drm-web
 ```
 
 ### 9.2 設定管理
 
-**環境変数** (`.env`):
+#### 環境変数
 ```bash
-# Database
-DATABASE_URL=postgres://drm:drm_pass@db:5432/drm_core
-
-# Redis
-REDIS_URL=redis://redis:6379
-
-# PostHog
-POSTHOG_API_KEY=phc_xxx
-POSTHOG_HOST=http://posthog:8000
-
-# Auth
-SESSION_SECRET=your-secret-key
-
-# Plugins
-PLUGIN_PATH=/app/plugins
-
-# Worker
-WORKER_CONCURRENCY=5
+# .env.example
+NODE_ENV=production
+DATABASE_URL=postgresql://user:pass@host:5432/dbname
+REDIS_URL=redis://host:6379
+JWT_SECRET=xxxxxxxx
+POSTHOG_API_KEY=phc_xxxxxx
+BASE_URL=https://devcle.com
 ```
 
-**SaaS版追加設定**:
-```bash
-# OAuth
-GITHUB_CLIENT_ID=xxx
-GITHUB_CLIENT_SECRET=xxx
-GOOGLE_CLIENT_ID=xxx
-GOOGLE_CLIENT_SECRET=xxx
-
-# Redis
-REDIS_URL=redis://localhost:6379
-
-# Monitoring
-SENTRY_DSN=https://xxx@sentry.io/xxx
-```
+#### シークレット管理
+- **OSS版**: `.env` ファイル（`.gitignore` 必須）
+- **SaaS版**: AWS Secrets Manager / HashiCorp Vault
 
 ---
 
 ## 10. 実装上の注意事項
 
-### 10.1 必須事項
+### 一般的な注意事項
+- **TypeScript strict mode**: すべてのコードで `strict: true` を遵守
+- **exactOptionalPropertyTypes**: `undefined` を明示的に許可しない限り使用禁止
+- **any/unknown 禁止**: 型推論できない場合は Zod でスキーマ定義
+- **class 禁止**: カスタムエラークラス以外は関数型で実装
 
-1. **テナント分離の徹底**
-   - すべてのクエリに`tenant_id`を含める
-   - RLSを必ず有効化（SaaS版）
-   - Middlewareでテナント検証
+### プラグイン開発
+- **署名必須**: 商用プラグインは RSA256 署名を添付
+- **バージョニング**: semver に従う（例: `1.2.3`）
+- **エラー処理**: すべてのフックでエラーをキャッチし `plugin_logs` に記録
 
-2. **プラグインのサンドボックス化**
-   - プラグインエラーが本体に影響しないようcatch
-   - 署名検証を必須に（SaaS版）
-   - APIレート制限
+### データベース
+- **tenant_id 必須**: すべてのテーブルに `tenant_id` カラムを追加
+- **RLS 有効化**: `ALTER TABLE ... ENABLE ROW LEVEL SECURITY`
+- **マイグレーション**: 後方互換性を保つ（カラム削除時は非推奨化 → 削除）
 
-3. **監査ログ**
-   - コアには含めず、プラグインとして提供
-   - プラグインがアクションフックを利用して記録
-   - SaaS版では監査ログプラグインを必須化
+### セキュリティ
+- **PII 暗号化**: `primary_email`, `display_name` は暗号化
+- **API キー**: 環境変数で管理、ログに出力しない
+- **SQL インジェクション**: Drizzle ORM のパラメータ化クエリを使用
 
-4. **非同期処理の実装**
-   - 外部API連携（Slack, connpass）は必ずJob Queue経由
-   - BullMQ + Redis推奨
+### パフォーマンス
+- **N+1 クエリ**: Drizzle の `with()` でリレーションを一括取得
+- **大量データ**: ページネーション必須（例: `limit: 100, offset: 0`）
+- **バックグラウンド処理**: 重い処理は BullMQ でジョブキューに投入
 
-5. **エラーハンドリング**
-   - すべてのエラーを構造化ログに記録
-   - ユーザーにはフレンドリーなメッセージ
-
-### 10.2 避けるべきパターン
-
-1. **N+1クエリ**
-   - Drizzleの`with`で一括取得
-   ```typescript
-   // ❌ Bad
-   const developers = await db.select().from(developers);
-   for (const d of developers) {
-     const activities = await db.select().from(activities).where(eq(activities.developerId, d.id));
-   }
-
-   // ✅ Good
-   const developersWithActivities = await db.query.developers.findMany({
-     with: { activities: true },
-   });
-   ```
-
-2. **同期的な外部API呼び出し**
-   - 必ずJob Queue経由
-
-3. **ハードコーディング**
-   - 設定値は環境変数 or DB
-
-4. **グローバルステート**
-   - サービスはStatelessに
-
-### 10.3 スケーラビリティ対策
-
-1. **水平スケール対応**
-   - Statelessアーキテクチャ
-   - セッションはRedis
-
-2. **データベース分離**
-   - テナントごとにスキーマ分離（検討）
-   - 大規模テナントは専用DB
-
-3. **CDN活用**
-   - 静的アセットはCloudflare
+### テスト
+- **Test Containers**: PostgreSQL/Redis のテスト用コンテナを使用
+- **モック禁止**: 可能な限り実際の DB を使用
+- **テストデータ**: `beforeEach` でクリーンアップ
 
 ---
 
-## 11. マイグレーション戦略
+## 11. 今後の実装予定（Phase別）
 
-### 11.1 データベースマイグレーション
+### Phase 1: Core完成（現在）
+- [x] 要件定義
+- [ ] 詳細設計
+- [ ] タスク分解
+- [ ] Core実装（DRM/ROI/Funnel/Plugin System）
 
-**ツール**: Drizzle Kit
+### Phase 2: Cloud Plugins
+- [ ] Slack/Discord統合
+- [ ] connpass/Meetup統合
+- [ ] GitHub統合
+- [ ] X (Twitter)統合
+- [ ] Google Analytics統合
+- [ ] Google Search統合
+- [ ] PostHog統合
 
-**フロー**:
-```bash
-# 1. スキーマ変更
-# db/schema/developers.ts を編集
+### Phase 3: Dashboard & AI
+- [ ] ダッシュボードUI完成
+- [ ] AI分析機能（SaaS限定）
+- [ ] レポート自動生成
 
-# 2. マイグレーションファイル生成
-pnpm db:generate
+### Phase 4: OSS Release & Cloud Launch
+- [ ] OSS版リリース（MIT/BSL）
+- [ ] SaaS版ベータリリース
+- [ ] 課金システム（Stripe）
 
-# 3. 確認
-cat db/migrations/0001_add_consent_field.sql
-
-# 4. 適用
-pnpm db:migrate
-
-# 5. Seed dataで動作確認
-pnpm db:seed
-
-# 6. 本番適用前にバックアップ
-pg_dump drm_core > backup.sql
-```
-
-**ロールバック**:
-```bash
-# Drizzleは自動ロールバック未対応のため手動SQL実行
-psql drm_core < db/migrations/rollback/0001.sql
-```
-
-### 11.2 プラグインマイグレーション
-
-- プラグインは独立したバージョン管理
-- 後方互換性を維持（Breaking Changeは避ける）
+### Phase 5: Marketplace
+- [ ] プラグインマーケットプレイス
+- [ ] 外部開発者向けSDK
+- [ ] 署名検証システム
 
 ---
 
-## 12. モニタリング・可観測性
+## 12. 参考資料
 
-### 12.1 メトリクス
-
-**収集項目**:
-- API応答時間（p50, p95, p99）
-- エラー率（5xx, 4xx）
-- DB接続数
-- プラグイン実行時間
-- ファネル更新頻度
-
-**ツール**:
-- Prometheus（メトリクス収集）
-- Grafana（可視化）
-- PostHog（ユーザー行動分析）
-
-### 12.2 ログ
-
-**構造化ログフォーマット**:
-```json
-{
-  "level": "info",
-  "timestamp": "2024-03-15T10:00:00Z",
-  "requestId": "req-uuid",
-  "tenantId": "tenant-uuid",
-  "userId": "user-uuid",
-  "message": "Activity created",
-  "metadata": {
-    "activityId": "activity-uuid",
-    "type": "event"
-  }
-}
-```
-
-**ログ保存先**:
-- OSS版: ファイル（ローテーション設定）
-- SaaS版: CloudWatch Logs or Datadog
+- **Remix**: https://remix.run/docs
+- **Remix Resource Routes**: https://remix.run/docs/en/main/guides/resource-routes
+- **Drizzle ORM**: https://orm.drizzle.team/
+- **PostHog**: https://posthog.com/docs
+- **BullMQ**: https://docs.bullmq.io/
+- **PostgreSQL RLS**: https://www.postgresql.org/docs/current/ddl-rowsecurity.html
 
 ---
 
-## 13. 今後の拡張予定
-
-### Phase 1（docker-compose + 基本UI）**← 最優先**
-**目標**: docker-composeで起動し、ブラウザで動作確認できる状態
-- ✅ docker-compose環境構築（nginx + Remix + PostgreSQL + Redis + Worker）
-- ✅ Drizzle ORM セットアップ + マイグレーション
-- ✅ BullMQ + Worker セットアップ（プラグイン実行用）
-- ✅ Seed data投入（Developer 10件、Activity 50件）
-- ✅ ダッシュボード UI（総Developer数、総Activity数）
-- ✅ Developer一覧画面（テーブル表示、検索機能）
-- ✅ システム設定画面（基本情報表示）
-
-**成果物**: `docker-compose up -d` → `http://localhost` でUI確認可能
-
-**コンテナ構成**:
-- `web`: Remix アプリケーション (Port 8080)
-- `worker`: BullMQ ワーカー（バックグラウンドジョブ実行）
-- `nginx`: リバースプロキシ (Port 80/443)
-- `db`: PostgreSQL 15 (Port 5432)
-- `redis`: Redis 7 (Port 6379)
-- `posthog`: PostHog (Port 8000) ※Phase 4まで未使用
-
-### Phase 2（CRUD操作 + 詳細画面）
-**目標**: Developer/Activityの登録・編集・削除がUIで可能
-- Developer詳細画面（Timeline表示）
-- Developer新規登録/編集フォーム
-- Activity一覧画面
-- Activity登録フォーム
-- Services層実装（DeveloperService, ActivityService）
-
-### Phase 3（分析機能）
-**目標**: ROI・ファネル分析の可視化
-- ROI計算UI（施策別ROI表示）
-- ファネル可視化（Awareness → Advocacy）
-- Campaign管理画面
-- FunnelService, ROIService実装
-
-### Phase 4（拡張機能）
-**目標**: PostHog連携 + プラグインシステム
-- PostHog連携（匿名イベント収集）
-- プラグインシステム基盤
-- Slack / Discord / connpass プラグイン
-- **監査ログプラグイン**（アクションフック実装）
-
-### Phase 5（SaaS化）
-**目標**: マルチテナント対応
-- OAuth認証（GitHub, Google）
-- テナント管理
-- 課金システム（Stripe）
-- プラグインマーケットプレイス
-
----
-
-## まとめ
-
-本設計書は、DRMツールのOSS版（docker-compose）とSaaS版（マルチテナント）の両方を見据えた技術設計を示しています。
-
-**重要ポイント**:
-1. **プラグインシステム**による拡張性の確保
-2. **PostHog連携**による匿名ファネル分析
-3. **テナント分離**（RLS）によるSaaS対応
-4. **Remix Full-Stack**によるシンプルな構成（Honoは不使用）
-5. **Drizzle ORM**による型安全なDB操作
-
-次のステップとして、タスク分解（`/tasks`）を実施し、実装フェーズに移行します。
+**設計書バージョン:** 2.5
+**最終更新:** 2025-10-10
+**変更履歴:**
+- v2.5: 全てのperson/person_id参照をdeveloper/developer_idに修正完了
+- v2.4: プラグインのnpmインストール＋管理画面での有効化フローを追加
+- v2.3: Person → Developer、Org → Organization に統一、Hono削除しRemix単体化
+- v2.2: 初版

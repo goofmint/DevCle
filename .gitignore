@@ -8,3 +8,11 @@
 .DS_Store
 Thumbs.db
 node_modules
+
+# Env
+.env
+
+# Local certificates for development (mkcert)
+certs/
+
+# Node
