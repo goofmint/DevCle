@@ -1,0 +1,123 @@
+# docker-compose.yml (Production environment)
+# Note: Use Compose V2 (docker compose)
+version: '3.9'
+
+services:
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: devcle-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      # Mount nginx configuration (read-only)
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      # Mount SSL certificates directory (read-only)
+      - ./nginx/certs:/etc/nginx/certs:ro
+      # Mount static files from core/public (read-only)
+      - ./core/public:/var/www/public:ro
+    depends_on:
+      - core
+    networks:
+      - devcle-network
+    restart: unless-stopped
+    healthcheck:
+      # Use CMD-SHELL for proper error handling; exit 1 on failure
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      # Allow 30s for nginx to boot before starting healthchecks
+      start_period: 30s
+
+  core:
+    build:
+      context: ./core
+      dockerfile: ../docker/Dockerfile.core
+      # Use production target for optimized image
+      target: production
+    container_name: devcle-core
+    environment:
+      NODE_ENV: production
+      # Database connection string (from .env)
+      DATABASE_URL: ${DATABASE_URL}
+      # Redis connection string (from .env)
+      REDIS_URL: ${REDIS_URL}
+      # Session secret for cookie signing (from .env)
+      SESSION_SECRET: ${SESSION_SECRET}
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - devcle-network
+    restart: unless-stopped
+    healthcheck:
+      # Use Node.js fetch API to check /api/health endpoint
+      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:3000/api/health').then(r => r.ok ? process.exit(0) : process.exit(1))\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      # Allow 30s for core app to boot before starting healthchecks
+      start_period: 30s
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: devcle-postgres
+    environment:
+      # Database name (defaults to 'devcle' if not set)
+      POSTGRES_DB: ${POSTGRES_DB:-devcle}
+      # Database user (defaults to 'devcle' if not set)
+      POSTGRES_USER: ${POSTGRES_USER:-devcle}
+      # Database password (must be set in .env)
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      # Persist database data using named volume
+      - postgres-data:/var/lib/postgresql/data
+      # Mount initialization script (read-only)
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - devcle-network
+    restart: unless-stopped
+    healthcheck:
+      # Check if PostgreSQL is ready to accept connections
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-devcle}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      # Allow 30s for postgres to boot before starting healthchecks
+      start_period: 30s
+
+  redis:
+    image: redis:7-alpine
+    container_name: devcle-redis
+    # Use custom redis.conf for configuration
+    command: redis-server /usr/local/etc/redis/redis.conf
+    environment:
+      # Redis password (optional; empty string if not set)
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+    volumes:
+      # Persist redis data using named volume
+      - redis-data:/data
+      # Mount redis configuration (read-only)
+      - ./infra/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    networks:
+      - devcle-network
+    restart: unless-stopped
+    healthcheck:
+      # Auth-aware healthcheck: use plain ping if no password, otherwise authenticate first
+      test: ["CMD-SHELL", "[ -z \"$REDIS_PASSWORD\" ] && redis-cli ping || redis-cli -a \"$REDIS_PASSWORD\" ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      # Allow 30s for redis to boot before starting healthchecks
+      start_period: 30s
+
+# Define a dedicated network for service isolation
+networks:
+  devcle-network:
+    driver: bridge
+
+# Define named volumes for data persistence
+volumes:
+  postgres-data:
+  redis-data:

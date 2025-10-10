@@ -1,0 +1,43 @@
+# docker-compose-dev.yml (Development environment override)
+# Note: Use Compose V2 (docker compose)
+# Usage: docker compose -f docker-compose.yml -f docker-compose-dev.yml up -d
+version: '3.9'
+
+services:
+  nginx:
+    ports:
+      # Use port 8080 for development environment
+      - "8080:80"
+    volumes:
+      # Override with development nginx configuration
+      - ./nginx/nginx-dev.conf:/etc/nginx/nginx.conf:ro
+
+  core:
+    build:
+      # Use development target for hot reloading
+      target: development
+      # Use the same Dockerfile as production but different target
+      dockerfile: ../docker/Dockerfile.core
+    environment:
+      # Override NODE_ENV for development
+      NODE_ENV: development
+    volumes:
+      # Mount source code for hot reloading
+      - ./core:/app
+      # Exclude node_modules to use container's version
+      - /app/node_modules
+    ports:
+      # Expose development server for direct access
+      - "3000:3000"
+    # Override command to run development server
+    command: pnpm dev
+
+  postgres:
+    ports:
+      # Expose postgres port for local tool access (e.g., pgAdmin, DBeaver)
+      - "5432:5432"
+
+  redis:
+    ports:
+      # Expose redis port for local tool access (e.g., Redis Commander)
+      - "6379:6379"
