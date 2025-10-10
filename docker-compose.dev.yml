@@ -116,7 +116,8 @@ services:
 
   posthog-web:
     image: posthog/posthog:latest-release
-    command: /compose/start
+    # Use the built-in docker server start command from the image.
+    command: ./bin/docker-server
     restart: on-failure
     environment:
       SENTRY_DSN: ${SENTRY_DSN}
