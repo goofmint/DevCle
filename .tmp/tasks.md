@@ -21,19 +21,20 @@
 
 ## Phase 1: 環境構築とインフラ基盤（デプロイ可能な最小構成）
 
-### Task 1.1: プロジェクト構造とモノレポ初期化
+### Task 1.1: プロジェクト構造とモノレポ初期化 ✅
 
-- [ ] pnpm workspace設定（`pnpm-workspace.yaml`）
-- [ ] `core/`のpackage.json作成（Remix, Drizzle, TypeScript）
-- [ ] `plugins/posthog/`のpackage.json作成
-- [ ] `plugins/webhook/`のpackage.json作成
-- [ ] TypeScript strict設定（`exactOptionalPropertyTypes`含む）
-- [ ] ESLint 9 flat config設定
-- [ ] Prettier設定
-- [ ] `.gitignore`作成
+- [x] pnpm workspace設定（`pnpm-workspace.yaml`）
+- [x] `core/`のpackage.json作成（Remix, Drizzle, TypeScript）
+- [x] `plugins/posthog/`のpackage.json作成
+- [x] `plugins/webhook/`のpackage.json作成
+- [x] TypeScript strict設定（`exactOptionalPropertyTypes`含む）
+- [x] ESLint 9 flat config設定
+- [x] Prettier設定
+- [x] `.gitignore`作成
 - **完了条件**: `pnpm install`が全パッケージで成功
 - **依存**: なし
 - **推定時間**: 2時間
+- **ドキュメント**: [.tmp/tasks/task-1.1-monorepo-setup.md](.tmp/tasks/task-1.1-monorepo-setup.md)
 
 ### Task 1.2: Docker Compose構成ファイル作成
 
