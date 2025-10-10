@@ -80,7 +80,7 @@ services:
     networks: [default]
 
   posthog-redis:
-    image: redis:alpine
+    image: redis:6.2-alpine
     restart: on-failure
     volumes:
       - posthog-redis-data:/data
@@ -124,6 +124,8 @@ services:
       SITE_URL: https://ph.devcle.test
       DISABLE_SECURE_SSL_REDIRECT: 'true'
       IS_BEHIND_PROXY: 'true'
+      # Trust all proxies in development. Do not use this in production.
+      TRUSTED_PROXIES: ".*"
       DATABASE_URL: postgres://posthog:posthog@posthog-db:5432/posthog
       CLICKHOUSE_HOST: posthog-clickhouse
       CLICKHOUSE_DATABASE: posthog
