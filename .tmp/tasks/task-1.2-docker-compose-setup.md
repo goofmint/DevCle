@@ -34,9 +34,9 @@ services:
       - "443:443"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      # Mount SSL certificate files with fixed names
-      - ./certs/server.crt:/etc/nginx/certs/server.crt:ro
-      - ./certs/server.key:/etc/nginx/certs/server.key:ro
+      # Mount SSL certificate files for production (devcle.com)
+      - ./certs/devcle.com.pem:/etc/nginx/certs/server.crt:ro
+      - ./certs/devcle.com-key.pem:/etc/nginx/certs/server.key:ro
       - ./core/public:/var/www/public:ro
     depends_on:
       - core
@@ -127,9 +127,10 @@ volumes:
 - 各サービスにヘルスチェックを設定
 - データ永続化のために named volumes を使用
 - 本番環境用の restart policy を設定
-- SSL証明書は固定ファイル名（`server.crt`、`server.key`）でマウント
-  - 開発環境: `certs/devcle.test+3.pem` → `certs/server.crt` にコピーまたはシンボリックリンク
-  - 本番環境: Let's Encryptなどで取得した証明書を `certs/server.crt`、`certs/server.key` として配置
+- SSL証明書の管理:
+  - **本番環境** (`docker-compose.yml`): `certs/devcle.com.pem` と `certs/devcle.com-key.pem` を使用
+  - **開発環境** (`docker-compose-dev.yml`): `certs/devcle.test+3.pem` と `certs/devcle.test+3-key.pem` を使用
+  - nginx内部では固定パス `/etc/nginx/certs/server.crt` と `/etc/nginx/certs/server.key` としてマウント
 
 ### 2. 開発環境オーバーライド
 
@@ -144,6 +145,9 @@ services:
       - "8080:80"  # 開発環境は8080ポート使用
     volumes:
       - ./nginx/nginx-dev.conf:/etc/nginx/nginx.conf:ro
+      # Override SSL certificate files for development (devcle.test)
+      - ./certs/devcle.test+3.pem:/etc/nginx/certs/server.crt:ro
+      - ./certs/devcle.test+3-key.pem:/etc/nginx/certs/server.key:ro
 
   core:
     build:
@@ -169,7 +173,8 @@ services:
 **開発環境の特徴:**
 - ホットリロード対応（ソースコードをマウント）
 - ポート開放でローカルツールからアクセス可能
-- 開発用nginx設定を使用
+- nginx設定は本番と共通（SERVER_NAME環境変数でホスト名を切り替え）
+- 開発用SSL証明書を使用（devcle.test）
 
 ### 3. core Dockerfile
 

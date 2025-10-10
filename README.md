@@ -47,31 +47,39 @@ The easiest way to run DevCle is using Docker Compose:
 # Copy the example environment file
 cp .env.example .env
 
-# Edit the .env file and change the passwords
+# Edit the .env file and configure:
+# - Change all passwords (POSTGRES_PASSWORD, REDIS_PASSWORD, SESSION_SECRET)
+# - Set SERVER_NAME (devcle.com for production, devcle.test for development)
 # IMPORTANT: Use strong passwords in production!
 vim .env
 ```
 
+**Important variables:**
+- `SERVER_NAME`: nginx server name (default: `devcle.com` for production, `devcle.test` for development)
+
 #### 1.5. Setup SSL certificates (for HTTPS)
 
-```bash
-# For development: Create symbolic links to your existing certificates
-# Assuming you have mkcert certificates like devcle.test+3.pem
-cd certs
-ln -s devcle.test+3.pem server.crt
-ln -s devcle.test+3-key.pem server.key
-cd ..
+**Development certificates (devcle.test):**
+- Already exists: `certs/devcle.test+3.pem` (certificate)
+- Already exists: `certs/devcle.test+3-key.pem` (private key)
 
-# For production: Place your SSL certificates with fixed names
-# cp /path/to/your/certificate.crt certs/server.crt
-# cp /path/to/your/private.key certs/server.key
+**Production certificates (devcle.com):**
+
+```bash
+# Place your production SSL certificates with the correct names
+# Example: Using Let's Encrypt certificates
+cp /path/to/fullchain.pem certs/devcle.com.pem
+cp /path/to/privkey.pem certs/devcle.com-key.pem
+
+# Or generate with mkcert for testing
+mkcert devcle.com
+mv devcle.com.pem certs/
+mv devcle.com-key.pem certs/
 ```
 
-**Note:** The docker-compose.yml expects SSL certificates at:
-- `certs/server.crt` - SSL certificate file
-- `certs/server.key` - SSL private key file
-
-Use symbolic links in development and actual certificate files in production.
+**Note:**
+- **Development** (`docker-compose-dev.yml`): Uses `certs/devcle.test+3.pem` and `certs/devcle.test+3-key.pem`
+- **Production** (`docker-compose.yml`): Uses `certs/devcle.com.pem` and `certs/devcle.com-key.pem`
 
 #### 2. Start the services (Development mode)
 

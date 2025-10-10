@@ -8,9 +8,15 @@ services:
     ports:
       # Use port 8080 for development environment
       - "8080:80"
+    environment:
+      # Override server name for development (from .env)
+      SERVER_NAME: ${SERVER_NAME:-devcle.test}
     volumes:
-      # Override with development nginx configuration
-      - ./nginx/nginx-dev.conf:/etc/nginx/nginx.conf:ro
+      # Override SSL certificate files for development (devcle.test)
+      # Certificate file (development domain)
+      - ./certs/devcle.test+3.pem:/etc/nginx/certs/server.crt:ro
+      # Private key file (development domain)
+      - ./certs/devcle.test+3-key.pem:/etc/nginx/certs/server.key:ro
 
   core:
     build:
