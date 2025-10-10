@@ -41,7 +41,127 @@ services:
     ports:
       - "6379:6379"
 
+  # PostHog stack (development): runs behind nginx at ph.devcle.test
+  posthog-zookeeper:
+    image: wurstmeister/zookeeper
+    restart: on-failure
+    networks: [default]
+
+  posthog-kafka:
+    image: wurstmeister/kafka
+    restart: on-failure
+    depends_on:
+      - posthog-zookeeper
+    environment:
+      KAFKA_ADVERTISED_HOST_NAME: posthog-kafka
+      KAFKA_ZOOKEEPER_CONNECT: posthog-zookeeper:2181
+    networks: [default]
+
+  posthog-clickhouse:
+    image: yandex/clickhouse-server:21.6.5
+    restart: on-failure
+    depends_on:
+      - posthog-kafka
+      - posthog-zookeeper
+    volumes:
+      - posthog-clickhouse-data:/var/lib/clickhouse
+      - ./infra/posthog/clickhouse/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d:ro
+    networks: [default]
+
+  posthog-db:
+    image: postgres:12-alpine
+    restart: on-failure
+    environment:
+      POSTGRES_USER: posthog
+      POSTGRES_DB: posthog
+      POSTGRES_PASSWORD: posthog
+    volumes:
+      - posthog-db-data:/var/lib/postgresql/data
+    networks: [default]
+
+  posthog-redis:
+    image: redis:alpine
+    restart: on-failure
+    volumes:
+      - posthog-redis-data:/data
+    networks: [default]
+
+  posthog-worker:
+    image: posthog/posthog:latest-release
+    command: ./bin/docker-worker-celery --with-scheduler
+    restart: on-failure
+    environment:
+      SENTRY_DSN: ${SENTRY_DSN}
+      SITE_URL: https://ph.devcle.test
+      DISABLE_SECURE_SSL_REDIRECT: 'true'
+      IS_BEHIND_PROXY: 'true'
+      DATABASE_URL: postgres://posthog:posthog@posthog-db:5432/posthog
+      CLICKHOUSE_HOST: posthog-clickhouse
+      CLICKHOUSE_DATABASE: posthog
+      CLICKHOUSE_SECURE: 'false'
+      CLICKHOUSE_VERIFY: 'false'
+      KAFKA_URL: kafka://posthog-kafka
+      REDIS_URL: redis://posthog-redis:6379/
+      SECRET_KEY: please-set-posthog-secret
+      PRIMARY_DB: clickhouse
+      PGHOST: posthog-db
+      PGUSER: posthog
+      PGPASSWORD: posthog
+    depends_on:
+      - posthog-db
+      - posthog-redis
+      - posthog-clickhouse
+      - posthog-kafka
+    networks: [default]
+
+  posthog-web:
+    image: posthog/posthog:latest-release
+    command: /compose/start
+    restart: on-failure
+    environment:
+      SENTRY_DSN: ${SENTRY_DSN}
+      SITE_URL: https://ph.devcle.test
+      DISABLE_SECURE_SSL_REDIRECT: 'true'
+      IS_BEHIND_PROXY: 'true'
+      DATABASE_URL: postgres://posthog:posthog@posthog-db:5432/posthog
+      CLICKHOUSE_HOST: posthog-clickhouse
+      CLICKHOUSE_DATABASE: posthog
+      CLICKHOUSE_SECURE: 'false'
+      CLICKHOUSE_VERIFY: 'false'
+      KAFKA_URL: kafka://posthog-kafka
+      REDIS_URL: redis://posthog-redis:6379/
+      SECRET_KEY: please-set-posthog-secret
+      PRIMARY_DB: clickhouse
+      PGHOST: posthog-db
+      PGUSER: posthog
+      PGPASSWORD: posthog
+    depends_on:
+      - posthog-db
+      - posthog-redis
+      - posthog-clickhouse
+      - posthog-kafka
+    networks: [default]
+
+  posthog-plugins:
+    image: posthog/posthog:latest-release
+    command: ./bin/plugin-server --no-restart-loop
+    restart: on-failure
+    environment:
+      DATABASE_URL: postgres://posthog:posthog@posthog-db:5432/posthog
+      KAFKA_ENABLED: 'true'
+      KAFKA_HOSTS: posthog-kafka:9092
+      REDIS_URL: redis://posthog-redis:6379/
+      CLICKHOUSE_HOST: posthog-clickhouse
+    depends_on:
+      - posthog-db
+      - posthog-redis
+      - posthog-clickhouse
+      - posthog-kafka
+    networks: [default]
+
 volumes:
   db-data: {}
   redis-data: {}
-
+  posthog-db-data: {}
+  posthog-redis-data: {}
+  posthog-clickhouse-data: {}
