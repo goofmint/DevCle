@@ -22,6 +22,7 @@ DevCleプロジェクトの開発環境と本番環境をDocker Composeで構築
 
 ```yaml
 # docker-compose.yml (本番環境用)
+# 注: Compose V2 (docker compose) を使用
 version: '3.9'
 
 services:
@@ -41,10 +42,11 @@ services:
       - devcle-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 30s
 
   core:
     build:
@@ -64,10 +66,11 @@ services:
       - devcle-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/api/health').then(r => r.ok ? process.exit(0) : process.exit(1))"]
+      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:3000/api/health').then(r => r.ok ? process.exit(0) : process.exit(1))\""]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 30s
 
   postgres:
     image: postgres:15-alpine
@@ -87,11 +90,14 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
 
   redis:
     image: redis:7-alpine
     container_name: devcle-redis
     command: redis-server /usr/local/etc/redis/redis.conf
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
     volumes:
       - redis-data:/data
       - ./infra/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
@@ -99,10 +105,11 @@ services:
       - devcle-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "[ -z \"$REDIS_PASSWORD\" ] && redis-cli ping || redis-cli -a \"$REDIS_PASSWORD\" ping"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
 
 networks:
   devcle-network:
@@ -123,6 +130,7 @@ volumes:
 
 ```yaml
 # docker-compose-dev.yml (開発環境用オーバーライド)
+# 注: Compose V2 (docker compose) を使用
 version: '3.9'
 
 services:
@@ -169,16 +177,22 @@ RUN corepack enable && corepack prepare pnpm@latest --activate
 
 WORKDIR /app
 
-# 依存関係のインストール
-FROM base AS deps
+# 依存関係のインストール（開発用）
+FROM base AS deps-dev
 
 COPY package.json pnpm-lock.yaml* ./
 RUN pnpm install --frozen-lockfile
 
+# 依存関係のインストール（本番用 - devDependencies除外）
+FROM base AS deps-prod
+
+COPY package.json pnpm-lock.yaml* ./
+RUN pnpm install --frozen-lockfile --prod
+
 # 開発環境用ステージ
 FROM base AS development
 
-COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps-dev /app/node_modules ./node_modules
 COPY . .
 
 EXPOSE 3000
@@ -187,7 +201,7 @@ CMD ["pnpm", "dev"]
 # ビルドステージ
 FROM base AS builder
 
-COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps-dev /app/node_modules ./node_modules
 COPY . .
 
 RUN pnpm build
@@ -197,17 +211,28 @@ FROM base AS production
 
 ENV NODE_ENV=production
 
-COPY --from=deps /app/node_modules ./node_modules
-COPY --from=builder /app/build ./build
-COPY package.json ./
+# 非rootユーザーの作成
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001
+
+WORKDIR /app
+
+# 本番用依存関係とビルド成果物をコピー
+COPY --from=deps-prod --chown=nodejs:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=nodejs:nodejs /app/build ./build
+COPY --chown=nodejs:nodejs package.json ./
+
+# 非rootユーザーに切り替え
+USER nodejs
 
 EXPOSE 3000
 CMD ["pnpm", "start"]
 ```
 
 **マルチステージビルドの利点:**
-- 開発環境と本番環境で異なるステージを使用
-- 本番環境イメージを最小化
+- 開発環境（deps-dev）と本番環境（deps-prod）で異なる依存関係を管理
+- 本番環境イメージを最小化（devDependencies除外）
+- 非rootユーザー（nodejs）でコンテナを実行し、セキュリティを向上
 - ビルドキャッシュの効率化
 
 ### 4. .dockerignore
@@ -258,7 +283,8 @@ POSTGRES_PASSWORD=change_this_password_in_production
 DATABASE_URL=postgresql://devcle:change_this_password_in_production@postgres:5432/devcle
 
 # Redis
-REDIS_URL=redis://redis:6379
+REDIS_PASSWORD=change_this_redis_password_in_production
+REDIS_URL=redis://:change_this_redis_password_in_production@redis:6379
 
 # Application
 NODE_ENV=production
@@ -272,8 +298,12 @@ APP_DOMAIN=devcle.com
 
 **環境変数の分類:**
 - **必須**: DATABASE_URL, REDIS_URL, SESSION_SECRET
-- **推奨**: POSTGRES_PASSWORD（本番環境では強力なパスワード）
+- **推奨**: POSTGRES_PASSWORD, REDIS_PASSWORD（本番環境では強力なパスワード）
 - **オプション**: SENTRY_DSN, POSTHOG_API_KEY（監視ツール用）
+
+**セキュリティ注意:**
+- 本番環境では必ずRedisにパスワード認証を設定してください
+- パスワードなしでRedisを運用すると重大なセキュリティリスクになります
 
 ## インターフェース定義
 
@@ -360,13 +390,23 @@ interface ServiceHealthChecks {
 
 ## 完了条件
 
-- [ ] `docker-compose.yml` が作成され、すべてのサービス定義が含まれている
-- [ ] `docker-compose-dev.yml` が作成され、開発環境用のオーバーライドが設定されている
-- [ ] `core/Dockerfile` がマルチステージビルドで作成されている
-- [ ] `.dockerignore` が作成され、不要なファイルが除外されている
-- [ ] `.env.example` が作成され、必要な環境変数が記載されている
-- [ ] `docker-compose up -d` でコンテナが起動する
-- [ ] `docker-compose ps` ですべてのコンテナが `healthy` 状態になる
+このタスクでは、Docker Compose構成ファイルとDockerfileのドキュメントを作成します。実際のファイル作成と動作確認は後続タスクで行います。
+
+- [ ] `docker-compose.yml` の設計が完了している
+- [ ] `docker-compose-dev.yml` の設計が完了している
+- [ ] `core/Dockerfile` の設計が完了している
+- [ ] `.dockerignore` の設計が完了している
+- [ ] `.env.example` の設計が完了している
+- [ ] すべてのヘルスチェック設定に `start_period` が含まれている
+- [ ] Redisヘルスチェックがパスワード認証に対応している
+- [ ] 本番環境Dockerfileが非rootユーザーで実行される設計になっている
+- [ ] 本番環境DockerfileがdevDependenciesを除外する設計になっている
+
+**注意:** 実際のコンテナ起動と `healthy` 状態の確認は、以下のタスク完了後に行います:
+- Task 1.3: nginx設定ファイル作成
+- Task 1.4: PostgreSQL初期設定
+- Task 1.5: Redis設定ファイル作成
+- Task 2.5: ヘルスチェックAPI実装
 
 ## 検証方法
 
@@ -378,25 +418,25 @@ cp .env.example .env
 # vim .env
 
 # 本番環境モードで起動
-docker-compose up -d
+docker compose up -d
 
 # コンテナ状態確認
-docker-compose ps
+docker compose ps
 
 # ログ確認
-docker-compose logs -f
+docker compose logs -f
 
 # ヘルスチェック確認
-docker-compose ps --format "table {{.Name}}\t{{.Status}}"
+docker compose ps --format "table {{.Name}}\t{{.Status}}"
 
 # 開発環境モードで起動（オーバーライド適用）
-docker-compose -f docker-compose.yml -f docker-compose-dev.yml up -d
+docker compose -f docker-compose.yml -f docker-compose-dev.yml up -d
 
 # コンテナ停止
-docker-compose down
+docker compose down
 
 # データ削除（注意: volumes も削除）
-docker-compose down -v
+docker compose down -v
 ```
 
 ## 次のタスクへの影響
@@ -412,8 +452,8 @@ docker-compose down -v
 ### 🚨 CRITICAL: Dockerコンテナを停止しない
 
 **絶対に実行してはいけないコマンド:**
-- `docker-compose stop`
-- `docker-compose restart`
+- `docker compose stop`
+- `docker compose restart`
 - `docker stop`
 - `docker restart`
 - `docker kill`
