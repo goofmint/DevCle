@@ -49,13 +49,13 @@ cp .env.example .env
 
 # Edit the .env file and configure:
 # - Change all passwords (POSTGRES_PASSWORD, REDIS_PASSWORD, SESSION_SECRET)
-# - Set SERVER_NAME (devcle.com for production, devcle.test for development)
+# - Set APP_DOMAIN (devcle.com for production, devcle.test for development)
 # IMPORTANT: Use strong passwords in production!
 vim .env
 ```
 
 **Important variables:**
-- `SERVER_NAME`: nginx server name (default: `devcle.com` for production, `devcle.test` for development)
+- `APP_DOMAIN`: Application domain for nginx server_name and URLs (default: `devcle.com` for production, `devcle.test` for development)
 
 #### 1.5. Setup SSL certificates (for HTTPS)
 

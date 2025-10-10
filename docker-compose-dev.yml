@@ -5,12 +5,6 @@ version: '3.9'
 
 services:
   nginx:
-    ports:
-      # Use port 8080 for development environment
-      - "8080:80"
-    environment:
-      # Override server name for development (from .env)
-      SERVER_NAME: ${SERVER_NAME:-devcle.test}
     volumes:
       # Override SSL certificate files for development (devcle.test)
       # Certificate file (development domain)
