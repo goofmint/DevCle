@@ -1,0 +1,47 @@
+services:
+  nginx:
+    # Mount mkcert-generated certificates for devcle.test.
+    volumes:
+      - ./nginx:/etc/nginx/conf.d:ro
+      - ./certs/devcle.test+3.pem:/etc/nginx/devcle.crt:ro
+      - ./certs/devcle.test+3-key.pem:/etc/nginx/devcle.key:ro
+
+  web:
+    # In development, depend on local db/redis containers and override URLs.
+    depends_on:
+      - db
+      - redis
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@db:5432/app
+      REDIS_URL: redis://redis:6379
+
+  worker:
+    depends_on:
+      - db
+      - redis
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@db:5432/app
+      REDIS_URL: redis://redis:6379
+
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: app
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis-data:/data
+    ports:
+      - "6379:6379"
+
+volumes:
+  db-data: {}
+  redis-data: {}
+

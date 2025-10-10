@@ -1,0 +1,57 @@
+version: "3.9"
+
+services:
+  nginx:
+    # Nginx reverse proxy and TLS termination.
+    # Uses a shared nginx.conf that references the fixed certificate paths below.
+    image: nginx:1.27-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - web
+    volumes:
+      # Mount common nginx config directory (contains nginx.conf).
+      - ${NGINX_CONF_DIR:-./nginx}:/etc/nginx/conf.d:ro
+      # Mount TLS certificate and key to fixed paths expected by nginx.conf.
+      - ${NGINX_CERT_FILE:-/etc/ssl/certs/devcle.crt}:/etc/nginx/devcle.crt:ro
+      - ${NGINX_KEY_FILE:-/etc/ssl/private/devcle.key}:/etc/nginx/devcle.key:ro
+    networks:
+      - devcle
+
+  web:
+    # Remix application container.
+    # The actual application build/runtime is defined by the Dockerfile.
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    environment:
+      # In production, point to external services.
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      SESSION_SECRET: ${SESSION_SECRET}
+    expose:
+      - "8080"
+    networks:
+      - devcle
+
+  worker:
+    # Background worker that reuses the same image as web.
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["bash", "-lc", "pnpm run start:worker"]
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      SESSION_SECRET: ${SESSION_SECRET}
+    networks:
+      - devcle
+
+networks:
+  devcle: {}
+
