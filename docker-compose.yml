@@ -12,8 +12,11 @@ services:
     volumes:
       # Mount nginx configuration (read-only)
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      # Mount SSL certificates directory (read-only)
-      - ./nginx/certs:/etc/nginx/certs:ro
+      # Mount SSL certificate files with fixed names (read-only)
+      # Place your SSL certificate as certs/server.crt
+      - ./certs/server.crt:/etc/nginx/certs/server.crt:ro
+      # Place your SSL private key as certs/server.key
+      - ./certs/server.key:/etc/nginx/certs/server.key:ro
       # Mount static files from core/public (read-only)
       - ./core/public:/var/www/public:ro
     depends_on:

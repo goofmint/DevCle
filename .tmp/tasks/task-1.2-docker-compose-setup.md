@@ -34,7 +34,9 @@ services:
       - "443:443"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/certs:/etc/nginx/certs:ro
+      # Mount SSL certificate files with fixed names
+      - ./certs/server.crt:/etc/nginx/certs/server.crt:ro
+      - ./certs/server.key:/etc/nginx/certs/server.key:ro
       - ./core/public:/var/www/public:ro
     depends_on:
       - core
@@ -125,6 +127,9 @@ volumes:
 - 各サービスにヘルスチェックを設定
 - データ永続化のために named volumes を使用
 - 本番環境用の restart policy を設定
+- SSL証明書は固定ファイル名（`server.crt`、`server.key`）でマウント
+  - 開発環境: `certs/devcle.test+3.pem` → `certs/server.crt` にコピーまたはシンボリックリンク
+  - 本番環境: Let's Encryptなどで取得した証明書を `certs/server.crt`、`certs/server.key` として配置
 
 ### 2. 開発環境オーバーライド
 

@@ -52,6 +52,27 @@ cp .env.example .env
 vim .env
 ```
 
+#### 1.5. Setup SSL certificates (for HTTPS)
+
+```bash
+# For development: Create symbolic links to your existing certificates
+# Assuming you have mkcert certificates like devcle.test+3.pem
+cd certs
+ln -s devcle.test+3.pem server.crt
+ln -s devcle.test+3-key.pem server.key
+cd ..
+
+# For production: Place your SSL certificates with fixed names
+# cp /path/to/your/certificate.crt certs/server.crt
+# cp /path/to/your/private.key certs/server.key
+```
+
+**Note:** The docker-compose.yml expects SSL certificates at:
+- `certs/server.crt` - SSL certificate file
+- `certs/server.key` - SSL private key file
+
+Use symbolic links in development and actual certificate files in production.
+
 #### 2. Start the services (Development mode)
 
 ```bash
