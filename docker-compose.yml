@@ -12,11 +12,11 @@ services:
     volumes:
       # Mount nginx configuration (read-only)
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      # Mount SSL certificate files with fixed names (read-only)
-      # Place your SSL certificate as certs/server.crt
-      - ./certs/server.crt:/etc/nginx/certs/server.crt:ro
-      # Place your SSL private key as certs/server.key
-      - ./certs/server.key:/etc/nginx/certs/server.key:ro
+      # Mount SSL certificate files (mkcert generated for devcle.test)
+      # Certificate file
+      - ./certs/devcle.test+3.pem:/etc/nginx/certs/devcle.test.crt:ro
+      # Private key file
+      - ./certs/devcle.test+3-key.pem:/etc/nginx/certs/devcle.test.key:ro
       # Mount static files from core/public (read-only)
       - ./core/public:/var/www/public:ro
     depends_on:
