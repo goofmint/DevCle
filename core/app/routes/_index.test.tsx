@@ -23,6 +23,7 @@ function renderWithRemix() {
  * Test suite for the Landing Page component
  *
  * Tests all major sections:
+ * - Header with logo, dark mode toggle, and login button
  * - Hero section with heading and CTA
  * - Features section with three feature cards
  * - CTA section with primary and secondary buttons
@@ -32,6 +33,54 @@ function renderWithRemix() {
  * Uses createRemixStub to provide proper Remix routing context
  */
 describe('Landing Page', () => {
+  /**
+   * Test: Header
+   * Verifies that the header displays logo, service name, dark mode toggle, and login button
+   */
+  describe('Header', () => {
+    it('displays the header', () => {
+      renderWithRemix();
+
+      // Find the header by its role
+      const header = screen.getByRole('banner');
+      expect(header).toBeDefined();
+    });
+
+    it('displays DevCle logo and service name', () => {
+      renderWithRemix();
+
+      // Find the DevCle home link
+      const logoLink = screen.getByRole('link', { name: /DevCle Home/i });
+      expect(logoLink).toBeDefined();
+      expect(logoLink.getAttribute('href')).toBe('/');
+
+      // Find the service name
+      const serviceName = screen.getByText('DevCle');
+      expect(serviceName).toBeDefined();
+    });
+
+    it('displays dark mode toggle button', () => {
+      renderWithRemix();
+
+      // Find the dark mode toggle button
+      const toggleButton = screen.getByRole('button', {
+        name: /Switch to dark mode/i,
+      });
+      expect(toggleButton).toBeDefined();
+    });
+
+    it('displays login button', () => {
+      renderWithRemix();
+
+      // Find the login button
+      const loginButton = screen.getByRole('link', {
+        name: /Log in to DevCle/i,
+      });
+      expect(loginButton).toBeDefined();
+      expect(loginButton.getAttribute('href')).toBe('/login');
+    });
+  });
+
   /**
    * Test: Hero Section
    * Verifies that the hero section displays the main heading and CTA button
