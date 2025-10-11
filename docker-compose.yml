@@ -97,29 +97,35 @@ services:
       start_period: 30s
 
   redis:
+    # Redis 7.x Alpine image for cache, session storage, and job queue (BullMQ)
     image: redis:7-alpine
     container_name: devcle-redis
-    # Use custom redis.conf for configuration
-    command: redis-server /usr/local/etc/redis/redis.conf
     environment:
-      # Redis password (optional; empty string if not set)
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      # Redis password for authentication (required)
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    # Override requirepass in redis.conf with environment variable
+    # This allows dynamic password configuration without modifying redis.conf
+    command: >
+      redis-server /usr/local/etc/redis/redis.conf
+      --requirepass ${REDIS_PASSWORD}
     volumes:
-      # Persist redis data using named volume
-      - redis-data:/data
       # Mount redis configuration (read-only)
+      # Configuration includes: memory limits, AOF persistence, security settings
       - ./infra/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+      # Persist redis data using named volume for AOF files
+      - redis-data:/data
     networks:
       - devcle-network
     restart: unless-stopped
     healthcheck:
-      # Auth-aware healthcheck: use plain ping if no password, otherwise authenticate first
-      test: ["CMD-SHELL", "[ -z \"$REDIS_PASSWORD\" ] && redis-cli ping || redis-cli -a \"$REDIS_PASSWORD\" ping"]
+      # Verify Redis is ready to accept connections with password authentication
+      # Uses PING command which returns PONG when authenticated
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "PING"]
       interval: 10s
       timeout: 5s
       retries: 5
-      # Allow 30s for redis to boot before starting healthchecks
-      start_period: 30s
+      # Allow 10s for redis to boot before starting healthchecks
+      start_period: 10s
 
 # Define a dedicated network for service isolation
 networks:
