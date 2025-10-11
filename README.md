@@ -83,15 +83,21 @@ mv devcle.com-key.pem certs/
 
 #### 2. Start the services (Development mode)
 
+**Development environment includes PostgreSQL and Redis containers**:
+- `docker-compose-dev.yml` adds PostgreSQL and Redis services for local development
+- These services are NOT included in production (`docker-compose.yml`)
+- Production uses external managed services (AWS RDS, ElastiCache, etc.)
+
 ```bash
 # Start all services in development mode with hot reload
+# This includes: nginx, core, postgres, redis
 docker compose -f docker-compose.yml -f docker-compose-dev.yml up -d
 
 # View logs
-docker compose logs -f
+docker compose -f docker-compose.yml -f docker-compose-dev.yml logs -f
 
 # Check container status
-docker compose ps
+docker compose -f docker-compose.yml -f docker-compose-dev.yml ps
 ```
 
 #### 3. Access the application
@@ -250,14 +256,91 @@ The database is prepared for multi-tenant isolation using Row Level Security. RL
 
 ### Production Deployment
 
-For production environments:
+#### External Database and Redis Servers
+
+**IMPORTANT**: In production, PostgreSQL and Redis are **NOT** included in `docker-compose.yml`. You must use external managed services.
+
+**Why external services?**
+- **Scalability**: Dedicated servers with proper resources
+- **High availability**: Built-in replication and failover
+- **Managed backups**: Automated backup and recovery
+- **Performance**: Optimized for production workloads
+- **Security**: Managed security patches and updates
+
+#### Recommended Managed Services
+
+**PostgreSQL:**
+- AWS RDS for PostgreSQL
+- Google Cloud SQL for PostgreSQL
+- Azure Database for PostgreSQL
+- Supabase
+- Neon
+
+**Redis:**
+- AWS ElastiCache for Redis
+- Google Cloud Memorystore for Redis
+- Azure Cache for Redis
+- Redis Cloud
+- Upstash Redis
+
+#### Configuration
+
+1. **Setup environment variables** pointing to external servers:
 
 ```bash
-# 1. Setup environment variables
+# Copy the example environment file
 cp .env.example .env
-vim .env  # Set strong passwords!
 
-# 2. Start services in production mode
+# Edit the .env file and configure:
+vim .env
+```
+
+**Required configuration:**
+
+```bash
+# PostgreSQL Configuration (External Server)
+# Example: AWS RDS endpoint
+DATABASE_URL=postgresql://username:password@your-postgres-server.rds.amazonaws.com:5432/devcle
+
+# Redis Configuration (External Server)
+# Example: AWS ElastiCache endpoint
+REDIS_URL=redis://:password@your-redis-server.cache.amazonaws.com:6379/0
+REDIS_PASSWORD=your_redis_password
+
+# Application Configuration
+APP_DOMAIN=devcle.com
+SESSION_SECRET=your_strong_session_secret
+NODE_ENV=production
+```
+
+2. **Initialize external PostgreSQL database**:
+
+```bash
+# Connect to your external PostgreSQL server
+psql $DATABASE_URL
+
+# Run initialization commands manually:
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+ALTER DATABASE devcle SET timezone TO 'UTC';
+-- See infra/postgres/init.sh for full setup
+```
+
+3. **Configure external Redis**:
+
+```bash
+# Connect to your external Redis server
+redis-cli -h your-redis-server.cache.amazonaws.com -a your_password
+
+# Verify configuration:
+CONFIG GET maxmemory
+CONFIG GET maxmemory-policy
+CONFIG GET appendonly
+```
+
+4. **Start services in production mode**:
+
+```bash
+# Start only nginx and core services (no postgres/redis)
 docker compose up -d
 
 # 3. Check health status
@@ -266,6 +349,26 @@ docker compose ps --format "table {{.Name}}\t{{.Status}}"
 # 4. View logs
 docker compose logs -f
 ```
+
+#### Health Checks
+
+The core service automatically checks external PostgreSQL and Redis connectivity via `/api/health` endpoint.
+
+#### Security Considerations for External Services
+
+**PostgreSQL:**
+- Enable SSL/TLS connections
+- Use strong passwords (32+ characters)
+- Restrict network access (security groups/firewall)
+- Enable connection pooling
+- Regular security updates
+
+**Redis:**
+- Enable password authentication (requirepass)
+- Use SSL/TLS connections
+- Disable dangerous commands (FLUSHDB, FLUSHALL)
+- Restrict network access
+- Enable AOF persistence
 
 ### Development (Without Docker)
 

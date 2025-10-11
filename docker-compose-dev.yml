@@ -36,16 +36,79 @@ services:
     # This ensures Linux Alpine binaries are used instead of macOS host binaries
     command: sh -c "pnpm install --frozen-lockfile && pnpm dev"
 
+  # PostgreSQL service for development environment
+  # In production, use external managed PostgreSQL (AWS RDS, etc.)
   postgres:
+    image: postgres:15-alpine
+    container_name: devcle-postgres-dev
+    environment:
+      # Database name (defaults to 'devcle' if not set)
+      POSTGRES_DB: ${POSTGRES_DB:-devcle}
+      # Database user (defaults to 'devcle' if not set)
+      POSTGRES_USER: ${POSTGRES_USER:-devcle}
+      # Database password (must be set in .env)
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      # Persist database data using named volume
+      - postgres-data-dev:/var/lib/postgresql/data
+      # Mount initialization script (read-only, executable)
+      # Uses .sh for environment variable interpolation and persistent timezone setting
+      - ./infra/postgres/init.sh:/docker-entrypoint-initdb.d/init.sh:ro
+    networks:
+      - devcle-network
+    restart: unless-stopped
     ports:
       # Expose postgres port for local tool access (e.g., pgAdmin, DBeaver)
       - "5432:5432"
+    healthcheck:
+      # Check if PostgreSQL is ready to accept connections
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-devcle}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      # Allow 30s for postgres to boot before starting healthchecks
+      start_period: 30s
 
+  # Redis service for development environment
+  # In production, use external managed Redis (AWS ElastiCache, etc.)
   redis:
+    # Redis 7.x Alpine image for cache, session storage, and job queue (BullMQ)
+    image: redis:7-alpine
+    container_name: devcle-redis-dev
+    environment:
+      # Redis password for authentication (required)
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    # Override requirepass in redis.conf with environment variable
+    # This allows dynamic password configuration without modifying redis.conf
+    command: >
+      redis-server /usr/local/etc/redis/redis.conf
+      --requirepass ${REDIS_PASSWORD}
+    volumes:
+      # Mount redis configuration (read-only)
+      # Configuration includes: memory limits, AOF persistence, security settings
+      - ./infra/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+      # Persist redis data using named volume for AOF files
+      - redis-data-dev:/data
+    networks:
+      - devcle-network
+    restart: unless-stopped
     ports:
       # Expose redis port for local tool access (e.g., Redis Commander)
       - "6379:6379"
+    healthcheck:
+      # Verify Redis is ready to accept connections with password authentication
+      # Uses PING command which returns PONG when authenticated
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "PING"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      # Allow 10s for redis to boot before starting healthchecks
+      start_period: 10s
 
 volumes:
   # Named volume for core's node_modules to preserve Linux Alpine binaries
   core-node-modules:
+  # Named volume for PostgreSQL data persistence in development
+  postgres-data-dev:
+  # Named volume for Redis data persistence in development
+  redis-data-dev:
