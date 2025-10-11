@@ -4,8 +4,10 @@ import { json } from '@remix-run/node';
 /**
  * Health check endpoint for container health monitoring
  * Used by Docker healthcheck and load balancers
+ *
+ * Note: _request parameter is required by Remix LoaderFunctionArgs but not used
  */
-export async function loader({ request }: LoaderFunctionArgs) {
+export async function loader({ request: _request }: LoaderFunctionArgs) {
   // Basic health check - can be extended to check database, redis, etc.
   const health = {
     status: 'ok',
