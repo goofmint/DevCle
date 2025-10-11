@@ -38,8 +38,10 @@ services:
 
   core:
     build:
-      context: ./core
-      dockerfile: ../docker/Dockerfile.core
+      # Build from actual drm-core repository
+      context: ../drm-core
+      # Dockerfile is in app/docker directory (relative to devcle/)
+      dockerfile: ../app/docker/Dockerfile.core
       # Use production target for optimized image
       target: production
     container_name: devcle-core
