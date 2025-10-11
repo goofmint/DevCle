@@ -24,8 +24,8 @@ services:
       # Set CI flag for non-interactive pnpm install
       CI: "true"
     volumes:
-      # Mount source code for hot reloading from actual drm-core repository
-      - ../drm-core:/app
+      # Mount source code for hot reloading from core directory
+      - ./core:/app
       # Use named volume to preserve container's node_modules (Linux Alpine binaries)
       # This prevents macOS host binaries from being used in Linux container
       - core-node-modules:/app/node_modules
