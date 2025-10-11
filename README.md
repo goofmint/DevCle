@@ -83,15 +83,21 @@ mv devcle.com-key.pem certs/
 
 #### 2. Start the services (Development mode)
 
+**Development environment includes PostgreSQL and Redis containers**:
+- `docker-compose-dev.yml` adds PostgreSQL and Redis services for local development
+- These services are NOT included in production (`docker-compose.yml`)
+- Production uses external managed services (AWS RDS, ElastiCache, etc.)
+
 ```bash
 # Start all services in development mode with hot reload
+# This includes: nginx, core, postgres, redis
 docker compose -f docker-compose.yml -f docker-compose-dev.yml up -d
 
 # View logs
-docker compose logs -f
+docker compose -f docker-compose.yml -f docker-compose-dev.yml logs -f
 
 # Check container status
-docker compose ps
+docker compose -f docker-compose.yml -f docker-compose-dev.yml ps
 ```
 
 #### 3. Access the application
