@@ -39,40 +39,61 @@ PostgreSQL 15+データベースの初期設定を行い、以下を実現する
 app/
 ├── infra/
 │   └── postgres/
-│       ├── init.sql              # 初期化スクリプト
+│       ├── init.sh               # 初期化スクリプト（Shell）
 │       └── rls-template.sql      # RLSポリシーテンプレート
 ```
 
-#### init.sql - 初期化スクリプト
+#### init.sh - 初期化スクリプト
 
-```sql
--- init.sql
--- PostgreSQL database initialization script for DevCle
--- This script runs only once when the database is first created
+Docker PostgreSQLの`docker-entrypoint-initdb.d/`は`.sh`ファイルも実行可能です。環境変数を正しく展開するため、SQLを直接記述せず、シェルスクリプトから環境変数を読み込んでpsqlに渡します。
 
--- Enable pgcrypto extension for UUID generation and encryption
--- Used for: generating UUIDs for primary keys, encrypting PII
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+```bash
+#!/bin/bash
+# init.sh
+# PostgreSQL database initialization script for DevCle
+# This script runs only once when the database is first created
+# Uses shell script to properly interpolate environment variables
 
--- Create application database schema
--- All application tables will be created in the public schema
+set -e
 
--- Set default timezone to UTC for consistency
-SET timezone = 'UTC';
+# Read environment variables with defaults
+DB_NAME="${POSTGRES_DB:-devcle}"
+DB_USER="${POSTGRES_USER:-devcle}"
 
--- Grant necessary permissions to the database user
--- Ensures the application can create tables and perform operations
-GRANT ALL PRIVILEGES ON DATABASE ${POSTGRES_DB} TO ${POSTGRES_USER};
-GRANT ALL PRIVILEGES ON SCHEMA public TO ${POSTGRES_USER};
+echo "Initializing PostgreSQL database: $DB_NAME for user: $DB_USER"
 
--- Log initialization completion
-DO $$
-BEGIN
-  RAISE NOTICE 'Database initialized successfully';
-  RAISE NOTICE 'Extensions enabled: pgcrypto';
-  RAISE NOTICE 'Timezone set to: UTC';
-END $$;
+# Execute SQL statements with environment variable substitution
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
+  -- Enable pgcrypto extension for UUID generation and encryption
+  -- Used for: generating UUIDs for primary keys, encrypting PII
+  CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+  -- Set default timezone to UTC for all new connections (persistent)
+  -- This ensures consistent timestamp handling across the application
+  ALTER DATABASE ${DB_NAME} SET timezone TO 'UTC';
+
+  -- Grant necessary permissions to the database user
+  -- Ensures the application can create tables and perform operations
+  GRANT ALL PRIVILEGES ON DATABASE ${DB_NAME} TO ${DB_USER};
+  GRANT ALL PRIVILEGES ON SCHEMA public TO ${DB_USER};
+
+  -- Log initialization completion
+  DO \$\$
+  BEGIN
+    RAISE NOTICE 'Database initialized successfully';
+    RAISE NOTICE 'Extensions enabled: pgcrypto';
+    RAISE NOTICE 'Timezone set to: UTC (persistent via ALTER DATABASE)';
+  END \$\$;
+EOSQL
+
+echo "PostgreSQL initialization completed successfully"
 ```
+
+**重要な変更点**:
+1. **ファイル形式**: `.sql` → `.sh` (環境変数展開のため)
+2. **変数展開**: `${POSTGRES_DB}` → `${DB_NAME}` (シェルスクリプトで展開)
+3. **タイムゾーン設定**: `SET timezone` → `ALTER DATABASE ${DB_NAME} SET timezone TO 'UTC'` (永続化)
+4. **psqlへの渡し方**: Here-document (`<<-EOSQL`) を使用して環境変数を展開してからSQLを実行
 
 #### rls-template.sql - RLSポリシーテンプレート
 
@@ -132,8 +153,8 @@ services:
     volumes:
       # Persist database data using named volume
       - postgres-data:/var/lib/postgresql/data
-      # Mount initialization script (read-only)
-      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      # Mount initialization script (read-only, executable)
+      - ./infra/postgres/init.sh:/docker-entrypoint-initdb.d/init.sh:ro
     networks:
       - devcle-network
     restart: unless-stopped
@@ -150,6 +171,8 @@ volumes:
   postgres-data:
     driver: local
 ```
+
+**変更点**: `init.sql` → `init.sh` (環境変数展開とタイムゾーン永続化のため)
 
 ### 3. .env.example PostgreSQL設定
 
@@ -320,7 +343,7 @@ cp .env.example .env
 # .envファイルを編集してPOSTGRES_PASSWORDを設定
 ```
 
-### 問題2: init.sqlが実行されない
+### 問題2: init.shが実行されない
 
 **原因**: データベースボリュームが既に存在する
 
@@ -331,7 +354,8 @@ docker compose down
 docker volume rm devcle_postgres-data
 docker compose up -d postgres
 
-# ログを確認
+# ログを確認（init.shのechoとRAISE NOTICEが出力される）
+docker compose logs postgres | grep "Initializing PostgreSQL"
 docker compose logs postgres | grep "Database initialized"
 ```
 
@@ -380,15 +404,15 @@ docker compose exec postgres pg_isready -U devcle
 
 ## チェックリスト
 
-- [ ] `infra/postgres/init.sql` 作成
+- [ ] `infra/postgres/init.sh` 作成（環境変数展開、タイムゾーン永続化対応）
 - [ ] `infra/postgres/rls-template.sql` 作成
 - [ ] `.env.example` にPostgreSQL設定追加
-- [ ] docker-compose.ymlのpostgresサービス確認
+- [ ] docker-compose.ymlのpostgresサービス確認（init.shマウント）
 - [ ] PostgreSQLコンテナの起動確認
 - [ ] データベース接続確認
 - [ ] pgcrypto拡張の動作確認
 - [ ] UUID生成テスト
-- [ ] タイムゾーン設定確認
+- [ ] タイムゾーン設定確認（永続化されているか確認）
 - [ ] データベースボリュームの永続化確認
 
 ---
