@@ -48,14 +48,13 @@ services:
     environment:
       NODE_ENV: production
       # Database connection string (from .env)
+      # In production, this points to an external PostgreSQL server
       DATABASE_URL: ${DATABASE_URL}
       # Redis connection string (from .env)
+      # In production, this points to an external Redis server
       REDIS_URL: ${REDIS_URL}
       # Session secret for cookie signing (from .env)
       SESSION_SECRET: ${SESSION_SECRET}
-    depends_on:
-      - postgres
-      - redis
     networks:
       - devcle-network
     restart: unless-stopped
@@ -68,71 +67,7 @@ services:
       # Allow 30s for core app to boot before starting healthchecks
       start_period: 30s
 
-  postgres:
-    image: postgres:15-alpine
-    container_name: devcle-postgres
-    environment:
-      # Database name (defaults to 'devcle' if not set)
-      POSTGRES_DB: ${POSTGRES_DB:-devcle}
-      # Database user (defaults to 'devcle' if not set)
-      POSTGRES_USER: ${POSTGRES_USER:-devcle}
-      # Database password (must be set in .env)
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    volumes:
-      # Persist database data using named volume
-      - postgres-data:/var/lib/postgresql/data
-      # Mount initialization script (read-only, executable)
-      # Uses .sh for environment variable interpolation and persistent timezone setting
-      - ./infra/postgres/init.sh:/docker-entrypoint-initdb.d/init.sh:ro
-    networks:
-      - devcle-network
-    restart: unless-stopped
-    healthcheck:
-      # Check if PostgreSQL is ready to accept connections
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-devcle}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      # Allow 30s for postgres to boot before starting healthchecks
-      start_period: 30s
-
-  redis:
-    # Redis 7.x Alpine image for cache, session storage, and job queue (BullMQ)
-    image: redis:7-alpine
-    container_name: devcle-redis
-    environment:
-      # Redis password for authentication (required)
-      REDIS_PASSWORD: ${REDIS_PASSWORD}
-    # Override requirepass in redis.conf with environment variable
-    # This allows dynamic password configuration without modifying redis.conf
-    command: >
-      redis-server /usr/local/etc/redis/redis.conf
-      --requirepass ${REDIS_PASSWORD}
-    volumes:
-      # Mount redis configuration (read-only)
-      # Configuration includes: memory limits, AOF persistence, security settings
-      - ./infra/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
-      # Persist redis data using named volume for AOF files
-      - redis-data:/data
-    networks:
-      - devcle-network
-    restart: unless-stopped
-    healthcheck:
-      # Verify Redis is ready to accept connections with password authentication
-      # Uses PING command which returns PONG when authenticated
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "PING"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      # Allow 10s for redis to boot before starting healthchecks
-      start_period: 10s
-
 # Define a dedicated network for service isolation
 networks:
   devcle-network:
     driver: bridge
-
-# Define named volumes for data persistence
-volumes:
-  postgres-data:
-  redis-data:
