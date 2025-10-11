@@ -152,7 +152,7 @@ export function Layout({
   children: React.ReactNode;
 }): JSX.Element {
   return (
-    <html lang="ja">
+    <html lang="en">
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -183,7 +183,7 @@ export default function App(): JSX.Element {
  */
 export function ErrorBoundary(): JSX.Element {
   return (
-    <html lang="ja">
+    <html lang="en">
       <head>
         <title>エラーが発生しました</title>
         <Meta />
@@ -231,7 +231,7 @@ export function ErrorBoundary(): JSX.Element {
 **変更点**:
 - `import styles from './tailwind.css?url'`: TailwindCSSをインポート
 - `links`: スタイルシートをリンクに追加
-- `html lang="ja"`: 日本語設定
+- `html lang="en"`: 英語設定
 - `ErrorBoundary`: エラーページを実装（Tailwindクラスを使用）
 
 ---
@@ -594,7 +594,7 @@ pnpm dev --port 3001
 - [ ] `tailwind.config.ts`作成
 - [ ] `postcss.config.js`作成
 - [ ] `app/tailwind.css`作成
-- [ ] `app/root.tsx`更新（Tailwindインポート、ErrorBoundary追加、lang="ja"）
+- [ ] `app/root.tsx`更新（Tailwindインポート、ErrorBoundary追加、lang="en"）
 - [ ] `app/env.server.ts`作成
 - [ ] `pnpm install`が成功
 - [ ] `pnpm typecheck`がエラーなし
