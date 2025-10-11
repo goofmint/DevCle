@@ -80,7 +80,10 @@ requirepass <REDIS_PASSWORD>
 # Disable dangerous commands in production
 rename-command FLUSHDB ""
 rename-command FLUSHALL ""
-rename-command CONFIG ""
+
+# Note: CONFIG command is NOT disabled to allow diagnostic commands
+# (INFO, CONFIG GET) for monitoring and validation
+# In production, use ACL to restrict CONFIG SET while allowing CONFIG GET
 
 # ====================
 # Memory Management
@@ -197,12 +200,20 @@ DevCleでは汎用的な`allkeys-lru`を使用。
 ```conf
 rename-command FLUSHDB ""
 rename-command FLUSHALL ""
-rename-command CONFIG ""
 ```
 
 **理由**:
 - `FLUSHDB`/`FLUSHALL`: 全データ削除防止
-- `CONFIG`: 実行時設定変更防止
+
+**診断コマンドの許可**:
+- `CONFIG GET`: 設定値の読み取り（動作確認・監視用）
+- `INFO`: サーバー情報の取得（メモリ、永続化、統計情報）
+- `PING`: 接続確認
+
+**本番環境のセキュリティ**:
+- `CONFIG SET`など設定変更が必要な場合は、Redis ACL（Access Control List）で制限
+- 例: `ACL SETUSER monitor on >password ~* +@read +config|get -config|set`
+- これにより診断コマンドを許可しつつ、設定変更を防止
 
 ---
 
@@ -243,9 +254,10 @@ services:
     restart: unless-stopped
 
     # Interface: Health check
-    # Verifies Redis is ready to accept connections with password
+    # Verifies Redis is ready to accept connections with password authentication
+    # Uses PING command with password to return PONG
     healthcheck:
-      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "PING"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -259,7 +271,7 @@ volumes:
 **説明**:
 - `command`: redis.confの`requirepass`を環境変数でオーバーライド
 - `volumes`: 設定ファイルとデータディレクトリをマウント
-- `healthcheck`: パスワード認証込みで接続確認
+- `healthcheck`: パスワード認証（`-a ${REDIS_PASSWORD}`）を使ってPINGコマンドで接続確認
 
 ---
 
@@ -323,6 +335,8 @@ hello
 
 ### 4. AOF永続化確認
 
+#### 方法1: CONFIG GETコマンド（推奨）
+
 ```bash
 docker compose exec redis redis-cli -a "${REDIS_PASSWORD}" CONFIG GET appendonly
 ```
@@ -333,7 +347,20 @@ docker compose exec redis redis-cli -a "${REDIS_PASSWORD}" CONFIG GET appendonly
 2) "yes"
 ```
 
+#### 方法2: INFOコマンド（代替）
+
+```bash
+docker compose exec redis redis-cli -a "${REDIS_PASSWORD}" INFO persistence | grep aof_enabled
+```
+
+**期待結果**:
+```
+aof_enabled:1
+```
+
 ### 5. メモリ設定確認
+
+#### 方法1: CONFIG GETコマンド（推奨）
 
 ```bash
 docker compose exec redis redis-cli -a "${REDIS_PASSWORD}" CONFIG GET maxmemory
@@ -347,6 +374,18 @@ docker compose exec redis redis-cli -a "${REDIS_PASSWORD}" CONFIG GET maxmemory-
 
 1) "maxmemory-policy"
 2) "allkeys-lru"
+```
+
+#### 方法2: INFOコマンド（代替）
+
+```bash
+docker compose exec redis redis-cli -a "${REDIS_PASSWORD}" INFO memory | grep maxmemory
+```
+
+**期待結果**:
+```
+maxmemory:536870912
+maxmemory_policy:allkeys-lru
 ```
 
 ### 6. データボリュームの確認
@@ -456,10 +495,11 @@ docker compose exec redis redis-cli -a "${REDIS_PASSWORD}" GET test
 - [ ] Redisコンテナの起動確認
 - [ ] パスワード認証の動作確認
 - [ ] データ書き込み・読み取りテスト
-- [ ] AOF永続化の確認
-- [ ] メモリ設定の確認
+- [ ] AOF永続化の確認（CONFIG GETまたはINFO persistenceコマンド）
+- [ ] メモリ設定の確認（CONFIG GETまたはINFO memoryコマンド）
 - [ ] データボリュームの永続化確認
-- [ ] 危険なコマンドが無効化されているか確認
+- [ ] 危険なコマンド（FLUSHDB/FLUSHALL）が無効化されているか確認
+- [ ] 診断コマンド（CONFIG GET、INFO、PING）が使用可能か確認
 
 ---
 
