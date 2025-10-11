@@ -1,0 +1,51 @@
+# docker-compose-dev.yml (Development environment override)
+# Note: Use Compose V2 (docker compose)
+# Usage: docker compose -f docker-compose.yml -f docker-compose-dev.yml up -d
+version: '3.9'
+
+services:
+  nginx:
+    volumes:
+      # Override SSL certificate files for development (devcle.test)
+      # Certificate file (development domain)
+      - ./certs/devcle.test+3.pem:/etc/nginx/certs/server.crt:ro
+      # Private key file (development domain)
+      - ./certs/devcle.test+3-key.pem:/etc/nginx/certs/server.key:ro
+
+  core:
+    build:
+      # Use development target for hot reloading
+      target: development
+      # Use the same Dockerfile as production but different target
+      dockerfile: ../docker/Dockerfile.core
+    environment:
+      # Override NODE_ENV for development
+      NODE_ENV: development
+      # Set CI flag for non-interactive pnpm install
+      CI: "true"
+    volumes:
+      # Mount source code for hot reloading from actual drm-core repository
+      - ../drm-core:/app
+      # Use named volume to preserve container's node_modules (Linux Alpine binaries)
+      # This prevents macOS host binaries from being used in Linux container
+      - core-node-modules:/app/node_modules
+    ports:
+      # Expose development server for direct access
+      - "3000:3000"
+    # Override command to install dependencies and run development server
+    # This ensures Linux Alpine binaries are used instead of macOS host binaries
+    command: sh -c "pnpm install --frozen-lockfile && pnpm dev"
+
+  postgres:
+    ports:
+      # Expose postgres port for local tool access (e.g., pgAdmin, DBeaver)
+      - "5432:5432"
+
+  redis:
+    ports:
+      # Expose redis port for local tool access (e.g., Redis Commander)
+      - "6379:6379"
+
+volumes:
+  # Named volume for core's node_modules to preserve Linux Alpine binaries
+  core-node-modules:

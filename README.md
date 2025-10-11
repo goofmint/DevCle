@@ -28,7 +28,7 @@ This separation ensures:
 
 ```bash
 git clone --recurse-submodules https://github.com/yourorg/devcle.git
-cd devcle
+cd devcle/app
 ```
 
 ### Initialize submodules (if already cloned)
@@ -37,7 +37,100 @@ cd devcle
 git submodule update --init --recursive
 ```
 
-### Development
+### Quick Start with Docker Compose
+
+The easiest way to run DevCle is using Docker Compose:
+
+#### 1. Setup environment variables
+
+```bash
+# Copy the example environment file
+cp .env.example .env
+
+# Edit the .env file and configure:
+# - Change all passwords (POSTGRES_PASSWORD, REDIS_PASSWORD, SESSION_SECRET)
+# - Set APP_DOMAIN (devcle.com for production, devcle.test for development)
+# IMPORTANT: Use strong passwords in production!
+vim .env
+```
+
+**Important variables:**
+- `APP_DOMAIN`: Application domain for nginx server_name and URLs (default: `devcle.com` for production, `devcle.test` for development)
+
+#### 1.5. Setup SSL certificates (for HTTPS)
+
+**Development certificates (devcle.test):**
+- Already exists: `certs/devcle.test+3.pem` (certificate)
+- Already exists: `certs/devcle.test+3-key.pem` (private key)
+
+**Production certificates (devcle.com):**
+
+```bash
+# Place your production SSL certificates with the correct names
+# Example: Using Let's Encrypt certificates
+cp /path/to/fullchain.pem certs/devcle.com.pem
+cp /path/to/privkey.pem certs/devcle.com-key.pem
+
+# Or generate with mkcert for testing
+mkcert devcle.com
+mv devcle.com.pem certs/
+mv devcle.com-key.pem certs/
+```
+
+**Note:**
+- **Development** (`docker-compose-dev.yml`): Uses `certs/devcle.test+3.pem` and `certs/devcle.test+3-key.pem`
+- **Production** (`docker-compose.yml`): Uses `certs/devcle.com.pem` and `certs/devcle.com-key.pem`
+
+#### 2. Start the services (Development mode)
+
+```bash
+# Start all services in development mode with hot reload
+docker compose -f docker-compose.yml -f docker-compose-dev.yml up -d
+
+# View logs
+docker compose logs -f
+
+# Check container status
+docker compose ps
+```
+
+#### 3. Access the application
+
+- **Core application**: http://localhost:3000
+- **Nginx (dev)**: http://localhost:8080
+- **PostgreSQL**: localhost:5432 (for local tools like pgAdmin, DBeaver)
+- **Redis**: localhost:6379 (for local tools like Redis Commander)
+
+#### 4. Stop the services
+
+```bash
+# Stop all services
+docker compose down
+
+# Stop and remove volumes (WARNING: This will delete all data)
+docker compose down -v
+```
+
+### Production Deployment
+
+For production environments:
+
+```bash
+# 1. Setup environment variables
+cp .env.example .env
+vim .env  # Set strong passwords!
+
+# 2. Start services in production mode
+docker compose up -d
+
+# 3. Check health status
+docker compose ps --format "table {{.Name}}\t{{.Status}}"
+
+# 4. View logs
+docker compose logs -f
+```
+
+### Development (Without Docker)
 
 Each submodule has its own development environment:
 
@@ -56,6 +149,22 @@ pnpm build
 cd plugins
 pnpm install
 pnpm build
+```
+
+### Useful Commands
+
+```bash
+# Run tests
+cd core && pnpm test
+
+# Type check
+cd core && pnpm typecheck
+
+# Lint check
+cd core && pnpm lint
+
+# Format code
+cd core && pnpm format
 ```
 
 ## Architecture

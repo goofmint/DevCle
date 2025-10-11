@@ -1,0 +1,101 @@
+# docker/Dockerfile.core
+# Multi-stage build for DevCle core application
+# Targets: development (for hot reload), production (optimized)
+
+# ============================================
+# Base stage: Node.js 20 with pnpm
+# ============================================
+FROM node:20-alpine AS base
+
+# Enable corepack and install pnpm
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+WORKDIR /app
+
+# ============================================
+# Development dependencies stage
+# ============================================
+FROM base AS deps-dev
+
+# Copy package files for dependency installation
+COPY package.json pnpm-lock.yaml* ./
+
+# Install all dependencies (including devDependencies)
+# Use --frozen-lockfile to ensure reproducible builds
+RUN pnpm install --frozen-lockfile
+
+# ============================================
+# Production dependencies stage
+# ============================================
+FROM base AS deps-prod
+
+# Copy package files for dependency installation
+COPY package.json pnpm-lock.yaml* ./
+
+# Install only production dependencies (exclude devDependencies)
+# This reduces the final image size significantly
+RUN pnpm install --frozen-lockfile --prod
+
+# ============================================
+# Development stage
+# ============================================
+FROM base AS development
+
+# Copy all dependencies (including devDependencies) from deps-dev stage
+COPY --from=deps-dev /app/node_modules ./node_modules
+
+# Copy source code
+COPY . .
+
+# Expose port 3000 for Remix dev server
+EXPOSE 3000
+
+# Run development server with hot reload
+CMD ["pnpm", "dev"]
+
+# ============================================
+# Builder stage
+# ============================================
+FROM base AS builder
+
+# Copy all dependencies (including devDependencies) needed for build
+COPY --from=deps-dev /app/node_modules ./node_modules
+
+# Copy source code
+COPY . .
+
+# Build the Remix application
+RUN pnpm build
+
+# ============================================
+# Production stage
+# ============================================
+FROM base AS production
+
+# Set NODE_ENV to production
+ENV NODE_ENV=production
+
+# Create a non-root user for security
+# Group: nodejs (gid: 1001), User: nodejs (uid: 1001)
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001
+
+WORKDIR /app
+
+# Copy production dependencies with proper ownership
+COPY --from=deps-prod --chown=nodejs:nodejs /app/node_modules ./node_modules
+
+# Copy build artifacts with proper ownership
+COPY --from=builder --chown=nodejs:nodejs /app/build ./build
+
+# Copy package.json with proper ownership
+COPY --chown=nodejs:nodejs package.json ./
+
+# Switch to non-root user for security
+USER nodejs
+
+# Expose port 3000 for Remix production server
+EXPOSE 3000
+
+# Run production server
+CMD ["pnpm", "start"]
