@@ -16,3 +16,36 @@ node_modules
 certs/
 
 # Node
+
+# Build outputs
+core/dist/
+core/build/
+core/.cache/
+
+# Environment variables
+core/.env
+core/.env.local
+core/.env.*.local
+
+# Logs
+core/*.log
+core/npm-debug.log*
+core/pnpm-debug.log*
+core/yarn-debug.log*
+core/yarn-error.log*
+
+# TypeScript
+core/*.tsbuildinfo
+
+# Testing
+core/coverage/
+core/.vitest/
+
+# IDE
+core/.vscode/
+core/.idea/
+core/*.swp
+core/*.swo
+
+# Remix
+core/build
