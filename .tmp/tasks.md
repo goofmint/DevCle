@@ -37,16 +37,17 @@
 - **注意**: プラグイン（posthog等）は不要。coreのみ構築。
 - **完了日**: 2025-10-10
 
-### Task 1.2: Docker Compose構成ファイル作成
+### Task 1.2: Docker Compose構成ファイル作成 ✅
 
-- [ ] `docker-compose.yml`作成（nginx, core, postgres, redis）
-- [ ] `docker-compose-dev.yml`作成（開発環境用オーバーライド）
-- [ ] `core/Dockerfile`作成（Node.js 20, pnpm）
-- [ ] `.dockerignore`作成
-- [ ] `.env.example`作成（環境変数テンプレート）
+- [x] `docker-compose.yml`作成（nginx, core, postgres, redis）
+- [x] `docker-compose-dev.yml`作成（開発環境用オーバーライド）
+- [x] `core/Dockerfile`作成（Node.js 20, pnpm）
+- [x] `.dockerignore`作成
+- [x] `.env.example`作成（環境変数テンプレート）
 - **完了条件**: `docker-compose up -d`でコンテナが起動
 - **依存**: Task 1.1
 - **推定時間**: 3時間
+- **完了日**: 2025-10-11
 
 ### Task 1.3: nginx設定とリバースプロキシ
 
@@ -58,6 +59,7 @@
 - **完了条件**: nginxが起動し、Remixアプリにプロキシされる
 - **依存**: Task 1.2
 - **推定時間**: 2時間
+- **ドキュメント**: [.tmp/tasks/task-1.3-nginx-setup.md](.tmp/tasks/task-1.3-nginx-setup.md)
 
 ### Task 1.4: PostgreSQL初期設定
 
