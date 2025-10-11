@@ -14,17 +14,17 @@ nginxをリバースプロキシとして構成し、以下を実現する：
 - Remixアプリケーションへのプロキシ
 - 静的ファイル配信
 - ヘルスチェックエンドポイント
-- HTTPSリダイレクト（本番環境のみ）
+- SSL/TLS設定（開発環境：mkcert、本番環境：Cloudflare Origin Certificate）
 
 ---
 
 ## 完了条件
 
 - [ ] nginxコンテナが正常に起動する
-- [ ] `http://localhost` または `http://devcle.test` でRemixアプリケーションにアクセスできる
+- [ ] `https://localhost` または `https://devcle.test` でRemixアプリケーションにアクセスできる
+- [ ] HTTPからHTTPSへ自動リダイレクトされる
 - [ ] 静的ファイル（`/public/*`）が直接配信される
-- [ ] ヘルスチェックエンドポイント（`/health`）が応答する
-- [ ] 開発環境でHTTPSリダイレクトが無効化されている
+- [ ] mkcert証明書が正しくマウントされている
 
 ---
 
@@ -43,10 +43,10 @@ app/
 │       └── nginx.prod.conf     # 本番環境用設定
 ```
 
-#### nginx.conf（開発環境用）
+#### nginx.conf（開発環境用 - mkcert使用）
 
 ```nginx
-# nginx.conf - Development Configuration
+# nginx.conf - Development Configuration with mkcert
 
 user nginx;
 worker_processes auto;
@@ -88,9 +88,27 @@ http {
         server core:3000;
     }
 
+    # HTTP→HTTPSリダイレクト
     server {
         listen 80;
         server_name localhost devcle.test;
+
+        location / {
+            return 301 https://$server_name$request_uri;
+        }
+    }
+
+    # HTTPS サーバー（mkcert証明書）
+    server {
+        listen 443 ssl http2;
+        server_name localhost devcle.test;
+
+        # SSL証明書（docker-composeでマウント）
+        ssl_certificate /etc/nginx/certs/server.crt;
+        ssl_certificate_key /etc/nginx/certs/server.key;
+        ssl_protocols TLSv1.2 TLSv1.3;
+        ssl_ciphers HIGH:!aNULL:!MD5;
+        ssl_prefer_server_ciphers on;
 
         # リクエストサイズ制限
         client_max_body_size 10M;
@@ -134,159 +152,75 @@ http {
 }
 ```
 
-#### nginx.prod.conf（本番環境用）
+#### 本番環境の設定（Cloudflare Origin Certificate使用）
 
-```nginx
-# nginx.prod.conf - Production Configuration
+本番環境では開発環境と同じ `nginx.conf` を使用します。証明書だけを `docker-compose.yml` でマウントして切り替えます。
 
-user nginx;
-worker_processes auto;
-error_log /var/log/nginx/error.log error;
-pid /var/run/nginx.pid;
+**Cloudflare Origin Certificateの特徴**:
+- Cloudflareが発行するオリジンサーバー専用の証明書
+- 有効期限15年（自動更新不要）
+- Cloudflareとオリジンサーバー間の通信を暗号化
+- クライアント→Cloudflare間はCloudflareの証明書を使用
+- 追加の設定項目：
+  - セキュリティヘッダー（X-Frame-Options、HSTS等）
+  - レート制限（API エンドポイント）
+  - JSON形式のアクセスログ
 
-events {
-    worker_connections 2048;
-}
+**注意**: 本番環境では、nginx.confに以下の設定を追加します：
+- セキュリティヘッダー（http ブロック内）
+- レート制限（http ブロック内）
+- JSON形式のログフォーマット
 
-http {
-    include /etc/nginx/mime.types;
-    default_type application/octet-stream;
+### 2. SSL証明書の準備
 
-    # ログフォーマット（JSON形式）
-    log_format json_combined escape=json
-    '{'
-        '"time_local":"$time_local",'
-        '"remote_addr":"$remote_addr",'
-        '"request_method":"$request_method",'
-        '"request_uri":"$request_uri",'
-        '"status":$status,'
-        '"body_bytes_sent":$body_bytes_sent,'
-        '"http_referer":"$http_referer",'
-        '"http_user_agent":"$http_user_agent",'
-        '"request_time":$request_time'
-    '}';
+#### 開発環境: mkcert証明書
 
-    access_log /var/log/nginx/access.log json_combined;
+開発環境でHTTPSを使用するため、mkcertで自己署名証明書を作成します。
 
-    sendfile on;
-    tcp_nopush on;
-    tcp_nodelay on;
-    keepalive_timeout 65;
-    types_hash_max_size 2048;
+```bash
+# mkcertのインストール（macOS）
+brew install mkcert
 
-    # セキュリティヘッダー
-    add_header X-Frame-Options "SAMEORIGIN" always;
-    add_header X-Content-Type-Options "nosniff" always;
-    add_header X-XSS-Protection "1; mode=block" always;
-    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+# ルートCA証明書のインストール
+mkcert -install
 
-    # Gzip圧縮
-    gzip on;
-    gzip_vary on;
-    gzip_proxied any;
-    gzip_comp_level 6;
-    gzip_types text/plain text/css text/xml text/javascript
-               application/json application/javascript application/xml+rss
-               application/rss+xml font/truetype font/opentype
-               application/vnd.ms-fontobject image/svg+xml;
-
-    # レート制限
-    limit_req_zone $binary_remote_addr zone=api_limit:10m rate=10r/s;
-    limit_req_status 429;
-
-    upstream remix_app {
-        server core:3000;
-        keepalive 32;
-    }
-
-    # HTTP→HTTPSリダイレクト
-    server {
-        listen 80;
-        server_name devcle.com www.devcle.com;
-
-        location / {
-            return 301 https://$server_name$request_uri;
-        }
-    }
-
-    # HTTPS サーバー
-    server {
-        listen 443 ssl http2;
-        server_name devcle.com www.devcle.com;
-
-        # SSL証明書（Let's Encryptを想定）
-        ssl_certificate /etc/nginx/ssl/fullchain.pem;
-        ssl_certificate_key /etc/nginx/ssl/privkey.pem;
-        ssl_protocols TLSv1.2 TLSv1.3;
-        ssl_ciphers HIGH:!aNULL:!MD5;
-        ssl_prefer_server_ciphers on;
-        ssl_session_cache shared:SSL:10m;
-        ssl_session_timeout 10m;
-
-        # HSTS
-        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
-
-        # リクエストサイズ制限
-        client_max_body_size 10M;
-
-        # ヘルスチェックエンドポイント
-        location /health {
-            access_log off;
-            return 200 "OK\n";
-            add_header Content-Type text/plain;
-        }
-
-        # 静的ファイル配信（/public）
-        location /public/ {
-            alias /app/public/;
-            expires 1y;
-            add_header Cache-Control "public, immutable";
-        }
-
-        # API エンドポイント（レート制限適用）
-        location /api/ {
-            limit_req zone=api_limit burst=20 nodelay;
-
-            proxy_pass http://remix_app;
-            proxy_http_version 1.1;
-            proxy_set_header Connection "";
-
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto $scheme;
-            proxy_set_header X-Forwarded-Host $host;
-
-            proxy_connect_timeout 60s;
-            proxy_send_timeout 60s;
-            proxy_read_timeout 60s;
-        }
-
-        # Remixアプリへのプロキシ
-        location / {
-            proxy_pass http://remix_app;
-            proxy_http_version 1.1;
-            proxy_set_header Connection "";
-
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto $scheme;
-            proxy_set_header X-Forwarded-Host $host;
-
-            # WebSocket対応
-            proxy_set_header Upgrade $http_upgrade;
-            proxy_set_header Connection "upgrade";
-
-            proxy_connect_timeout 60s;
-            proxy_send_timeout 60s;
-            proxy_read_timeout 60s;
-        }
-    }
-}
+# devcle.test用の証明書生成
+cd app/certs
+mkcert devcle.test localhost 127.0.0.1 ::1
 ```
 
-### 2. docker-compose.yml への nginx サービス追加
+**生成される証明書**:
+- `devcle.test+3.pem` - 証明書ファイル
+- `devcle.test+3-key.pem` - 秘密鍵ファイル
+
+#### 本番環境: Cloudflare Origin Certificate
+
+Cloudflareダッシュボードから発行したオリジン証明書を使用します。
+
+**証明書の取得手順**:
+1. Cloudflareダッシュボードにログイン
+2. 対象ドメイン（devcle.com）を選択
+3. **SSL/TLS** → **Origin Server** に移動
+4. **Create Certificate** をクリック
+5. 以下の設定で証明書を生成：
+   - **Private key type**: RSA (2048)
+   - **Certificate Validity**: 15 years
+   - **Hostnames**: `devcle.com`, `*.devcle.com`
+6. 生成された証明書と秘密鍵をダウンロード：
+   - **Origin Certificate**: `devcle.com.pem`（PEM形式）
+   - **Private Key**: `devcle.com-key.pem`（PEM形式）
+7. `app/certs/` ディレクトリに配置
+
+**Cloudflare SSL/TLS設定**:
+- **SSL/TLS encryption mode**: **Full (strict)**
+  - Cloudflare→オリジンサーバー間も暗号化
+  - オリジン証明書を検証
+
+**注意**: `certs/` ディレクトリは `.gitignore` に追加して、証明書をコミットしないようにします。
+
+### 3. docker-compose.yml への nginx サービス追加
+
+**本番環境（docker-compose.yml）**:
 
 ```yaml
 services:
@@ -296,65 +230,84 @@ services:
     ports:
       - "80:80"
       - "443:443"
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:-devcle.com}
     volumes:
-      - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./core/public:/app/public:ro
-      - nginx_logs:/var/log/nginx
+      # nginx設定ファイル
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      # 本番環境のSSL証明書（Cloudflare Origin Certificate）
+      - ./certs/devcle.com.pem:/etc/nginx/certs/server.crt:ro
+      - ./certs/devcle.com-key.pem:/etc/nginx/certs/server.key:ro
+      # 静的ファイル
+      - ./core/public:/var/www/public:ro
     depends_on:
       - core
     networks:
       - devcle-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      test: ["CMD-SHELL", "pgrep nginx || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 10s
+      start_period: 30s
 
-volumes:
-  nginx_logs:
-    driver: local
+networks:
+  devcle-network:
+    driver: bridge
 ```
 
-### 3. docker-compose.prod.yml でのオーバーライド
+**開発環境オーバーライド（docker-compose-dev.yml）**:
 
 ```yaml
 services:
   nginx:
     volumes:
-      - ./infra/nginx/nginx.prod.conf:/etc/nginx/nginx.conf:ro
-      - ./core/public:/app/public:ro
-      - /etc/letsencrypt/live/devcle.com/fullchain.pem:/etc/nginx/ssl/fullchain.pem:ro
-      - /etc/letsencrypt/live/devcle.com/privkey.pem:/etc/nginx/ssl/privkey.pem:ro
-      - nginx_logs:/var/log/nginx
+      # 開発環境のSSL証明書（mkcert）でオーバーライド
+      - ./certs/devcle.test+3.pem:/etc/nginx/certs/server.crt:ro
+      - ./certs/devcle.test+3-key.pem:/etc/nginx/certs/server.key:ro
+```
+
+### 4. 使用方法
+
+**開発環境**:
+```bash
+docker compose -f docker-compose.yml -f docker-compose-dev.yml up -d
+```
+
+**本番環境**:
+```bash
+docker compose up -d
 ```
 
 ---
 
 ## 設定内容の説明
 
-### 開発環境（nginx.conf）
+### 開発環境（nginx.conf - mkcert）
 
 | 設定項目 | 内容 |
 |---------|------|
-| **リスンポート** | 80のみ（HTTPSリダイレクトなし） |
+| **リスンポート** | 80（HTTPSリダイレクト）、443（HTTPS） |
 | **server_name** | `localhost`, `devcle.test` |
+| **SSL証明書** | mkcert生成の自己署名証明書 |
+| **HTTPSリダイレクト** | ポート80→443へ301リダイレクト |
 | **ログレベル** | warn（詳細ログ出力） |
 | **静的ファイル** | `/public/*` を直接配信 |
 | **プロキシ** | `core:3000` へリバースプロキシ |
 | **WebSocket** | Upgrade/Connection ヘッダー対応 |
 | **ヘルスチェック** | `/health` で200応答 |
 
-### 本番環境（nginx.prod.conf）
+### 本番環境（nginx.conf + Cloudflare）
 
 | 設定項目 | 内容 |
 |---------|------|
 | **HTTPSリダイレクト** | ポート80→443へ301リダイレクト |
-| **SSL/TLS** | TLSv1.2/1.3, Let's Encrypt証明書 |
-| **セキュリティヘッダー** | X-Frame-Options, CSP, HSTS等 |
-| **レート制限** | `/api/*` に10req/s制限 |
-| **ログ形式** | JSON形式（構造化ログ） |
+| **SSL/TLS** | TLSv1.2/1.3, Cloudflare Origin Certificate |
+| **SSL終端** | Cloudflare（クライアント側）+ nginx（オリジン側） |
+| **セキュリティヘッダー** | X-Frame-Options, HSTS等（追加設定） |
+| **レート制限** | `/api/*` に10req/s制限（追加設定） |
+| **ログ形式** | JSON形式（構造化ログ、追加設定） |
 | **HTTP/2** | 有効化 |
 
 ---
@@ -427,10 +380,20 @@ proxy_set_header Connection "upgrade";
 
 ---
 
-## セキュリティ設定（本番環境）
+## セキュリティ設定
 
-### 1. HTTPSリダイレクト
+### 1. HTTPSリダイレクト（開発・本番共通）
 
+**開発環境（mkcert）**:
+```nginx
+server {
+    listen 80;
+    server_name localhost devcle.test;
+    return 301 https://$server_name$request_uri;
+}
+```
+
+**本番環境（Cloudflare Origin Certificate）**:
 ```nginx
 server {
     listen 80;
@@ -439,7 +402,9 @@ server {
 }
 ```
 
-### 2. セキュリティヘッダー
+**注意**: Cloudflareを使用する場合も、オリジンサーバー側でHTTPSを有効にする必要があります。Cloudflareの **Full (strict)** モードでは、Cloudflareとオリジンサーバー間の通信も暗号化されます。
+
+### 2. セキュリティヘッダー（本番環境のみ）
 
 ```nginx
 add_header X-Frame-Options "SAMEORIGIN" always;
@@ -449,7 +414,9 @@ add_header Referrer-Policy "strict-origin-when-cross-origin" always;
 add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
 ```
 
-### 3. レート制限
+**注意**: 開発環境ではHSTSヘッダーは設定しません（mkcert証明書は自己署名のため）。
+
+### 3. レート制限（本番環境のみ）
 
 ```nginx
 limit_req_zone $binary_remote_addr zone=api_limit:10m rate=10r/s;
@@ -463,6 +430,8 @@ location /api/ {
 - `/api/*` エンドポイントに適用
 - 10リクエスト/秒、バースト20まで許容
 - 超過時は429（Too Many Requests）を返す
+
+**注意**: 開発環境ではレート制限を設定しません（開発効率を優先）。
 
 ---
 
@@ -486,21 +455,7 @@ nginx: configuration file /etc/nginx/nginx.conf test is successful
 docker-compose restart nginx
 ```
 
-### 3. ヘルスチェック確認
-
-```bash
-curl -i http://localhost/health
-```
-
-**期待結果**:
-```
-HTTP/1.1 200 OK
-Content-Type: text/plain
-
-OK
-```
-
-### 4. Remixアプリへのアクセス確認
+### 3. HTTPSリダイレクト確認
 
 ```bash
 curl -i http://localhost/
@@ -508,25 +463,51 @@ curl -i http://localhost/
 
 **期待結果**:
 ```
-HTTP/1.1 200 OK
-Content-Type: text/html
-# Remixアプリのレスポンス
+HTTP/1.1 301 Moved Permanently
+Location: https://localhost/
 ```
 
-### 5. 静的ファイル配信確認
+### 4. ヘルスチェック確認（HTTPS）
 
 ```bash
-curl -I http://localhost/public/favicon.ico
+curl -i -k https://localhost/health
 ```
 
 **期待結果**:
 ```
-HTTP/1.1 200 OK
+HTTP/2 200
+Content-Type: text/plain
+
+OK
+```
+
+### 5. Remixアプリへのアクセス確認（HTTPS）
+
+```bash
+curl -i -k https://localhost/
+```
+
+**期待結果**:
+```
+HTTP/2 200
+Content-Type: text/html
+# Remixアプリのレスポンス
+```
+
+### 6. 静的ファイル配信確認
+
+```bash
+curl -I -k https://localhost/public/favicon.ico
+```
+
+**期待結果**:
+```
+HTTP/2 200
 Cache-Control: public, immutable
 Expires: <1年後の日付>
 ```
 
-### 6. プロキシヘッダー確認
+### 7. プロキシヘッダー確認
 
 Remixアプリ側で以下のようにヘッダーを確認：
 
@@ -599,17 +580,27 @@ docker-compose exec nginx ls -la /app/public
 
 ## チェックリスト
 
-- [ ] `infra/nginx/nginx.conf` 作成
-- [ ] `infra/nginx/nginx.prod.conf` 作成
-- [ ] `docker-compose.yml` に nginx サービス追加
-- [ ] `docker-compose.prod.yml` でSSL証明書マウント設定
+### 開発環境
+- [ ] mkcertのインストールと証明書生成
+- [ ] `certs/devcle.test+3.pem` と `devcle.test+3-key.pem` の配置
+- [ ] `nginx/nginx.conf` 作成（HTTPS対応）
+- [ ] `docker-compose.yml` に nginx サービス追加（本番証明書パス）
+- [ ] `docker-compose-dev.yml` で開発証明書をオーバーライド
 - [ ] 設定ファイルの文法チェック（`nginx -t`）
-- [ ] ヘルスチェックエンドポイント動作確認
-- [ ] 静的ファイル配信の動作確認
-- [ ] Remixアプリへのプロキシ動作確認
-- [ ] WebSocket接続の動作確認（開発環境HMR）
-- [ ] セキュリティヘッダーの確認（本番環境）
-- [ ] レート制限の動作確認（本番環境）
+- [ ] HTTPからHTTPSへのリダイレクト確認
+- [ ] ヘルスチェックエンドポイント動作確認（HTTPS）
+- [ ] 静的ファイル配信の動作確認（HTTPS）
+- [ ] Remixアプリへのプロキシ動作確認（HTTPS）
+- [ ] WebSocket接続の動作確認（HMR）
+
+### 本番環境
+- [ ] Cloudflare Origin Certificateの取得
+- [ ] `certs/devcle.com.pem` と `devcle.com-key.pem` の配置
+- [ ] CloudflareでSSL/TLS encryption modeを **Full (strict)** に設定
+- [ ] `nginx/nginx.conf` に本番設定を追加（レート制限、セキュリティヘッダー、JSONログ）
+- [ ] HTTPSでの接続確認（Cloudflare経由）
+- [ ] セキュリティヘッダーの確認
+- [ ] レート制限の動作確認
 
 ---
 
@@ -619,4 +610,6 @@ docker-compose exec nginx ls -la /app/public
 - [nginx reverse proxy設定](https://docs.nginx.com/nginx/admin-guide/web-server/reverse-proxy/)
 - [WebSocket proxying](https://nginx.org/en/docs/http/websocket.html)
 - [Remix Deployment Guide](https://remix.run/docs/en/main/guides/deployment)
-- [Let's Encrypt](https://letsencrypt.org/)
+- [mkcert - ローカル開発用証明書](https://github.com/FiloSottile/mkcert)
+- [Cloudflare Origin CA certificates](https://developers.cloudflare.com/ssl/origin-configuration/origin-ca/)
+- [Cloudflare SSL/TLS encryption modes](https://developers.cloudflare.com/ssl/origin-configuration/ssl-modes/)
