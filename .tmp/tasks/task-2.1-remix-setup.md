@@ -339,8 +339,8 @@ import { env } from '~/env.server';
  */
 export async function loader({ request }: LoaderFunctionArgs) {
   // Environment variables are available via env object
-  console.log('Environment:', env.NODE_ENV);
-  console.log('Database URL:', env.DATABASE_URL.replace(/:[^:@]+@/, ':***@')); // Mask password
+  // Optional (dev-only) minimal diagnostics without secrets:
+  // if (env.NODE_ENV !== 'production') console.debug('[health] env:', env.NODE_ENV);
 
   // TODO: Implement actual DB/Redis health checks in Task 2.5
   const health = {
@@ -400,7 +400,7 @@ drm-core/
 ### 1. 依存パッケージのインストール
 
 ```bash
-cd /Users/nakatsugawa/Code/DevRel/devcle/drm-core
+cd drm-core
 pnpm install
 ```
 
@@ -479,7 +479,7 @@ curl http://localhost:3000/api/health
 ### 7. Docker環境での起動確認
 
 ```bash
-cd /Users/nakatsugawa/Code/DevRel/devcle/app
+cd app
 docker compose -f docker-compose.yml -f docker-compose-dev.yml up -d core
 docker compose logs -f core
 ```
@@ -530,7 +530,7 @@ cat tailwind.config.ts
 **解決策**:
 ```bash
 # .envファイルを確認（appディレクトリ）
-cd /Users/nakatsugawa/Code/DevRel/devcle/app
+cd app
 cat .env
 
 # 存在しない場合は.env.exampleからコピー
