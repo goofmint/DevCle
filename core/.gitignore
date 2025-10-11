@@ -1,0 +1,59 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+build/
+dist/
+.cache/
+.remix/
+
+# Environment variables (SECURITY)
+.env
+.env.*
+!.env.example
+
+# Secrets and keys (SECURITY)
+*.key
+*.pem
+*.p12
+*.pfx
+secrets/
+certs/
+
+# Database (SECURITY - may contain credentials)
+*.db
+*.sqlite
+*.sqlite3
+prisma/*.db
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+
+# Testing
+coverage/
+.vitest/
+.nyc_output/
+
+# TypeScript
+*.tsbuildinfo
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+tmp/
+temp/
+*.tmp
