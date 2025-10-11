@@ -81,8 +81,9 @@ services:
     volumes:
       # Persist database data using named volume
       - postgres-data:/var/lib/postgresql/data
-      # Mount initialization script (read-only)
-      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      # Mount initialization script (read-only, executable)
+      # Uses .sh for environment variable interpolation and persistent timezone setting
+      - ./infra/postgres/init.sh:/docker-entrypoint-initdb.d/init.sh:ro
     networks:
       - devcle-network
     restart: unless-stopped
