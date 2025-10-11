@@ -74,15 +74,17 @@
 - **ドキュメント**: [.tmp/tasks/task-1.4-postgres-init.md](.tmp/tasks/task-1.4-postgres-init.md)
 - **完了日**: 2025-10-11
 
-### Task 1.5: Redis初期設定
+### Task 1.5: Redis初期設定 ✅
 
-- [ ] `redis/redis.conf`作成
-- [ ] パスワード認証設定
-- [ ] メモリ上限・evictionポリシー設定
-- [ ] 永続化設定（AOF）
+- [x] `redis/redis.conf`作成
+- [x] パスワード認証設定
+- [x] メモリ上限・evictionポリシー設定
+- [x] 永続化設定（AOF）
 - **完了条件**: Redisコンテナが起動し、接続可能
 - **依存**: Task 1.2
 - **推定時間**: 1時間
+- **ドキュメント**: [.tmp/tasks/task-1.5-redis-init.md](.tmp/tasks/task-1.5-redis-init.md)
+- **完了日**: 2025-10-11
 
 ---
 

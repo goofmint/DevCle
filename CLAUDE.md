@@ -6,8 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **DRM (Developer Relationship Management)** is a DevRel analytics tool with a 3-tier architecture:
 - `/core/` - OSS core functionality (ID resolution, funnel analysis, data management)
+  this is git submodule. The real source is at: ../drm-core
 - `/plugins/` - Cloud plugins for external API integrations and AI analysis
-- `/posthog/` - Anonymous analytics module for PostHog API integration
+  this is git submodule. The real source is at: ../drm-plugins
 
 The project aims to provide both individual/organization funnel analysis and anonymous campaign contribution analysis without first-party cookies, using server-to-server integration.
 
@@ -30,16 +31,11 @@ This is an **early-stage project** with specification documents in `.tmp/` but m
 - Signed plugins for commercial distribution
 - Plugin definition via `plugin.json` and `definePlugin()` API
 
-### PostHog Integration (`/posthog/`)
-- Integrates anonymous behavioral data with DRM funnels
-- Server-to-server Capture API (distinct_id = click_id)
-- Merges anonymous + authenticated funnels for campaign ROI
-
 ## Development Phases
 
 | Phase | Focus |
 |-------|-------|
-| Phase 1 | Core completion, plugin API definition, PostHog connection |
+| Phase 1 | Core completion, plugin API definition |
 | Phase 2 | Cloud plugins (Slack, connpass, CRM) |
 | Phase 3 | Dashboard integration, AI attribution |
 | Phase 4 | OSS release, Cloud launch |
