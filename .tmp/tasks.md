@@ -62,16 +62,17 @@
 - **ドキュメント**: [.tmp/tasks/task-1.3-nginx-setup.md](.tmp/tasks/task-1.3-nginx-setup.md)
 - **完了日**: 2025-10-11
 
-### Task 1.4: PostgreSQL初期設定
+### Task 1.4: PostgreSQL初期設定 ✅
 
-- [ ] 初期化スクリプト（`infra/postgres/init.sql`）
-- [ ] pgcrypto拡張の有効化
-- [ ] テナント用RLSポリシーのテンプレート作成（`infra/postgres/rls-template.sql`）
-- [ ] データベースバックアップ設定（docker volume）
+- [x] 初期化スクリプト（`infra/postgres/init.sql`）
+- [x] pgcrypto拡張の有効化
+- [x] テナント用RLSポリシーのテンプレート作成（`infra/postgres/rls-template.sql`）
+- [x] データベースバックアップ設定（docker volume）
 - **完了条件**: PostgreSQLコンテナが起動し、接続可能
 - **依存**: Task 1.2
 - **推定時間**: 1.5時間
 - **ドキュメント**: [.tmp/tasks/task-1.4-postgres-init.md](.tmp/tasks/task-1.4-postgres-init.md)
+- **完了日**: 2025-10-11
 
 ### Task 1.5: Redis初期設定
 
