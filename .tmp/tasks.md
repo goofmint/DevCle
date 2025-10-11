@@ -49,27 +49,29 @@
 - **推定時間**: 3時間
 - **完了日**: 2025-10-11
 
-### Task 1.3: nginx設定とリバースプロキシ
+### Task 1.3: nginx設定とリバースプロキシ ✅
 
-- [ ] `nginx/nginx.conf`作成
-- [ ] HTTPSリダイレクト設定（開発環境では無効）
-- [ ] 静的ファイル配信設定（`/public`）
-- [ ] Remixアプリへのプロキシ設定
-- [ ] ヘルスチェックエンドポイント（`/health`）
+- [x] `nginx/nginx.conf`作成
+- [x] HTTPSリダイレクト設定（開発環境・本番環境共通）
+- [x] 静的ファイル配信設定（`/public`）
+- [x] Remixアプリへのプロキシ設定
+- [x] ヘルスチェックエンドポイント（`/health`）
 - **完了条件**: nginxが起動し、Remixアプリにプロキシされる
 - **依存**: Task 1.2
 - **推定時間**: 2時間
 - **ドキュメント**: [.tmp/tasks/task-1.3-nginx-setup.md](.tmp/tasks/task-1.3-nginx-setup.md)
+- **完了日**: 2025-10-11
 
 ### Task 1.4: PostgreSQL初期設定
 
 - [ ] 初期化スクリプト（`infra/postgres/init.sql`）
 - [ ] pgcrypto拡張の有効化
-- [ ] テナント用RLSポリシーのテンプレート作成
+- [ ] テナント用RLSポリシーのテンプレート作成（`infra/postgres/rls-template.sql`）
 - [ ] データベースバックアップ設定（docker volume）
 - **完了条件**: PostgreSQLコンテナが起動し、接続可能
 - **依存**: Task 1.2
 - **推定時間**: 1.5時間
+- **ドキュメント**: [.tmp/tasks/task-1.4-postgres-init.md](.tmp/tasks/task-1.4-postgres-init.md)
 
 ### Task 1.5: Redis初期設定
 

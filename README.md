@@ -111,6 +111,143 @@ docker compose down
 docker compose down -v
 ```
 
+### Database Setup (PostgreSQL)
+
+The PostgreSQL database is automatically initialized when you first start the services. The initialization script (`infra/postgres/init.sh`) performs the following setup:
+
+#### Automatic Initialization
+
+When the PostgreSQL container starts for the first time:
+
+1. **pgcrypto Extension**: Enabled for UUID generation and PII encryption
+2. **Timezone Configuration**: Set to UTC persistently across all connections
+3. **Permissions**: Database user granted all necessary privileges
+4. **Row Level Security**: RLS policy templates created for multi-tenant isolation
+
+#### Verification Steps
+
+After starting the services, verify the database setup:
+
+```bash
+# 1. Check PostgreSQL container status
+docker compose ps postgres
+# Expected: Status shows "Up (healthy)"
+
+# 2. Verify database connection
+docker compose exec postgres psql -U devcle -d devcle -c "SELECT version();"
+# Expected: PostgreSQL 15.x version information
+
+# 3. Verify pgcrypto extension
+docker compose exec postgres psql -U devcle -d devcle -c "SELECT extname, extversion FROM pg_extension WHERE extname = 'pgcrypto';"
+# Expected: pgcrypto | 1.3
+
+# 4. Test UUID generation
+docker compose exec postgres psql -U devcle -d devcle -c "SELECT gen_random_uuid();"
+# Expected: A valid UUID like "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d"
+
+# 5. Verify timezone setting
+docker compose exec postgres psql -U devcle -d devcle -c "SHOW timezone;"
+# Expected: UTC
+
+# 6. Check database volume persistence
+docker volume inspect app_postgres-data
+# Expected: Volume information with Mountpoint
+```
+
+#### Troubleshooting
+
+**Problem: Initialization script not running**
+
+If the initialization script doesn't run (database already exists):
+
+```bash
+# Stop services and remove the postgres volume
+docker compose down
+docker volume rm app_postgres-data
+
+# Start services again (initialization will run)
+docker compose up -d postgres
+
+# Check initialization logs
+docker compose logs postgres | grep "Initializing PostgreSQL"
+docker compose logs postgres | grep "Database initialized"
+```
+
+**Expected initialization logs:**
+```
+Initializing PostgreSQL database: devcle for user: devcle
+CREATE EXTENSION
+ALTER DATABASE
+GRANT
+Database initialized successfully
+Extensions enabled: pgcrypto
+Timezone set to: UTC (persistent via ALTER DATABASE)
+PostgreSQL initialization completed successfully
+```
+
+**Problem: Connection refused**
+
+If you can't connect to PostgreSQL:
+
+```bash
+# Check if PostgreSQL is ready
+docker compose exec postgres pg_isready -U devcle
+
+# Check container logs
+docker compose logs postgres
+
+# Verify healthcheck status
+docker compose ps postgres
+```
+
+**Problem: pgcrypto extension not found**
+
+```bash
+# Manually enable the extension
+docker compose exec postgres psql -U devcle -d devcle -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;"
+```
+
+#### Database Configuration
+
+The database configuration is managed through environment variables in `.env`:
+
+```bash
+# PostgreSQL Configuration
+POSTGRES_DB=devcle              # Database name
+POSTGRES_USER=devcle            # Database user
+POSTGRES_PASSWORD=your_password # Database password (change in production!)
+
+# Database URL for application (Drizzle ORM)
+DATABASE_URL=postgresql://devcle:your_password@postgres:5432/devcle
+```
+
+#### Data Persistence
+
+Database data is persisted using Docker named volumes:
+
+- **Volume name**: `app_postgres-data`
+- **Mount point**: `/var/lib/postgresql/data`
+
+**Backup strategy:**
+
+```bash
+# Backup database
+docker compose exec postgres pg_dump -U devcle -d devcle > backup_$(date +%Y%m%d_%H%M%S).sql
+
+# Restore database
+docker compose exec -T postgres psql -U devcle -d devcle < backup.sql
+```
+
+#### Row Level Security (RLS)
+
+The database is prepared for multi-tenant isolation using Row Level Security. RLS policy templates are available in `infra/postgres/rls-template.sql` and will be applied during migration (Task 3.5).
+
+**RLS Features:**
+- Tenant-level data isolation at the database layer
+- Automatic query filtering based on `tenant_id`
+- Protection against SQL injection and data leakage
+- Application-independent security enforcement
+
 ### Production Deployment
 
 For production environments:
