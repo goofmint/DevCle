@@ -412,14 +412,20 @@ function Footer({ links, copyright, isDark }: FooterProps): JSX.Element {
  */
 export default function Index(): JSX.Element {
   // Dark mode state management
-  // Initializes from localStorage or defaults to false (light mode)
+  // Initializes from localStorage or system preference (prefers-color-scheme)
   const [isDark, setIsDark] = useState<boolean>(false);
 
-  // Load dark mode preference from localStorage on mount
+  // Load dark mode preference on mount
+  // Priority: 1. localStorage (user preference), 2. System preference (prefers-color-scheme)
   useEffect(() => {
     const savedMode = localStorage.getItem('darkMode');
-    if (savedMode === 'true') {
-      setIsDark(true);
+    if (savedMode !== null) {
+      // User has explicitly set a preference - use it
+      setIsDark(savedMode === 'true');
+    } else {
+      // No saved preference - use system preference
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      setIsDark(prefersDark);
     }
   }, []);
 

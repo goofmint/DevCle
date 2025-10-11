@@ -19,3 +19,22 @@ import { afterEach } from 'vitest';
 afterEach(() => {
   cleanup();
 });
+
+/**
+ * Polyfill for window.matchMedia
+ * JSDOM doesn't support window.matchMedia, so we provide a minimal implementation
+ * This is a standard browser API polyfill, not a mock of our component logic
+ */
+Object.defineProperty(window, 'matchMedia', {
+  writable: true,
+  value: (query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: () => {}, // deprecated but included for compatibility
+    removeListener: () => {}, // deprecated but included for compatibility
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    dispatchEvent: () => true,
+  }),
+});
