@@ -33,7 +33,7 @@ DevCleでは、全テーブルに`tenant_id`カラムを持たせ、以下のポ
 ALTER TABLE tenants ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY tenant_isolation_policy ON tenants
-  USING (tenant_id = current_setting('app.current_tenant_id')::text);
+  USING (tenant_id = current_setting('app.current_tenant_id', true)::text);
 ```
 
 このポリシーにより、クエリ実行時に`app.current_tenant_id`セッション変数にセットされた`tenant_id`に一致する行のみがアクセス可能になります。
@@ -48,7 +48,7 @@ import { sql } from 'drizzle-orm';
 import { db } from '~/db/connection';
 
 export async function setTenantContext(tenantId: string) {
-  await db.execute(sql`SET app.current_tenant_id = ${tenantId}`);
+  await db.execute(sql`SET LOCAL app.current_tenant_id = ${tenantId}`);
 }
 ```
 
