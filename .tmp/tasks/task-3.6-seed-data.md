@@ -54,19 +54,20 @@ async function seedActivities() { /* ... */ }
 async function seedFunnelStages() { /* ... */ }
 
 seed()
+  .then(() => {
+    process.exit(0);
+  })
   .catch((error) => {
     console.error('❌ Seed failed:', error);
     process.exit(1);
-  })
-  .finally(() => {
-    process.exit(0);
   });
 ```
 
 **説明**:
 - 各シード関数は独立して実行可能
-- エラー発生時はプロセスを停止（`process.exit(1)`）
-- 成功時はメッセージを表示して終了
+- 成功時: `then`ハンドラーで`process.exit(0)`を呼び出し（正常終了）
+- エラー発生時: `catch`ハンドラーで`process.exit(1)`を呼び出し（異常終了）
+- この実装により、失敗時に適切な非ゼロ終了ステータスが返される
 
 ---
 
