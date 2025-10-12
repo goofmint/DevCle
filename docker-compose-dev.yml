@@ -59,7 +59,10 @@ services:
       - postgres-data-dev:/var/lib/postgresql/data
       # Mount initialization script (read-only, executable)
       # Uses .sh for environment variable interpolation and persistent timezone setting
-      - ./infra/postgres/init.sh:/docker-entrypoint-initdb.d/init.sh:ro
+      - ./infra/postgres/init.sh:/docker-entrypoint-initdb.d/01-init.sh:ro
+      # Mount RLS policies script (read-only)
+      # Applies Row Level Security policies for multi-tenant data isolation
+      - ./infra/postgres/rls.sql:/docker-entrypoint-initdb.d/02-rls.sql:ro
     networks:
       - devcle-network
     restart: unless-stopped
