@@ -28,6 +28,7 @@ import {
   setTenantContext,
   clearTenantContext,
 } from '../db/connection.js';
+import * as schema from '../db/schema/index.js';
 import {
   createDeveloper,
   getDeveloper,
@@ -96,7 +97,7 @@ describe('DRM Service', () => {
       const result = await createDeveloper('default', input);
 
       // Assert: Verify defaults were applied
-      expect(result.consentAnalytics).toBe(false); // default: false
+      expect(result.consentAnalytics).toBe(true); // default: true (matches DB schema)
       expect(result.tags).toEqual([]); // default: []
 
       // Cleanup

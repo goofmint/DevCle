@@ -17,7 +17,7 @@
 import { getDb, setTenantContext } from '../db/connection.js';
 import * as schema from '../db/schema/index.js';
 import { z } from 'zod';
-import { eq, and, or, like, count, asc, desc, type SQL } from 'drizzle-orm';
+import { eq, and, or, like, count, asc, desc, sql, type SQL } from 'drizzle-orm';
 
 /**
  * Zod schema for creating a new developer
@@ -29,7 +29,7 @@ export const CreateDeveloperSchema = z.object({
   displayName: z.string().min(1).max(255),
   primaryEmail: z.string().email().nullable(),
   orgId: z.string().uuid().nullable(),
-  consentAnalytics: z.boolean().default(false),
+  consentAnalytics: z.boolean().default(true),
   tags: z.array(z.string()).default([]),
 });
 
@@ -130,7 +130,7 @@ export async function createDeveloper(
   data: CreateDeveloperInput
 ): Promise<typeof schema.developers.$inferSelect> {
   // 1. Validate input data
-  // This transforms z.input → z.infer (applies defaults: consentAnalytics=false, tags=[])
+  // This transforms z.input → z.infer (applies defaults: consentAnalytics=true, tags=[])
   const validated: CreateDeveloperData = CreateDeveloperSchema.parse(data);
 
   // 2. Set tenant context for RLS (MUST be called before any database operations)
@@ -409,7 +409,8 @@ export async function updateDeveloper(
       .update(schema.developers)
       .set({
         ...validated,
-        // updatedAt is automatically updated by database trigger
+        // Explicitly set updatedAt to current timestamp
+        updatedAt: sql`now()`,
       })
       .where(eq(schema.developers.developerId, developerId))
       .returning();
