@@ -99,9 +99,9 @@ interface PricingTableProps {
 - 料金: $0 (Free)
 - ホスティング: セルフホスト
 - ユーザー数: 1ユーザー
-- プラグイン数: 3（基本のみ）
+- プラグイン数: 無制限
 - プラグイン例: PostHog, Google Analytics, GitHub
-- データ更新: 手動 / 1日1回
+- データ更新: 手動 / Cron設定に従う
 - CRM・MA連携: ❌
 - SSO: ❌
 - 監査ログ: ❌
@@ -114,17 +114,17 @@ interface PricingTableProps {
 **Basic（$99/月）**
 - 料金: $99/month
 - ホスティング: SaaSマルチテナント
-- ユーザー数: 5ユーザー
+- ユーザー数: 1ユーザー
 - プラグイン数: 10
-- プラグイン例: 上記 + Slack, X, Discord
-- データ更新: 6時間ごと
+- プラグイン例: 上記 + Slack, Discord
+- データ更新: Webhook、または6時間ごと
 - CRM・MA連携: ❌
 - SSO: ❌
-- 監査ログ: ✅（簡易ログ）
+- 監査ログ: ❌
 - 権限管理: ❌
 - AI機能: ROIレポート生成のみ
 - サポート: メールサポート
-- データ保持: 6ヶ月
+- データ保持: 契約期間中
 - CTA: "Start Free Trial" → サインアップ
 
 **Team（$499/月）** ⭐ おすすめ
@@ -132,29 +132,30 @@ interface PricingTableProps {
 - ホスティング: SaaSマルチテナント
 - ユーザー数: 50ユーザー
 - プラグイン数: 無制限
-- プラグイン例: 上記 + connpass, Meetup, Notion, 外部Webhook
+- プラグイン例: 上記 + connpass, Meetup, Notion, Google検索、X、外部Webhook
 - データ更新: 1時間ごと
-- CRM・MA連携: ❌
-- SSO: ❌
+- SSO: ✅（Google, Azure AD等）
+- CRM・MA連携: ✅（HubSpot, Marketo等）
+- 内部DB連携: ✅（BigQuery, Snowflake等）
 - 監査ログ: ✅（詳細ログ）
 - 権限管理: ✅（Admin / Viewer）
 - AI機能: ROI + 施策提案 + ファネル最適化
 - AIモデル選択: ✅（共有環境）
 - サポート: チャット + 優先対応
-- データ保持: 12ヶ月
+- データ保持: 契約期間中
 - CTA: "Start Free Trial" → サインアップ
 
 **Enterprise（個別見積）**
 - 料金: Custom pricing
-- ホスティング: セルフホスト or 専用テナント
+- ホスティング: セルフホスト
 - ユーザー数: 無制限
 - プラグイン数: 無制限 + カスタム可
 - プラグイン例: すべて + CRM, MA, 内部DB, SSO連携
 - データ更新: 任意設定（5分〜）
 - CRM・MA連携: ✅（HubSpot, Marketo等）
 - 内部DB連携: ✅（BigQuery, Snowflake等）
-- SSO: ✅（Google, Azure AD等）
-- カスタムドメイン: ✅
+- SSO: ✅（Google, Azure AD等）-
+ カスタムドメイン: ✅
 - 監査ログ: ✅（SLA対応ログ + 保持期間無制限）
 - 権限管理: ✅（カスタムロール）
 - AI機能: すべて（AI施策試算 + 自動レポート + 異常検知）
@@ -201,23 +202,23 @@ interface FeatureComparisonTableProps {
 - PostHog: ✅ / ✅ / ✅ / ✅
 - Google Analytics: ✅ / ✅ / ✅ / ✅
 - GitHub: ✅ / ✅ / ✅ / ✅
-- Slack / X / Discord: ❌ / ✅ / ✅ / ✅
-- connpass / Meetup: ❌ / ❌ / ✅ / ✅
-- CRM・MA連携: ❌ / ❌ / ❌ / ✅
+- Slack / Discord: ❌ / ✅ / ✅ / ✅
+- connpass / X / Web検索 / Meetup: ❌ / ❌ / ✅ / ✅
+- CRM・MA連携: ❌ / ❌ / ✅ / ✅
 - 内部DB連携: ❌ / ❌ / ❌ / ✅
 
 **セキュリティ・管理**
-- SSO: ❌ / ❌ / ❌ / ✅
+- SSO: ❌ / ❌ / ✅ / ✅
 - 監査ログ: ❌ / 簡易 / 詳細 / SLA対応
-- 権限管理: ❌ / ❌ / Admin/Viewer / カスタムロール
+- 権限管理: ❌ / ❌ / Admin・Viewer / カスタムロール
 - カスタムドメイン: ✅（自前） / ❌ / ❌ / ✅
 
 **AI機能**
 - ROIレポート生成: ❌ / ✅ / ✅ / ✅
 - 施策提案: ❌ / ❌ / ✅ / ✅
 - ファネル最適化: ❌ / ❌ / ✅ / ✅
-- AI異常検知: ❌ / ❌ / ❌ / ✅
-- AIモデル選択: ❌ / ❌ / 共有 / 専用
+- AI異常検知: ❌ / ❌ / ✅ / ✅
+- AIモデル選択: ❌ / ❌ / 共有 / 独自
 
 **サポート**
 - サポート: コミュニティ / メール / チャット+優先 / 専任+SLA
@@ -255,7 +256,7 @@ interface FAQProps {
    A: 全プランでJSON/CSV形式のエクスポートが可能。
 
 5. **Q: カスタムプラグインの開発は可能ですか？**
-   A: Enterpriseプランでサポート。プラグイン開発ガイドを提供。
+   A: OSS・Enterpriseプランで利用可能。プラグイン開発ガイドを参照。
 
 #### 2.5 CTAセクション
 
@@ -320,7 +321,7 @@ interface A11yProps {
 ```
 
 **説明**:
-- 料金表は`<table>`タグでマークアップ
+- 料金表はMarkdownテーブル
 - 見出し階層の正しい構造化（h1 → h2 → h3）
 - スクリーンリーダー対応
 - WCAG 2.1 AA準拠
