@@ -72,9 +72,11 @@ Task 3.5でRLSポリシーを設定しましたが、現在の`connection.ts`に
  */
 export async function setTenantContext(tenantId: string): Promise<void> {
   // Implementation:
-  // 1. Validate tenantId is not empty
+  // 1. Validate tenantId is not empty (throw if empty)
   // 2. Get SQL client (getSql())
-  // 3. Execute: SET app.current_tenant_id = '<tenantId>'
+  // 3. Execute SET using parameterized query to prevent SQL injection:
+  //    await sql`SET app.current_tenant_id = ${tenantId}`
+  //    (postgres.js automatically escapes the parameter)
   // 4. Handle errors and log for debugging
 }
 ```
@@ -82,7 +84,9 @@ export async function setTenantContext(tenantId: string): Promise<void> {
 **実装のポイント**:
 - `tenantId`が空文字列の場合はエラーをthrow
 - `getSql()`で生SQLクライアントを取得
-- PostgreSQLの`SET`コマンドでセッション変数を設定
+- **パラメータバインディングを使用してSQLインジェクションを防止**:
+  - ❌ 文字列連結: `SET app.current_tenant_id = '${tenantId}'`
+  - ✅ パラメータ化: `await sql\`SET app.current_tenant_id = ${tenantId}\``
 - エラー時は詳細なエラーメッセージをthrow
 
 ---
@@ -112,7 +116,8 @@ export async function setTenantContext(tenantId: string): Promise<void> {
 export async function getTenantContext(): Promise<string | null> {
   // Implementation:
   // 1. Get SQL client (getSql())
-  // 2. Execute: SELECT current_setting('app.current_tenant_id', true)
+  // 2. Execute using template literal (no user input, safe):
+  //    const result = await sql`SELECT current_setting('app.current_tenant_id', true) as tenant_id`
   // 3. Return the value (null if not set)
   // 4. Handle errors
 }
@@ -151,7 +156,8 @@ export async function getTenantContext(): Promise<string | null> {
 export async function clearTenantContext(): Promise<void> {
   // Implementation:
   // 1. Get SQL client (getSql())
-  // 2. Execute: RESET app.current_tenant_id
+  // 2. Execute using template literal (no user input, safe):
+  //    await sql`RESET app.current_tenant_id`
   // 3. Handle errors
 }
 ```
@@ -349,6 +355,33 @@ await db.select().from(schema.developers);
 - ユーザーにわかりやすいメッセージ
 - デバッグに必要な情報（テナントID、SQL等）を含む
 - 本番環境では機密情報をログに出力しない
+
+---
+
+## セキュリティ上の注意事項
+
+### SQLインジェクション対策
+
+**重要**: テナントIDはユーザー入力として扱い、必ずパラメータバインディングを使用してください。
+
+**危険な実装例（絶対に避ける）**:
+```typescript
+// ❌ SQLインジェクションの危険性
+const tenantId = userInput; // e.g., "'; DROP TABLE tenants; --"
+await sql.unsafe(`SET app.current_tenant_id = '${tenantId}'`);
+```
+
+**安全な実装例**:
+```typescript
+// ✅ パラメータバインディング使用
+const tenantId = userInput;
+await sql`SET app.current_tenant_id = ${tenantId}`;
+// postgres.jsが自動的にエスケープ
+```
+
+**postgres.jsの動作**:
+- テンプレートリテラル（`` sql`...` ``）を使用すると、変数は自動的にエスケープされる
+- `sql.unsafe()`を使用しない限り、SQLインジェクションは発生しない
 
 ---
 
