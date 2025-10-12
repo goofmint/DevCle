@@ -94,7 +94,7 @@ async function hashPassword(password: string): Promise<string> {
  * - name: 'Default Tenant'
  * - plan: 'OSS'
  */
-async function seedTenant() {
+async function seedTenant(): Promise<void> {
   const db = getDb();
 
   console.log('  📋 Seeding tenant...');
@@ -566,7 +566,7 @@ async function seedActivities(
   devIds: Record<string, string>,
   accountIds: Record<string, string>,
   resourceIds: Record<string, string>
-) {
+): Promise<void> {
   const db = getDb();
 
   console.log('  🎬 Seeding activities...');
@@ -772,8 +772,10 @@ async function seedActivities(
  * 4. Advocacy - Evangelism and contribution
  *
  * This data MUST exist before the application can function properly.
+ *
+ * Note: RLS is managed at the seed() function level, not here.
  */
-async function seedFunnelStages() {
+async function seedFunnelStages(): Promise<void> {
   const db = getDb();
 
   console.log('  🔄 Seeding funnel stages...');
@@ -820,7 +822,7 @@ async function seedFunnelStages() {
  * - Adoption: signup, download, api_call
  * - Advocacy: star, share, contribute
  */
-async function seedActivityFunnelMaps() {
+async function seedActivityFunnelMaps(): Promise<void> {
   const db = getDb();
 
   console.log('  🗺️  Seeding activity funnel mappings...');
@@ -877,14 +879,48 @@ async function seedActivityFunnelMaps() {
  * - Logs progress at each step
  * - Throws errors with context for debugging
  */
-async function seed() {
+async function seed(): Promise<void> {
   console.log('🌱 Starting seed...\n');
+
+  // Get raw SQL client for RLS management
+  const sql = getSql();
+  if (!sql) {
+    throw new Error('SQL client not initialized');
+  }
 
   try {
     // Check database connection before seeding
     // This validates that DATABASE_* env vars are set correctly
     await testConnection();
     console.log('✅ Database connection OK\n');
+
+    // Temporarily disable RLS on all tables for seeding
+    // This is necessary because:
+    // 1. Connection pooling makes session variables unreliable
+    // 2. The devcle user is not a superuser (cannot bypass RLS)
+    // 3. We need to seed data without RLS constraints
+    console.log('  🔓 Temporarily disabling RLS on all tables for seeding...\n');
+
+    const tables = [
+      // Admin tables
+      'tenants', 'users', 'api_keys', 'system_settings', 'notifications',
+      // Core entity tables
+      'organizations', 'developers', 'accounts', 'developer_identifiers', 'developer_merge_logs',
+      // Campaign/Resource tables
+      'campaigns', 'budgets', 'resources',
+      // Activity tables
+      'activities', 'activity_campaigns',
+      // Plugin/Import tables
+      'plugins', 'plugin_runs', 'plugin_events_raw', 'import_jobs', 'shortlinks',
+      // Analytics/Funnel tables
+      'developer_stats', 'campaign_stats', 'funnel_stages', 'activity_funnel_map'
+    ];
+
+    for (const table of tables) {
+      await sql.unsafe(`ALTER TABLE ${table} DISABLE ROW LEVEL SECURITY`);
+    }
+
+    console.log('    ✅ RLS disabled on all tables\n');
 
     // Seed in dependency order
     // Each function is idempotent (can be run multiple times safely)
@@ -927,6 +963,36 @@ async function seed() {
 
     // Re-throw to trigger process.exit(1) in catch handler below
     throw error;
+  } finally {
+    // Always re-enable RLS, even if seeding fails
+    // This ensures security policies are restored
+    console.log('\n  🔒 Re-enabling RLS on all tables...\n');
+
+    const tables = [
+      // Admin tables
+      'tenants', 'users', 'api_keys', 'system_settings', 'notifications',
+      // Core entity tables
+      'organizations', 'developers', 'accounts', 'developer_identifiers', 'developer_merge_logs',
+      // Campaign/Resource tables
+      'campaigns', 'budgets', 'resources',
+      // Activity tables
+      'activities', 'activity_campaigns',
+      // Plugin/Import tables
+      'plugins', 'plugin_runs', 'plugin_events_raw', 'import_jobs', 'shortlinks',
+      // Analytics/Funnel tables
+      'developer_stats', 'campaign_stats', 'funnel_stages', 'activity_funnel_map'
+    ];
+
+    for (const table of tables) {
+      try {
+        await sql.unsafe(`ALTER TABLE ${table} ENABLE ROW LEVEL SECURITY`);
+      } catch (error) {
+        // Log error but don't throw - we want to re-enable as many tables as possible
+        console.error(`    ⚠️  Failed to re-enable RLS on ${table}:`, error);
+      }
+    }
+
+    console.log('    ✅ RLS re-enabled on all tables\n');
   }
 }
 

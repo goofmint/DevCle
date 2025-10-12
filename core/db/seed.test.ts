@@ -21,7 +21,12 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { getDb, closeDb } from './connection.js';
+import {
+  getDb,
+  closeDb,
+  setTenantContext,
+  clearTenantContext,
+} from './connection.js';
 import * as schema from './schema/index.js';
 import { eq } from 'drizzle-orm';
 
@@ -34,9 +39,18 @@ describe('Database Seeding', () => {
     // Ensure database connection is available
     const db = getDb();
     expect(db).toBeDefined();
+
+    // Set tenant context for RLS compliance
+    // This is REQUIRED for all tests to pass because Task 3.5 enabled RLS
+    // Without this, SELECT queries will fail with RLS policy violations
+    await setTenantContext('default');
   });
 
   afterAll(async () => {
+    // Clear tenant context to ensure test isolation
+    // This prevents context from affecting other test suites
+    await clearTenantContext();
+
     // Clean up database connections
     await closeDb();
   });
