@@ -125,14 +125,16 @@
 - **ドキュメント**: [.tmp/tasks/task-2.3-terms-page.md](.tmp/tasks/task-2.3-terms-page.md)
 - **完了日**: 2025-10-12
 
-### Task 2.4: プライバシーポリシーページ作成
+### Task 2.4: プライバシーポリシーページ作成 ✅
 
-- [ ] `app/routes/privacy.mdx`作成
-- [ ] プライバシーポリシーの文章作成（GDPR/CCPA対応）
-- [ ] データ収集・利用・保管方針の記載
+- [x] `app/routes/privacy.mdx`作成
+- [x] プライバシーポリシーの文章作成（GDPR/CCPA対応）
+- [x] データ収集・利用・保管方針の記載
 - **完了条件**: `/privacy`でページが表示される
 - **依存**: Task 2.1
 - **推定時間**: 2時間
+- **ドキュメント**: [.tmp/tasks/task-2.4-privacy-page.md](.tmp/tasks/task-2.4-privacy-page.md)
+- **完了日**: 2025-10-12
 
 ### Task 2.5: プライシングページ作成
 

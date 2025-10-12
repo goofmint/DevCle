@@ -5,12 +5,14 @@ import type { Config } from 'tailwindcss';
  *
  * This configuration:
  * - Scans app directory for Tailwind classes
+ * - Uses selector strategy for dark mode (class-based)
  * - Uses default theme with minimal customization
  * - Includes Typography plugin for prose classes (MDX content styling)
  * - Prepares for future design system extension
  */
 export default {
   content: ['./app/**/{**,.client,.server}/**/*.{js,jsx,ts,tsx}'],
+  darkMode: 'selector', // Enable class-based dark mode (e.g., <html class="dark">)
   theme: {
     extend: {
       // Future: Add custom colors, fonts, spacing, etc.

@@ -65,6 +65,7 @@ export default function Footer({
   // Default footer links if not provided
   const defaultLinks: FooterLink[] = [
     { text: 'Home', href: '/' },
+    { text: 'Pricing', href: '/pricing' },
     { text: 'Terms of Service', href: '/terms' },
     { text: 'Privacy Policy', href: '/privacy' },
   ];
