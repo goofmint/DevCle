@@ -291,23 +291,21 @@ test.describe('Pricing Page', () => {
   test('dark mode toggle works', async ({ page }) => {
     await page.goto(`${BASE_URL}/pricing`);
 
-    // Find dark mode toggle button (assuming it exists in header)
-    const darkModeToggle = page.getByRole('button', { name: /toggle.*mode/i }).first();
+    // Find dark mode toggle button - must exist
+    const darkModeToggle = page.getByRole('button', { name: /switch to.*mode/i }).first();
+    await expect(darkModeToggle).toBeVisible();
 
-    // If dark mode toggle exists, test it
-    if (await darkModeToggle.isVisible()) {
-      // Toggle dark mode
-      await darkModeToggle.click();
+    // Toggle dark mode
+    await darkModeToggle.click();
 
-      // Wait for animation/transition
-      await page.waitForTimeout(300);
+    // Wait for animation/transition
+    await page.waitForTimeout(300);
 
-      // Verify page is still visible and functional
-      await expect(page.getByRole('heading', { level: 1, name: /Pricing/i })).toBeVisible();
+    // Verify page is still visible and functional
+    await expect(page.getByRole('heading', { level: 1, name: /Pricing/i })).toBeVisible();
 
-      // Toggle back to light mode
-      await darkModeToggle.click();
-    }
+    // Toggle back to light mode
+    await darkModeToggle.click();
   });
 
   /**
@@ -318,49 +316,64 @@ test.describe('Pricing Page', () => {
     await page.goto(`${BASE_URL}/pricing`);
 
     // Toggle to dark mode
-    const darkModeToggle = page.getByRole('button', { name: /toggle.*mode/i }).first();
-    if (await darkModeToggle.isVisible()) {
-      await darkModeToggle.click();
-      await page.waitForTimeout(300);
+    const darkModeToggle = page.getByRole('button', { name: /switch to.*mode/i }).first();
+    await expect(darkModeToggle).toBeVisible();
+    await darkModeToggle.click();
+    await page.waitForTimeout(300);
 
-      // Check main background is dark
-      const mainBg = await page.locator('main').first().evaluate((el) => {
-        return window.getComputedStyle(el.parentElement!).backgroundColor;
-      });
-      // Should be dark gray (rgb values around 17-31 for gray-900)
-      expect(mainBg).toMatch(/rgb\((1[7-9]|2[0-9]|3[0-1]),\s*(1[7-9]|2[0-9]|3[0-1]),\s*(1[7-9]|2[0-9]|3[0-1])\)/);
+    // Check if .dark class is applied to root element
+    const rootElement = await page.evaluate(() => {
+      const main = document.querySelector('main');
+      const root = main?.closest('div[class*="min-h-screen"]');
+      return {
+        className: root?.className || 'not found',
+        hasDarkClass: root?.classList.contains('dark') || false,
+      };
+    });
+    console.log('Root Element Class:', rootElement.className);
+    console.log('Has .dark class:', rootElement.hasDarkClass);
 
-      // Check plan cards have proper backgrounds
-      const ossCard = page.locator('[data-plan="oss"]');
-      const ossCardBg = await ossCard.evaluate((el) => {
-        return window.getComputedStyle(el).backgroundColor;
-      });
-      // In dark mode, cards should have dark background (gray-800 or similar)
-      console.log('OSS Card Background (Dark Mode):', ossCardBg);
+    // Check main background is dark
+    const mainBg = await page.locator('main').first().evaluate((el) => {
+      return window.getComputedStyle(el.parentElement!).backgroundColor;
+    });
+    // Should be dark gray (gray-900) - can be rgb() or oklch() format
+    // oklch values for gray-900: approximately oklch(0.21 0.034 264.665)
+    // rgb values for gray-900: rgb(17, 24, 39)
+    expect(mainBg).toMatch(/rgb\((1[7-9]|2[0-9]|3[0-1]),\s*(1[7-9]|2[0-9]|3[0-1]),\s*(3[0-9]|4[0-9])\)|oklch\(0\.2[0-9]/);
 
-      // Check text colors in dark mode
-      const priceText = ossCard.locator('.text-4xl').first();
-      const priceColor = await priceText.evaluate((el) => {
-        return window.getComputedStyle(el).color;
-      });
-      console.log('Price Text Color (Dark Mode):', priceColor);
+    // Check plan cards have proper backgrounds
+    const ossCard = page.locator('[data-plan="oss"]');
+    const ossCardBg = await ossCard.evaluate((el) => {
+      return window.getComputedStyle(el).backgroundColor;
+    });
+    // In dark mode, cards should have dark background (gray-800 or similar)
+    console.log('OSS Card Background (Dark Mode):', ossCardBg);
 
-      // Check CTA section
-      const ctaSection = page.locator('.bg-blue-50').first();
-      const ctaBg = await ctaSection.evaluate((el) => {
-        return window.getComputedStyle(el).backgroundColor;
-      });
-      console.log('CTA Section Background (Dark Mode):', ctaBg);
-      // Should be gray-800 in dark mode (rgb values around 31-38)
-      expect(ctaBg).toMatch(/rgb\((3[1-8]),\s*(3[1-8]),\s*(4[0-6])\)/);
+    // Check text colors in dark mode
+    const priceText = ossCard.locator('.text-4xl').first();
+    const priceColor = await priceText.evaluate((el) => {
+      return window.getComputedStyle(el).color;
+    });
+    console.log('Price Text Color (Dark Mode):', priceColor);
 
-      const ctaHeading = ctaSection.locator('h3').first();
-      const ctaHeadingColor = await ctaHeading.evaluate((el) => {
-        return window.getComputedStyle(el).color;
-      });
-      console.log('CTA Heading Color (Dark Mode):', ctaHeadingColor);
-      // Should be light color in dark mode (gray-100 or similar)
-    }
+    // Check CTA section
+    const ctaSection = page.locator('.bg-blue-50').first();
+    const ctaBg = await ctaSection.evaluate((el) => {
+      return window.getComputedStyle(el).backgroundColor;
+    });
+    console.log('CTA Section Background (Dark Mode):', ctaBg);
+    // Should be gray-800 in dark mode - can be rgb() or oklch() format
+    // oklch values for gray-800: approximately oklch(0.279 0.035 264.542)
+    // rgb values for gray-800: rgb(31, 41, 55)
+    expect(ctaBg).toMatch(/rgb\((3[1-8]),\s*(3[1-8]|4[0-1]),\s*(4[0-9]|5[0-5])\)|oklch\(0\.2[7-9]/);
+
+    const ctaHeading = ctaSection.locator('h3').first();
+    const ctaHeadingColor = await ctaHeading.evaluate((el) => {
+      return window.getComputedStyle(el).color;
+    });
+    console.log('CTA Heading Color (Dark Mode):', ctaHeadingColor);
+    // Should be light color in dark mode (gray-100 or similar)
   });
 
   /**
@@ -388,5 +401,77 @@ test.describe('Pricing Page', () => {
       return window.getComputedStyle(el).borderColor;
     });
     console.log('OSS Card Border (Light Mode):', ossCardBorder);
+
+    // Check button text colors
+    const ossButton = ossCard.locator('a').first();
+    const ossButtonColor = await ossButton.evaluate((el) => {
+      return window.getComputedStyle(el).color;
+    });
+    const ossButtonBg = await ossButton.evaluate((el) => {
+      return window.getComputedStyle(el).backgroundColor;
+    });
+    console.log('OSS Button Text Color (Light Mode):', ossButtonColor);
+    console.log('OSS Button Background (Light Mode):', ossButtonBg);
+
+    const basicCard = page.locator('[data-plan="basic"]');
+    const basicButton = basicCard.locator('a').first();
+    const basicButtonColor = await basicButton.evaluate((el) => {
+      return window.getComputedStyle(el).color;
+    });
+    const basicButtonBg = await basicButton.evaluate((el) => {
+      return window.getComputedStyle(el).backgroundColor;
+    });
+    console.log('Basic Button Text Color (Light Mode):', basicButtonColor);
+    console.log('Basic Button Background (Light Mode):', basicButtonBg);
+  });
+
+  /**
+   * Test: Dark Mode Button Colors
+   * Verifies proper button text colors in dark mode
+   */
+  test('has proper button colors in dark mode', async ({ page }) => {
+    await page.goto(`${BASE_URL}/pricing`);
+
+    // Toggle to dark mode
+    const darkModeToggle = page.getByRole('button', { name: /switch to.*mode/i }).first();
+    await expect(darkModeToggle).toBeVisible();
+    await darkModeToggle.click();
+    await page.waitForTimeout(300);
+
+    // Check OSS button (secondary style)
+    const ossCard = page.locator('[data-plan="oss"]');
+    const ossButton = ossCard.locator('a').first();
+    const ossButtonColor = await ossButton.evaluate((el) => {
+      return window.getComputedStyle(el).color;
+    });
+    const ossButtonBg = await ossButton.evaluate((el) => {
+      return window.getComputedStyle(el).backgroundColor;
+    });
+    console.log('OSS Button Text Color (Dark Mode):', ossButtonColor);
+    console.log('OSS Button Background (Dark Mode):', ossButtonBg);
+
+    // Check Basic button (primary style)
+    const basicCard = page.locator('[data-plan="basic"]');
+    const basicButton = basicCard.locator('a').first();
+    const basicButtonColor = await basicButton.evaluate((el) => {
+      return window.getComputedStyle(el).color;
+    });
+    const basicButtonBg = await basicButton.evaluate((el) => {
+      return window.getComputedStyle(el).backgroundColor;
+    });
+    console.log('Basic Button Text Color (Dark Mode):', basicButtonColor);
+    console.log('Basic Button Background (Dark Mode):', basicButtonBg);
+
+    // Check Enterprise button (secondary style)
+    const enterpriseCard = page.locator('[data-plan="enterprise"]');
+    const enterpriseButton = enterpriseCard.locator('a').first();
+    const enterpriseButtonColor = await enterpriseButton.evaluate((el) => {
+      return window.getComputedStyle(el).color;
+    });
+    const enterpriseButtonBg = await enterpriseButton.evaluate((el) => {
+      return window.getComputedStyle(el).backgroundColor;
+    });
+    console.log('Enterprise Button Text Color (Dark Mode):', enterpriseButtonColor);
+    console.log('Enterprise Button Background (Dark Mode):', enterpriseButtonBg);
   });
 });
