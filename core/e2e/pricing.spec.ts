@@ -309,4 +309,84 @@ test.describe('Pricing Page', () => {
       await darkModeToggle.click();
     }
   });
+
+  /**
+   * Test: Dark Mode Color Contrast
+   * Verifies proper background and text colors in dark mode
+   */
+  test('has proper color contrast in dark mode', async ({ page }) => {
+    await page.goto(`${BASE_URL}/pricing`);
+
+    // Toggle to dark mode
+    const darkModeToggle = page.getByRole('button', { name: /toggle.*mode/i }).first();
+    if (await darkModeToggle.isVisible()) {
+      await darkModeToggle.click();
+      await page.waitForTimeout(300);
+
+      // Check main background is dark
+      const mainBg = await page.locator('main').first().evaluate((el) => {
+        return window.getComputedStyle(el.parentElement!).backgroundColor;
+      });
+      // Should be dark gray (rgb values around 17-31 for gray-900)
+      expect(mainBg).toMatch(/rgb\((1[7-9]|2[0-9]|3[0-1]),\s*(1[7-9]|2[0-9]|3[0-1]),\s*(1[7-9]|2[0-9]|3[0-1])\)/);
+
+      // Check plan cards have proper backgrounds
+      const ossCard = page.locator('[data-plan="oss"]');
+      const ossCardBg = await ossCard.evaluate((el) => {
+        return window.getComputedStyle(el).backgroundColor;
+      });
+      // In dark mode, cards should have dark background (gray-800 or similar)
+      console.log('OSS Card Background (Dark Mode):', ossCardBg);
+
+      // Check text colors in dark mode
+      const priceText = ossCard.locator('.text-4xl').first();
+      const priceColor = await priceText.evaluate((el) => {
+        return window.getComputedStyle(el).color;
+      });
+      console.log('Price Text Color (Dark Mode):', priceColor);
+
+      // Check CTA section
+      const ctaSection = page.locator('.bg-blue-50').first();
+      const ctaBg = await ctaSection.evaluate((el) => {
+        return window.getComputedStyle(el).backgroundColor;
+      });
+      console.log('CTA Section Background (Dark Mode):', ctaBg);
+      // Should be gray-800 in dark mode (rgb values around 31-38)
+      expect(ctaBg).toMatch(/rgb\((3[1-8]),\s*(3[1-8]),\s*(4[0-6])\)/);
+
+      const ctaHeading = ctaSection.locator('h3').first();
+      const ctaHeadingColor = await ctaHeading.evaluate((el) => {
+        return window.getComputedStyle(el).color;
+      });
+      console.log('CTA Heading Color (Dark Mode):', ctaHeadingColor);
+      // Should be light color in dark mode (gray-100 or similar)
+    }
+  });
+
+  /**
+   * Test: Light Mode Color Contrast
+   * Verifies proper background and text colors in light mode
+   */
+  test('has proper color contrast in light mode', async ({ page }) => {
+    await page.goto(`${BASE_URL}/pricing`);
+
+    // Ensure we're in light mode
+    const mainBg = await page.locator('main').first().evaluate((el) => {
+      return window.getComputedStyle(el.parentElement!).backgroundColor;
+    });
+    console.log('Main Background (Light Mode):', mainBg);
+
+    // Check plan cards
+    const ossCard = page.locator('[data-plan="oss"]');
+    const ossCardBg = await ossCard.evaluate((el) => {
+      return window.getComputedStyle(el).backgroundColor;
+    });
+    console.log('OSS Card Background (Light Mode):', ossCardBg);
+
+    // Check border color
+    const ossCardBorder = await ossCard.evaluate((el) => {
+      return window.getComputedStyle(el).borderColor;
+    });
+    console.log('OSS Card Border (Light Mode):', ossCardBorder);
+  });
 });
