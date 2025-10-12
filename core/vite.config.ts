@@ -4,6 +4,7 @@ import { defineConfig, type UserConfig } from 'vite';
 import mdx from '@mdx-js/rollup';
 import remarkGfm from 'remark-gfm';
 import remarkFrontmatter from 'remark-frontmatter';
+import remarkMdxFrontmatter from 'remark-mdx-frontmatter';
 import rehypeHighlight from 'rehype-highlight';
 
 /**
@@ -29,6 +30,7 @@ export default defineConfig(({ mode }): UserConfig => {
             // Allows using React components inside Markdown files
             remarkPlugins: [
               remarkFrontmatter, // Parse YAML frontmatter (prevents it from rendering as content)
+              remarkMdxFrontmatter, // Convert frontmatter to exports (e.g., export const meta)
               remarkGfm, // GitHub Flavored Markdown support
             ],
             rehypePlugins: [rehypeHighlight], // Syntax highlighting for code blocks

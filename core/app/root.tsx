@@ -65,7 +65,7 @@ export default function App(): JSX.Element {
  * This component catches all unhandled errors in the application
  * and displays a user-friendly error page with:
  * - Clear error indication (icon and heading)
- * - Apologetic message in Japanese
+ * - Apologetic error message
  * - Link to return to homepage
  * - Styled with Tailwind CSS classes
  */
@@ -73,7 +73,7 @@ export function ErrorBoundary(): JSX.Element {
   return (
     <html lang="en">
       <head>
-        <title>エラーが発生しました</title>
+        <title>An Error Occurred</title>
         <Meta />
         <Links />
       </head>
@@ -98,12 +98,12 @@ export function ErrorBoundary(): JSX.Element {
 
           {/* Error heading */}
           <h1 className="mt-4 text-2xl font-bold text-center text-gray-900">
-            エラーが発生しました
+            An Error Occurred
           </h1>
 
           {/* Error message */}
           <p className="mt-2 text-center text-gray-600">
-            申し訳ございません。予期しないエラーが発生しました。
+            We apologize for the inconvenience. An unexpected error has occurred.
           </p>
 
           {/* Return to homepage button */}
@@ -112,7 +112,7 @@ export function ErrorBoundary(): JSX.Element {
               href="/"
               className="block w-full text-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
-              トップページに戻る
+              Return to Homepage
             </a>
           </div>
         </div>

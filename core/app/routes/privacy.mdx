@@ -1,29 +1,36 @@
----
-meta:
-  - title: Privacy Policy - DevCle
-  - name: description
-    content: DevCle Privacy Policy. Explains how we collect, use, protect, and manage your personal information.
----
-
 export { PageLayout as default } from '~/components/page-layout';
+
+export const meta = () => {
+  return [
+    { title: "Privacy Policy - DevCle" },
+    {
+      name: "description",
+      content: "DevCle Privacy Policy. Explains how we collect, use, protect, and manage your personal information."
+    },
+  ];
+};
 
 # Privacy Policy
 
 **Last Updated: October 12, 2025**
 
-This Privacy Policy explains how DevCle (hereinafter referred to as "the Service," "we," "us," or "our") collects, uses, protects, and manages personal information. By using our Service, you agree to the collection and use of information in accordance with this policy.
+This Privacy Policy explains how DevCle (hereinafter referred to as "the Service," "we," "us," or "our")
+collects, uses, protects, and manages personal information. By using our Service, you agree to the collection and use of
+information in accordance with this policy.
 
 ## Article 1 (Information We Collect)
 
 We collect the following types of information to provide and improve our Service:
 
 ### Account Information
+
 - Email address (required for account creation and authentication)
 - Name or display name
 - Profile picture (optional)
 - Organization affiliation (optional)
 
 ### Developer Data
+
 - GitHub account ID and username
 - Social media identifiers (X/Twitter, LinkedIn, etc.)
 - Email addresses associated with development activities
@@ -31,12 +38,14 @@ We collect the following types of information to provide and improve our Service
 - Event participation records (meetups, conferences, workshops)
 
 ### Activity Data
+
 - Service usage patterns and feature interactions
 - API access logs and request metadata
 - Search queries and filter preferences
 - Dashboard configuration and preferences
 
 ### Technical Information
+
 - IP address (for security and fraud prevention)
 - Browser type and version
 - Operating system and device information
@@ -48,29 +57,34 @@ We collect the following types of information to provide and improve our Service
 We use the collected information for the following purposes:
 
 ### Service Provision and Operation
+
 - Authenticating users and managing access
 - Providing core features (DRM, funnel analysis, ROI tracking)
 - Processing and displaying developer analytics
 - Synchronizing data from external platforms (GitHub, event platforms)
 
 ### User Support
+
 - Responding to inquiries and support requests
 - Troubleshooting technical issues
 - Providing product updates and notifications
 - Sending service-related announcements
 
 ### Service Improvement and Development
+
 - Analyzing usage patterns to improve features
 - Developing new features based on user needs
 - Conducting A/B testing and experiments
 - Monitoring service performance and reliability
 
 ### Statistical Analysis
+
 - Generating aggregated, anonymized analytics
 - Creating industry benchmarks and reports
 - Publishing research and insights (with anonymization)
 
 ### Security and Compliance
+
 - Detecting and preventing fraud and abuse
 - Enforcing terms of service
 - Complying with legal obligations
@@ -81,23 +95,30 @@ We use the collected information for the following purposes:
 We respect your privacy and do not sell your personal information. We may share information only in the following circumstances:
 
 ### No Third-Party Sales
+
 We do not and will never sell your personal information to third parties.
 
 ### Legal Requirements
+
 We may disclose information when required by law, such as:
+
 - Complying with subpoenas, court orders, or legal processes
 - Responding to government requests
 - Enforcing our terms of service
 - Protecting the rights, property, or safety of our users or the public
 
 ### With Your Consent
+
 We may share information with third parties when you explicitly consent, such as:
+
 - Connecting integrations you authorize (Slack, CRM systems)
 - Exporting data to external tools you specify
 - Sharing analytics with your organization
 
 ### Aggregated and Anonymized Data
+
 We may publicly share or publish statistical data that has been:
+
 - Fully anonymized and de-identified
 - Aggregated to prevent individual identification
 - Used for research, benchmarking, or industry insights
@@ -107,23 +128,30 @@ We may publicly share or publish statistical data that has been:
 We use cookies and similar technologies to enhance your experience and analyze service usage:
 
 ### Essential Cookies
+
 - Session management cookies (required for authentication)
 - Security cookies (CSRF protection, secure login)
 - Preference cookies (dark mode, language settings)
 
 ### Analytics Tools
+
 We use the following third-party analytics services:
+
 - **PostHog**: Open-source product analytics (self-hosted or cloud)
 - **Google Analytics**: Web traffic analysis (optional, can be disabled)
 
 ### Cookie Management
+
 You can control cookie settings through your browser:
+
 - Most browsers allow you to refuse cookies or delete existing cookies
 - Disabling essential cookies may impact Service functionality
 - Analytics cookies can be opted out via your account settings
 
 ### Do Not Track (DNT)
+
 We respect browser DNT signals. When DNT is enabled:
+
 - We disable non-essential analytics tracking
 - We limit data collection to essential service operations only
 
@@ -132,24 +160,29 @@ We respect browser DNT signals. When DNT is enabled:
 We implement industry-standard security practices to protect your data:
 
 ### Data Encryption
+
 - All data transmitted over the internet is encrypted using SSL/TLS
 - Sensitive personal information is encrypted at rest
 - Database connections use encrypted channels
 
 ### Access Control
+
 - Row-Level Security (RLS) policies isolate tenant data
 - Role-Based Access Control (RBAC) limits internal access
 - Multi-factor authentication (MFA) available for accounts
 - Regular access reviews and permission audits
 
 ### Security Monitoring
+
 - Continuous monitoring for suspicious activities
 - Automated intrusion detection systems
 - Regular security assessments and penetration testing
 - Security incident response procedures
 
 ### Incident Response
+
 In the event of a data breach:
+
 - We will notify affected users within 72 hours
 - We will provide details about the incident and remediation steps
 - We will coordinate with relevant authorities as required by law
@@ -157,26 +190,33 @@ In the event of a data breach:
 ## Article 6 (Data Storage and Deletion)
 
 ### Data Retention Period
+
 We retain your data only as long as necessary:
+
 - **Active accounts**: Data retained while account is active
 - **Inactive accounts**: Data retained for 12 months after last login
 - **Deleted accounts**: Data permanently deleted within 14 days
 - **Backups**: Backup data retained for 30 days for disaster recovery
 
 ### Account Deletion
+
 You can delete your account at any time:
+
 1. Navigate to Account Settings
 2. Select "Delete Account"
 3. Confirm deletion request
 4. Data will be permanently deleted within 14 days
 
 Upon account deletion, we will:
+
 - Remove all personal information
 - Anonymize developer data (removing identifiable links)
 - Retain aggregated, anonymized statistics only
 
 ### Data Deletion Requests
+
 You can request data deletion even without account deletion:
+
 - Contact our Data Protection Officer (DPO)
 - Specify what data you want deleted
 - We will process requests within 14 days
@@ -187,71 +227,87 @@ You can request data deletion even without account deletion:
 Under GDPR, CCPA, and applicable privacy laws, you have the following rights:
 
 ### Right to Access (GDPR Art. 15)
+
 - View all personal data we hold about you
 - Export your data in machine-readable format (JSON, CSV)
 - Access via Settings > Export Data
 
 ### Right to Rectification (GDPR Art. 16)
+
 - Correct inaccurate or incomplete information
 - Update your profile, email, or preferences
 - Request correction of developer data
 
 ### Right to Erasure / Right to be Forgotten (GDPR Art. 17)
+
 - Delete your account and associated data
 - Request removal of specific information
 - Exceptions apply for legal compliance and legitimate interests
 
 ### Right to Data Portability (GDPR Art. 20)
+
 - Export your data in standardized formats
 - Transfer data to another service provider
 - Download available via Settings > Export Data
 
 ### Right to Restrict Processing (GDPR Art. 18)
+
 - Limit how we process your data
 - Pause data processing while disputes are resolved
 - Request via DPO contact
 
 ### Right to Object (GDPR Art. 21)
+
 - Object to processing based on legitimate interests
 - Opt out of marketing communications
 - Opt out of analytics (while maintaining essential service)
 
 ### Right to Opt-Out of Sale (CCPA)
+
 - We do not sell personal information
 - No opt-out necessary as we never sell data
 
-To exercise any of these rights, contact our Data Protection Officer at privacy@devcle.com or use the in-app data management tools.
+To exercise any of these rights, contact our Data Protection Officer at [privacy@devcle.com](mailto:privacy@devcle.com) or
+use the in-app data management tools.
 
-## Article 8 (Children&apos;s Privacy)
+## Article 8 (Children's Privacy)
 
 ### Age Restrictions
+
 - The Service is not intended for users under 13 years of age
 - We do not knowingly collect data from children under 13
 - If we discover such data, we will delete it immediately
 
 ### Parental Consent
-- Users aged 13-17 must have parental or guardian consent
-- Parents can request deletion of minor&apos;s data
-- Special protections apply to minor&apos;s personal information
 
-If you believe we have collected information from a minor without proper consent, please contact us immediately at privacy@devcle.com.
+- Users aged 13-17 must have parental or guardian consent
+- Parents can request deletion of minor's data
+- Special protections apply to minor's personal information
+
+If you believe we have collected information from a minor without proper consent, please contact us immediately at [privacy@devcle.com](mailto:privacy@devcle.com).
 
 ## Article 9 (International Data Transfers)
 
 ### Data Storage Locations
+
 Your data may be processed and stored in:
+
 - **Japan**: Primary data center location
 - **United States**: Cloud infrastructure (AWS, Google Cloud)
 - **European Union**: EU-region data centers for EU users
 
 ### GDPR Compliance
+
 For transfers from the EU:
+
 - We use Standard Contractual Clauses (SCCs) approved by the EU Commission
 - We implement supplementary measures for data protection
 - We conduct regular compliance assessments
 
 ### Data Transfer Consent
+
 By using the Service, you consent to:
+
 - International transfer of your data as described above
 - Processing in countries with different privacy laws
 - Protections outlined in our Data Processing Agreement (DPA)
@@ -259,36 +315,47 @@ By using the Service, you consent to:
 ## Article 10 (Changes to This Privacy Policy)
 
 ### Notification of Changes
+
 We may update this Privacy Policy from time to time. When we do:
+
 - We will notify you via email to your registered address
 - We will display a notification in your dashboard
 - We will update the "Last Updated" date at the top of this policy
 
 ### Material Changes
+
 For significant changes affecting your rights:
-- We will provide at least 30 days&apos; advance notice
+
+- We will provide at least 30 days' advance notice
 - We will request explicit consent where required by law
 - You can reject changes by deleting your account
 
 ### Continued Use
+
 By continuing to use the Service after changes take effect, you accept the updated Privacy Policy.
 
 ## Article 11 (Contact Information)
 
 ### Data Protection Officer (DPO)
+
 For privacy-related questions, concerns, or requests:
-- **Email**: privacy@devcle.com
+
+- **Email**: [privacy@devcle.com](mailto:privacy@devcle.com)
 - **Response time**: Within 5 business days
 - **Address**: [To be determined - pending legal entity registration]
 
 ### General Inquiries
+
 For general questions about the Service:
-- **Support Email**: support@devcle.com
-- **Documentation**: https://docs.devcle.com
-- **GitHub Issues**: https://github.com/goofmint/DevCle-app/issues
+
+- **Support Email**: [support@devcle.com](mailto:support@devcle.com)
+- **Documentation**: [https://docs.devcle.com](https://docs.devcle.com)
+- **GitHub Issues**: [https://github.com/goofmint/DevCle-app/issues](https://github.com/goofmint/DevCle-app/issues)
 
 ### Complaints and Disputes
+
 If you are not satisfied with our response:
+
 - **EU users**: Contact your local Data Protection Authority
 - **California users**: Contact the California Attorney General
 - **Japan users**: Contact the Personal Information Protection Commission

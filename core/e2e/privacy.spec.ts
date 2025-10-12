@@ -28,7 +28,10 @@ test.describe('Privacy Policy Page', () => {
     // Wait for page to fully load
     await page.waitForLoadState('domcontentloaded');
 
-    // Verify main heading is visible (primary check)
+    // Verify page title in browser tab
+    await expect(page).toHaveTitle('Privacy Policy - DevCle');
+
+    // Verify main heading is visible
     const mainHeading = page.getByRole('heading', {
       level: 1,
       name: /Privacy Policy/i,
@@ -38,13 +41,21 @@ test.describe('Privacy Policy Page', () => {
     // Verify last updated date is visible
     const lastUpdated = page.getByText(/Last Updated: October 12, 2025/i);
     await expect(lastUpdated).toBeVisible();
+  });
 
-    // Page title check (may be empty for MDX files, so we check conditionally)
-    const title = await page.title();
-    // If title is set, it should match the expected pattern
-    if (title) {
-      expect(title).toMatch(/Privacy Policy.*DevCle/i);
-    }
+  /**
+   * Test: Meta Description
+   * Verifies that the page has proper meta description for SEO
+   */
+  test('has proper meta description', async ({ page }) => {
+    await page.goto(`${BASE_URL}/privacy`);
+
+    // Get the meta description tag
+    const metaDescription = page.locator('meta[name="description"]');
+    await expect(metaDescription).toHaveAttribute(
+      'content',
+      'DevCle Privacy Policy. Explains how we collect, use, protect, and manage your personal information.'
+    );
   });
 
   /**
