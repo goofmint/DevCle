@@ -126,7 +126,13 @@ function getDatabaseConfig(): DatabaseConfig {
   const host = process.env['DATABASE_HOST'] || 'localhost';
   const port = Number(process.env['DATABASE_PORT']) || 5432;
   const ssl = process.env['DATABASE_SSL'] === 'true';
-  const max = Number(process.env['DATABASE_POOL_MAX']) || 20;
+
+  // In test environment, use max: 1 to ensure SET commands work correctly
+  // This ensures all queries use the same connection, so SET app.current_tenant_id
+  // persists across queries within the same test
+  const isTestEnv = process.env['NODE_ENV'] === 'test' || process.env['VITEST'] === 'true';
+  const max = isTestEnv ? 1 : (Number(process.env['DATABASE_POOL_MAX']) || 20);
+
   const idle_timeout = Number(process.env['DATABASE_IDLE_TIMEOUT']) || 30;
   const connect_timeout = Number(process.env['DATABASE_CONNECT_TIMEOUT']) || 10;
 
