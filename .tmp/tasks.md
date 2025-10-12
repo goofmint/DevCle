@@ -204,25 +204,33 @@
 - **推定時間**: 1時間
 - **完了日**: 2025-10-12（Task 3.2に統合）
 
-### Task 3.5: マイグレーション実行とRLS設定
+### Task 3.5: マイグレーション実行とRLS設定 ✅
 
-- [ ] `pnpm db:generate`でマイグレーションファイル生成
-- [ ] `pnpm db:migrate`でマイグレーション実行
-- [ ] PostgreSQL RLS有効化スクリプト作成（`infra/postgres/rls.sql`）
-- [ ] 各テーブルにRLSポリシー追加
+- [x] `pnpm db:generate`でマイグレーションファイル生成
+- [x] `pnpm db:migrate`でマイグレーション実行
+- [x] PostgreSQL RLS有効化スクリプト作成（`infra/postgres/rls.sql`）
+- [x] 各テーブルにRLSポリシー追加
 - **完了条件**: マイグレーションが成功し、RLSが有効化される
 - **依存**: Task 3.4
 - **推定時間**: 2時間
+- **ドキュメント**: [.tmp/tasks/task-3.5-rls-setup.md](.tmp/tasks/task-3.5-rls-setup.md)
+- **完了日**: 2025-10-12
 
-### Task 3.6: シードデータ作成
+### Task 3.6: シードデータ作成 ✅
 
-- [ ] `core/db/seed.ts`作成
-- [ ] デフォルトテナント（`tenant_id = 'default'`）作成
-- [ ] テスト用Developer・Organization作成
-- [ ] テスト用Activity作成
+- [x] `core/db/seed.ts`作成（bcrypt、UUID、idempotency対応）
+- [x] デフォルトテナント（`tenant_id = 'default'`）作成
+- [x] テスト用Developer・Organization作成（5 developers, 3 organizations）
+- [x] テスト用Activity作成（10 activities）
+- [x] Funnel stages master data（4 stages）
+- [x] Activity funnel mappings（11 mappings）
+- [x] 包括的なテスト作成（`core/db/seed.test.ts` - 22 tests）
 - **完了条件**: `pnpm db:seed`でシードデータが投入される
 - **依存**: Task 3.5
 - **推定時間**: 1.5時間
+- **ドキュメント**: [.tmp/tasks/task-3.6-seed-data.md](.tmp/tasks/task-3.6-seed-data.md)
+- **完了日**: 2025-10-12
+- **注意**: RLSポリシーとの統合はテナントコンテキストAPI実装後に対応
 
 ---
 

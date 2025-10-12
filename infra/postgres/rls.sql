@@ -227,11 +227,20 @@ CREATE POLICY funnel_stages_read_all ON funnel_stages
   FOR SELECT
   USING (true);
 
--- Restrictive policy: Only allow writes from application (not tenant-scoped)
-CREATE POLICY funnel_stages_write_restricted ON funnel_stages
-  FOR ALL
+-- INSERT policy: Allow inserting master data (for seeding and migrations)
+CREATE POLICY funnel_stages_insert_allowed ON funnel_stages
+  FOR INSERT
+  WITH CHECK (true);
+
+-- UPDATE/DELETE policy: Prohibit modifications to protect master data integrity
+CREATE POLICY funnel_stages_modify_restricted ON funnel_stages
+  FOR UPDATE
   USING (false)
   WITH CHECK (false);
+
+CREATE POLICY funnel_stages_delete_restricted ON funnel_stages
+  FOR DELETE
+  USING (false);
 
 -- 6.4 activity_funnel_map table
 -- Per-tenant action-to-stage mapping
