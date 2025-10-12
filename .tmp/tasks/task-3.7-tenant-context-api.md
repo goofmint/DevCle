@@ -1,9 +1,11 @@
 # Task 3.7: テナントコンテキスト管理API実装
 
 **タスク番号**: 3.7
-**依存タスク**: Task 3.5（RLS設定）
+**依存タスク**: Task 3.5（RLS設定）、Task 3.6（シードデータ作成）
 **推定時間**: 2時間
-**完了条件**: セッション変数`app.current_tenant_id`が設定でき、RLS対応のクエリが実行できる
+**完了条件**:
+- セッション変数`app.current_tenant_id`が設定でき、RLS対応のクエリが実行できる
+- **Task 3.6のシードスクリプト（`pnpm db:seed`）がRLSポリシーを満たしながら正常に実行でき、データが投入される**
 
 ---
 
@@ -377,18 +379,23 @@ PostgreSQLのセッション変数はコネクション単位で管理されま�
 
 ## 完了チェックリスト
 
+### 必須項目
+
+- [ ] **`pnpm db:seed`の成功（docker-compose環境で、RLSポリシーを満たしながらデータ投入完了）** ← **最重要**
 - [ ] `setTenantContext()`の実装とテスト
 - [ ] `getTenantContext()`の実装とテスト
 - [ ] `clearTenantContext()`の実装とテスト
-- [ ] `withTenantContext()`の実装とテスト（オプション）
-- [ ] 単体テスト（`core/db/connection.test.ts`）
-- [ ] 統合テスト（RLSポリシーとの統合）
 - [ ] シードスクリプト（`core/db/seed.ts`）の更新と動作確認
 - [ ] 既存テスト（`core/db/seed.test.ts`）の更新と動作確認
 - [ ] TypeScriptエラーの解消
 - [ ] `pnpm lint`、`pnpm typecheck`の成功
 - [ ] `pnpm test`の成功
-- [ ] `pnpm db:seed`の成功（docker-compose環境）
+
+### オプション項目
+
+- [ ] `withTenantContext()`の実装とテスト
+- [ ] 単体テスト（`core/db/connection.test.ts`）
+- [ ] 統合テスト（RLSポリシーとの統合）
 
 ---
 

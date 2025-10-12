@@ -235,8 +235,8 @@
 ### Task 3.7: テナントコンテキスト管理API実装
 
 - [ ] `core/db/connection.ts`にテナントコンテキスト設定API追加
-- **完了条件**: セッション変数`app.current_tenant_id`が設定でき、RLS対応のクエリが実行できる
-- **依存**: Task 3.5
+- **完了条件**: `pnpm db:seed`でシードデータが投入できる（RLSポリシーを満たしながら）
+- **依存**: Task 3.5, Task 3.6
 - **推定時間**: 2時間
 - **ドキュメント**: [.tmp/tasks/task-3.7-tenant-context-api.md](.tmp/tasks/task-3.7-tenant-context-api.md)
 
