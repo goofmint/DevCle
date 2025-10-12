@@ -170,9 +170,10 @@ async function seedOrganizations(): Promise<Record<string, string>> {
 
   console.log('  🏢 Seeding organizations...');
 
-  const acmeId = generateUUID();
-  const communityId = generateUUID();
-  const startupId = generateUUID();
+  // Fixed UUIDs for idempotency - same IDs used on every seed run
+  const acmeId = '20000000-0000-4000-8000-000000000001';
+  const communityId = '20000000-0000-4000-8000-000000000002';
+  const startupId = '20000000-0000-4000-8000-000000000003';
 
   // Insert 3 organizations with different characteristics
   await db
@@ -232,11 +233,12 @@ async function seedDevelopers(
 
   console.log('  👨‍💻 Seeding developers...');
 
-  const aliceId = generateUUID();
-  const bobId = generateUUID();
-  const charlieId = generateUUID();
-  const dianaId = generateUUID();
-  const eveId = generateUUID();
+  // Fixed UUIDs for idempotency - same IDs used on every seed run
+  const aliceId = '30000000-0000-4000-8000-000000000001';
+  const bobId = '30000000-0000-4000-8000-000000000002';
+  const charlieId = '30000000-0000-4000-8000-000000000003';
+  const dianaId = '30000000-0000-4000-8000-000000000004';
+  const eveId = '30000000-0000-4000-8000-000000000005';
 
   // Insert 5 developers with different profiles
   await db
@@ -322,10 +324,11 @@ async function seedAccounts(
 
   console.log('  🔗 Seeding accounts...');
 
-  const aliceGithubId = generateUUID();
-  const aliceSlackId = generateUUID();
-  const bobGithubId = generateUUID();
-  const charlieXId = generateUUID();
+  // Fixed UUIDs for idempotency - same IDs used on every seed run
+  const aliceGithubId = '40000000-0000-4000-8000-000000000001';
+  const aliceSlackId = '40000000-0000-4000-8000-000000000002';
+  const bobGithubId = '40000000-0000-4000-8000-000000000003';
+  const charlieXId = '40000000-0000-4000-8000-000000000004';
 
   // Insert 4 accounts (2 for Alice, 1 for Bob, 1 unlinked)
   await db
@@ -420,9 +423,12 @@ async function seedCampaigns(): Promise<Record<string, string>> {
 
   console.log('  📊 Seeding campaigns...');
 
-  const meetupId = generateUUID();
-  const blogId = generateUUID();
-  const sponsorId = generateUUID();
+  // Fixed UUIDs for idempotency - same IDs used on every seed run
+  // This ensures that .onConflictDoNothing() works correctly and
+  // the returned IDs match the actual database records
+  const meetupId = '10000000-0000-4000-8000-000000000001';
+  const blogId = '10000000-0000-4000-8000-000000000002';
+  const sponsorId = '10000000-0000-4000-8000-000000000003';
 
   // Insert 3 campaigns with different characteristics
   await db
@@ -489,9 +495,10 @@ async function seedResources(
 
   console.log('  📦 Seeding resources...');
 
-  const eventId = generateUUID();
-  const blogPostId = generateUUID();
-  const repoId = generateUUID();
+  // Fixed UUIDs for idempotency - same IDs used on every seed run
+  const eventId = '50000000-0000-4000-8000-000000000001';
+  const blogPostId = '50000000-0000-4000-8000-000000000002';
+  const repoId = '50000000-0000-4000-8000-000000000003';
 
   // Insert 3 resources with different categories
   await db
