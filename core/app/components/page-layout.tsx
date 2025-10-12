@@ -47,7 +47,7 @@ export function PageLayout({ children }: PageLayoutProps): JSX.Element {
 
   return (
     <div
-      className={`min-h-screen transition-colors ${isDark ? 'bg-gray-900' : 'bg-white'}`}
+      className={`min-h-screen transition-colors ${isDark ? 'dark bg-gray-900' : 'bg-white'}`}
     >
       {/* Fixed header with logo, dark mode toggle, and login button */}
       <Header isDark={isDark} toggleDark={toggleDark} />
