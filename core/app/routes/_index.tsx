@@ -1,6 +1,8 @@
 import type { MetaFunction } from '@remix-run/node';
 import { Link } from '@remix-run/react';
-import { useState, useEffect } from 'react';
+import Header from '~/components/header';
+import Footer from '~/components/footer';
+import { useDarkMode } from '~/contexts/dark-mode-context';
 
 /**
  * Meta tags for SEO optimization
@@ -16,108 +18,6 @@ export const meta: MetaFunction = () => {
     },
   ];
 };
-
-/**
- * Header component
- * Displays logo, service name, dark mode toggle, and login button
- * Fixed at the top of the page for easy navigation
- */
-function Header({ isDark, toggleDark }: { isDark: boolean; toggleDark: () => void }): JSX.Element {
-  return (
-    <header
-      className={`fixed top-0 left-0 right-0 z-50 ${
-        isDark ? 'bg-gray-900' : 'bg-white'
-      } border-b ${isDark ? 'border-gray-800' : 'border-gray-200'} transition-colors`}
-      role="banner"
-    >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          {/* Left side: Logo and Service Name */}
-          <div className="flex items-center space-x-3">
-            {/* Logo */}
-            <Link
-              to="/"
-              className="flex items-center space-x-2 group focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg"
-              aria-label="DevCle Home"
-            >
-              <div
-                className={`text-2xl font-bold ${
-                  isDark ? 'text-blue-400' : 'text-blue-600'
-                } group-hover:scale-110 transition-transform`}
-                aria-hidden="true"
-              >
-                📊
-              </div>
-              <span
-                className={`text-xl font-bold ${
-                  isDark ? 'text-white' : 'text-gray-900'
-                } ${
-                  isDark ? 'group-hover:text-blue-400' : 'group-hover:text-blue-600'
-                } transition-colors`}
-              >
-                DevCle
-              </span>
-            </Link>
-          </div>
-
-          {/* Right side: Dark mode toggle and Login button */}
-          <div className="flex items-center space-x-4">
-            {/* Dark mode toggle button */}
-            <button
-              onClick={toggleDark}
-              className={`p-2 rounded-lg ${
-                isDark
-                  ? 'bg-gray-800 text-yellow-400 hover:bg-gray-700'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              } transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500`}
-              aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-              title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-            >
-              {isDark ? (
-                // Sun icon for light mode
-                <svg
-                  className="w-5 h-5"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                  aria-hidden="true"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              ) : (
-                // Moon icon for dark mode
-                <svg
-                  className="w-5 h-5"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                  aria-hidden="true"
-                >
-                  <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
-                </svg>
-              )}
-            </button>
-
-            {/* Login button */}
-            <Link
-              to="/login"
-              className={`px-4 py-2 rounded-lg font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                isDark
-                  ? 'bg-blue-600 text-white hover:bg-blue-700'
-                  : 'bg-blue-600 text-white hover:bg-blue-700'
-              }`}
-              aria-label="Log in to DevCle"
-            >
-              Log In
-            </Link>
-          </div>
-        </div>
-      </div>
-    </header>
-  );
-}
 
 /**
  * Props for the HeroSection component
@@ -324,66 +224,6 @@ function CTASection({
 }
 
 /**
- * FooterLink interface
- * Represents a single link in the footer
- */
-interface FooterLink {
-  text: string;
-  href: string;
-}
-
-/**
- * Props for the Footer component
- * Contains footer links and copyright text
- */
-interface FooterProps {
-  links: FooterLink[];
-  copyright: string;
-  isDark: boolean;
-}
-
-/**
- * Footer component
- * Displays footer links (Terms, Privacy, etc.) and copyright notice
- * Uses semantic HTML for accessibility with dark mode support
- */
-function Footer({ links, copyright, isDark }: FooterProps): JSX.Element {
-  return (
-    <footer
-      className={`py-8 px-4 sm:px-6 lg:px-8 transition-colors ${
-        isDark ? 'bg-gray-950 text-gray-300' : 'bg-gray-800 text-white'
-      }`}
-      role="contentinfo"
-    >
-      <div className="max-w-7xl mx-auto">
-        <nav
-          className="flex flex-wrap justify-center gap-6 mb-4"
-          aria-label="Footer navigation"
-        >
-          {links.map((link) => (
-            <Link
-              key={link.href}
-              to={link.href}
-              className={`transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 rounded ${
-                isDark
-                  ? 'hover:text-blue-400 focus:ring-blue-400 focus:ring-offset-gray-950'
-                  : 'hover:text-blue-400 focus:ring-blue-400 focus:ring-offset-gray-800'
-              }`}
-              aria-label={link.text}
-            >
-              {link.text}
-            </Link>
-          ))}
-        </nav>
-        <p className={`text-center text-sm ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
-          {copyright}
-        </p>
-      </div>
-    </footer>
-  );
-}
-
-/**
  * Landing Page component
  * Main entry point for the home page
  * Composes Header, HeroSection, FeaturesSection, CTASection, and Footer
@@ -413,30 +253,8 @@ function Footer({ links, copyright, isDark }: FooterProps): JSX.Element {
  * - Smooth transitions between modes
  */
 export default function Index(): JSX.Element {
-  // Dark mode state management
-  // Initializes from localStorage or system preference (prefers-color-scheme)
-  const [isDark, setIsDark] = useState<boolean>(false);
-
-  // Load dark mode preference on mount
-  // Priority: 1. localStorage (user preference), 2. System preference (prefers-color-scheme)
-  useEffect(() => {
-    const savedMode = localStorage.getItem('darkMode');
-    if (savedMode !== null) {
-      // User has explicitly set a preference - use it
-      setIsDark(savedMode === 'true');
-    } else {
-      // No saved preference - use system preference
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      setIsDark(prefersDark);
-    }
-  }, []);
-
-  // Toggle dark mode and persist to localStorage
-  const toggleDark = () => {
-    const newMode = !isDark;
-    setIsDark(newMode);
-    localStorage.setItem('darkMode', String(newMode));
-  };
+  // Dark mode state from app-level context
+  const { isDark, toggleDark } = useDarkMode();
 
   // Feature data for the features section
   // Each feature represents a core capability of DevCle
@@ -459,13 +277,6 @@ export default function Index(): JSX.Element {
       description:
         'Visualize the developer journey from Awareness to Advocacy with detailed funnel metrics.',
     },
-  ];
-
-  // Footer links data
-  // Links to legal pages and external resources
-  const footerLinks: FooterLink[] = [
-    { text: 'Terms of Service', href: '/terms' },
-    { text: 'Privacy Policy', href: '/privacy' },
   ];
 
   return (
@@ -501,8 +312,8 @@ export default function Index(): JSX.Element {
           isDark={isDark}
         />
 
-        {/* Footer with legal links and copyright */}
-        <Footer links={footerLinks} copyright="© 2025 DevCle. All rights reserved." isDark={isDark} />
+        {/* Footer with legal links and copyright - uses default links */}
+        <Footer isDark={isDark} />
       </main>
     </div>
   );
