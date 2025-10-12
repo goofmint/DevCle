@@ -2,11 +2,43 @@
  * Vitest setup file
  *
  * This file runs before all tests and sets up the testing environment.
- * Currently empty but can be extended with:
- * - Global test utilities
- * - Mock configurations
- * - Test environment setup
+ * Includes:
+ * - Database environment variables for testing
+ * - Testing library cleanup
+ * - Browser API polyfills for JSDOM
  */
+
+// Load environment variables from parent directory .env file
+// Uses Node.js 20.12+ loadEnvFile API
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
+// Read .env file from parent directory (where docker-compose is located)
+// This ensures tests can access database credentials
+try {
+  const envPath = resolve(__dirname, '../.env');
+  const envFile = readFileSync(envPath, 'utf-8');
+
+  // Parse .env file and set environment variables
+  // Format: KEY=value (one per line, ignoring comments and empty lines)
+  envFile.split('\n').forEach(line => {
+    // Skip comments and empty lines
+    if (line.trim() === '' || line.trim().startsWith('#')) {
+      return;
+    }
+
+    // Parse KEY=value pairs
+    const [key, ...valueParts] = line.split('=');
+    if (key && valueParts.length > 0) {
+      const value = valueParts.join('=').trim(); // Rejoin in case value contains '='
+      process.env[key.trim()] = value;
+    }
+  });
+} catch (error) {
+  // If .env file doesn't exist or can't be read, log warning but don't fail
+  // This allows tests to run with environment variables set externally
+  console.warn('Warning: Could not load .env file for tests:', error);
+}
 
 // Import testing library cleanup
 import { cleanup } from '@testing-library/react';
