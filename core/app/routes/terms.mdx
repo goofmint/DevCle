@@ -1,11 +1,14 @@
----
-meta:
-  - title: Terms of Service - DevCle
-  - name: description
-    content: DevCle Terms of Service. Explains the terms and conditions of use, and the rights and obligations of users.
----
-
 export { PageLayout as default } from '~/components/page-layout';
+
+export const meta = () => {
+  return [
+    { title: "Terms of Service - DevCle" },
+    {
+      name: "description",
+      content: "DevCle Terms of Service. Explains the terms and conditions of use, and the rights and obligations of users."
+    },
+  ];
+};
 
 # Terms of Service
 
