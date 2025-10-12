@@ -94,7 +94,7 @@ async function hashPassword(password: string): Promise<string> {
  * - name: 'Default Tenant'
  * - plan: 'OSS'
  */
-async function seedTenant() {
+async function seedTenant(): Promise<void> {
   const db = getDb();
 
   console.log('  📋 Seeding tenant...');
@@ -170,9 +170,10 @@ async function seedOrganizations(): Promise<Record<string, string>> {
 
   console.log('  🏢 Seeding organizations...');
 
-  const acmeId = generateUUID();
-  const communityId = generateUUID();
-  const startupId = generateUUID();
+  // Fixed UUIDs for idempotency - same IDs used on every seed run
+  const acmeId = '20000000-0000-4000-8000-000000000001';
+  const communityId = '20000000-0000-4000-8000-000000000002';
+  const startupId = '20000000-0000-4000-8000-000000000003';
 
   // Insert 3 organizations with different characteristics
   await db
@@ -232,11 +233,12 @@ async function seedDevelopers(
 
   console.log('  👨‍💻 Seeding developers...');
 
-  const aliceId = generateUUID();
-  const bobId = generateUUID();
-  const charlieId = generateUUID();
-  const dianaId = generateUUID();
-  const eveId = generateUUID();
+  // Fixed UUIDs for idempotency - same IDs used on every seed run
+  const aliceId = '30000000-0000-4000-8000-000000000001';
+  const bobId = '30000000-0000-4000-8000-000000000002';
+  const charlieId = '30000000-0000-4000-8000-000000000003';
+  const dianaId = '30000000-0000-4000-8000-000000000004';
+  const eveId = '30000000-0000-4000-8000-000000000005';
 
   // Insert 5 developers with different profiles
   await db
@@ -322,10 +324,11 @@ async function seedAccounts(
 
   console.log('  🔗 Seeding accounts...');
 
-  const aliceGithubId = generateUUID();
-  const aliceSlackId = generateUUID();
-  const bobGithubId = generateUUID();
-  const charlieXId = generateUUID();
+  // Fixed UUIDs for idempotency - same IDs used on every seed run
+  const aliceGithubId = '40000000-0000-4000-8000-000000000001';
+  const aliceSlackId = '40000000-0000-4000-8000-000000000002';
+  const bobGithubId = '40000000-0000-4000-8000-000000000003';
+  const charlieXId = '40000000-0000-4000-8000-000000000004';
 
   // Insert 4 accounts (2 for Alice, 1 for Bob, 1 unlinked)
   await db
@@ -420,9 +423,12 @@ async function seedCampaigns(): Promise<Record<string, string>> {
 
   console.log('  📊 Seeding campaigns...');
 
-  const meetupId = generateUUID();
-  const blogId = generateUUID();
-  const sponsorId = generateUUID();
+  // Fixed UUIDs for idempotency - same IDs used on every seed run
+  // This ensures that .onConflictDoNothing() works correctly and
+  // the returned IDs match the actual database records
+  const meetupId = '10000000-0000-4000-8000-000000000001';
+  const blogId = '10000000-0000-4000-8000-000000000002';
+  const sponsorId = '10000000-0000-4000-8000-000000000003';
 
   // Insert 3 campaigns with different characteristics
   await db
@@ -489,9 +495,10 @@ async function seedResources(
 
   console.log('  📦 Seeding resources...');
 
-  const eventId = generateUUID();
-  const blogPostId = generateUUID();
-  const repoId = generateUUID();
+  // Fixed UUIDs for idempotency - same IDs used on every seed run
+  const eventId = '50000000-0000-4000-8000-000000000001';
+  const blogPostId = '50000000-0000-4000-8000-000000000002';
+  const repoId = '50000000-0000-4000-8000-000000000003';
 
   // Insert 3 resources with different categories
   await db
@@ -566,7 +573,7 @@ async function seedActivities(
   devIds: Record<string, string>,
   accountIds: Record<string, string>,
   resourceIds: Record<string, string>
-) {
+): Promise<void> {
   const db = getDb();
 
   console.log('  🎬 Seeding activities...');
@@ -772,8 +779,10 @@ async function seedActivities(
  * 4. Advocacy - Evangelism and contribution
  *
  * This data MUST exist before the application can function properly.
+ *
+ * Note: RLS is managed at the seed() function level, not here.
  */
-async function seedFunnelStages() {
+async function seedFunnelStages(): Promise<void> {
   const db = getDb();
 
   console.log('  🔄 Seeding funnel stages...');
@@ -820,7 +829,7 @@ async function seedFunnelStages() {
  * - Adoption: signup, download, api_call
  * - Advocacy: star, share, contribute
  */
-async function seedActivityFunnelMaps() {
+async function seedActivityFunnelMaps(): Promise<void> {
   const db = getDb();
 
   console.log('  🗺️  Seeding activity funnel mappings...');
@@ -877,14 +886,48 @@ async function seedActivityFunnelMaps() {
  * - Logs progress at each step
  * - Throws errors with context for debugging
  */
-async function seed() {
+async function seed(): Promise<void> {
   console.log('🌱 Starting seed...\n');
+
+  // Get raw SQL client for RLS management
+  const sql = getSql();
+  if (!sql) {
+    throw new Error('SQL client not initialized');
+  }
 
   try {
     // Check database connection before seeding
     // This validates that DATABASE_* env vars are set correctly
     await testConnection();
     console.log('✅ Database connection OK\n');
+
+    // Temporarily disable RLS on all tables for seeding
+    // This is necessary because:
+    // 1. Connection pooling makes session variables unreliable
+    // 2. The devcle user is not a superuser (cannot bypass RLS)
+    // 3. We need to seed data without RLS constraints
+    console.log('  🔓 Temporarily disabling RLS on all tables for seeding...\n');
+
+    const tables = [
+      // Admin tables
+      'tenants', 'users', 'api_keys', 'system_settings', 'notifications',
+      // Core entity tables
+      'organizations', 'developers', 'accounts', 'developer_identifiers', 'developer_merge_logs',
+      // Campaign/Resource tables
+      'campaigns', 'budgets', 'resources',
+      // Activity tables
+      'activities', 'activity_campaigns',
+      // Plugin/Import tables
+      'plugins', 'plugin_runs', 'plugin_events_raw', 'import_jobs', 'shortlinks',
+      // Analytics/Funnel tables
+      'developer_stats', 'campaign_stats', 'funnel_stages', 'activity_funnel_map'
+    ];
+
+    for (const table of tables) {
+      await sql.unsafe(`ALTER TABLE ${table} DISABLE ROW LEVEL SECURITY`);
+    }
+
+    console.log('    ✅ RLS disabled on all tables\n');
 
     // Seed in dependency order
     // Each function is idempotent (can be run multiple times safely)
@@ -927,6 +970,36 @@ async function seed() {
 
     // Re-throw to trigger process.exit(1) in catch handler below
     throw error;
+  } finally {
+    // Always re-enable RLS, even if seeding fails
+    // This ensures security policies are restored
+    console.log('\n  🔒 Re-enabling RLS on all tables...\n');
+
+    const tables = [
+      // Admin tables
+      'tenants', 'users', 'api_keys', 'system_settings', 'notifications',
+      // Core entity tables
+      'organizations', 'developers', 'accounts', 'developer_identifiers', 'developer_merge_logs',
+      // Campaign/Resource tables
+      'campaigns', 'budgets', 'resources',
+      // Activity tables
+      'activities', 'activity_campaigns',
+      // Plugin/Import tables
+      'plugins', 'plugin_runs', 'plugin_events_raw', 'import_jobs', 'shortlinks',
+      // Analytics/Funnel tables
+      'developer_stats', 'campaign_stats', 'funnel_stages', 'activity_funnel_map'
+    ];
+
+    for (const table of tables) {
+      try {
+        await sql.unsafe(`ALTER TABLE ${table} ENABLE ROW LEVEL SECURITY`);
+      } catch (error) {
+        // Log error but don't throw - we want to re-enable as many tables as possible
+        console.error(`    ⚠️  Failed to re-enable RLS on ${table}:`, error);
+      }
+    }
+
+    console.log('    ✅ RLS re-enabled on all tables\n');
   }
 }
 
