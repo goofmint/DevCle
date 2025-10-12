@@ -44,7 +44,6 @@ interface DarkModeProviderProps {
  */
 export function DarkModeProvider({ children }: DarkModeProviderProps): JSX.Element {
   const [isDark, setIsDark] = useState<boolean>(false);
-  const [mounted, setMounted] = useState<boolean>(false);
 
   // Load dark mode preference on mount
   // Priority: 1. localStorage (user preference), 2. System preference (prefers-color-scheme)
@@ -58,7 +57,6 @@ export function DarkModeProvider({ children }: DarkModeProviderProps): JSX.Eleme
       const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
       setIsDark(prefersDark);
     }
-    setMounted(true);
   }, []);
 
   // Toggle dark mode and persist to localStorage

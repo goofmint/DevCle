@@ -10,14 +10,6 @@ interface PageLayoutProps {
    * The main content of the page
    */
   children: React.ReactNode;
-
-  /**
-   * Header variant
-   * - 'landing': For landing page (with logo only)
-   * - 'legal': For legal pages (with back-to-home link)
-   * @default 'legal'
-   */
-  variant?: 'landing' | 'legal';
 }
 
 /**
@@ -49,7 +41,7 @@ interface PageLayoutProps {
  * </PageLayout>
  * ```
  */
-export function PageLayout({ children, variant = 'legal' }: PageLayoutProps): JSX.Element {
+export function PageLayout({ children }: PageLayoutProps): JSX.Element {
   // Get dark mode state from app-level context
   const { isDark, toggleDark } = useDarkMode();
 
@@ -57,8 +49,8 @@ export function PageLayout({ children, variant = 'legal' }: PageLayoutProps): JS
     <div
       className={`min-h-screen transition-colors ${isDark ? 'bg-gray-900' : 'bg-white'}`}
     >
-      {/* Fixed header with dark mode toggle */}
-      <Header isDark={isDark} toggleDark={toggleDark} variant={variant} />
+      {/* Fixed header with logo, dark mode toggle, and login button */}
+      <Header isDark={isDark} toggleDark={toggleDark} />
 
       {/* Main content area with proper spacing for fixed header */}
       {/* pt-32: accounts for header height (h-16) + extra padding */}

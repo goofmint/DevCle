@@ -3,7 +3,7 @@ import { Icon } from '@iconify/react';
 
 /**
  * Props for the Header component
- * Supports different header variants (landing page vs legal pages)
+ * Unified header for all pages
  */
 interface HeaderProps {
   /**
@@ -15,13 +15,6 @@ interface HeaderProps {
    * Dark mode toggle function
    */
   toggleDark: () => void;
-
-  /**
-   * Header variant
-   * - "landing": Shows logo and login button (for landing page)
-   * - "legal": Shows back-to-home link (for legal pages)
-   */
-  variant?: 'landing' | 'legal';
 }
 
 /**
@@ -30,11 +23,10 @@ interface HeaderProps {
  *
  * Features:
  * - Fixed position at the top of the page
+ * - Logo + Service name
  * - Dark mode toggle button
+ * - Login button
  * - Responsive design
- * - Two variants:
- *   - Landing: Logo + Service name + Dark mode toggle + Login button
- *   - Legal: Back-to-home link + Dark mode toggle
  *
  * Accessibility:
  * - Semantic HTML (header element with role="banner")
@@ -44,7 +36,6 @@ interface HeaderProps {
 export default function Header({
   isDark,
   toggleDark,
-  variant = 'landing',
 }: HeaderProps): JSX.Element {
   return (
     <header
@@ -103,20 +94,18 @@ export default function Header({
               />
             </button>
 
-            {/* Login button (only for landing variant) */}
-            {variant === 'landing' && (
-              <Link
-                to="/login"
-                className={`px-4 py-2 rounded-lg font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  isDark
-                    ? 'bg-blue-600 text-white hover:bg-blue-700'
-                    : 'bg-blue-600 text-white hover:bg-blue-700'
-                }`}
-                aria-label="Log in to DevCle"
-              >
-                Log In
-              </Link>
-            )}
+            {/* Login button */}
+            <Link
+              to="/login"
+              className={`px-4 py-2 rounded-lg font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                isDark
+                  ? 'bg-blue-600 text-white hover:bg-blue-700'
+                  : 'bg-blue-600 text-white hover:bg-blue-700'
+              }`}
+              aria-label="Log in to DevCle"
+            >
+              Log In
+            </Link>
           </div>
         </div>
       </div>

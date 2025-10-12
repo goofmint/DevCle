@@ -282,7 +282,7 @@ export default function Index(): JSX.Element {
   return (
     <div className={`min-h-screen transition-colors ${isDark ? 'bg-gray-900' : 'bg-white'}`}>
       {/* Fixed header with logo, dark mode toggle, and login button */}
-      <Header isDark={isDark} toggleDark={toggleDark} variant="landing" />
+      <Header isDark={isDark} toggleDark={toggleDark} />
 
       <main>
         {/* Hero section with main heading and CTA */}
