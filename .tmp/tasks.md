@@ -136,18 +136,21 @@
 - **ドキュメント**: [.tmp/tasks/task-2.4-privacy-page.md](.tmp/tasks/task-2.4-privacy-page.md)
 - **完了日**: 2025-10-12
 
-### Task 2.5: プライシングページ作成
+### Task 2.5: プライシングページ作成 ✅
 
-- [ ] `app/routes/pricing.mdx`作成
-- [ ] 料金表作成
+- [x] `app/routes/pricing.mdx`作成
+- [x] 料金表作成
   - OSS版（無料）
     - セルフホスト
     - 基本プラグイン
   - SaaS版（有料）
     - Basic, Team, Enterpriseプラン
+- [x] ダークモード対応（Tailwind v4 @custom-variant設定）
+- [x] E2Eテスト作成（18テスト）
 - **完了条件**: `/pricing`でページが表示される
 - **依存**: Task 2.1
 - **推定時間**: 2時間
+- **完了日**: 2025-10-12
 
 ---
 
@@ -162,6 +165,7 @@
 - **完了条件**: Drizzleが初期化され、DB接続確認できる
 - **依存**: Task 1.4
 - **推定時間**: 1.5時間
+- **ドキュメント**: [.tmp/tasks/task-3.1-drizzle-setup.md](.tmp/tasks/task-3.1-drizzle-setup.md)
 
 ### Task 3.2: コアテーブルスキーマ定義
 
