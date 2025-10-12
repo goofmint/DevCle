@@ -6,6 +6,7 @@ import type { Config } from 'tailwindcss';
  * This configuration:
  * - Scans app directory for Tailwind classes
  * - Uses default theme with minimal customization
+ * - Includes Typography plugin for prose classes (MDX content styling)
  * - Prepares for future design system extension
  */
 export default {
@@ -15,5 +16,9 @@ export default {
       // Future: Add custom colors, fonts, spacing, etc.
     },
   },
-  plugins: [],
+  plugins: [
+    // Typography plugin for prose classes (used in MDX content)
+    // Provides prose, prose-invert, and other typography utilities
+    require('@tailwindcss/typography'),
+  ],
 } satisfies Config;

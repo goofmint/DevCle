@@ -1,18 +1,30 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { createRemixStub } from '@remix-run/testing';
+import { DarkModeProvider } from '~/contexts/dark-mode-context';
 import Index from './_index';
 
 /**
- * Helper function to render component with Remix Router context
+ * Helper function to render component with Remix Router context and DarkModeProvider
  * Uses createRemixStub to provide proper Remix environment for testing
+ * Wraps the route with DarkModeProvider to match production environment
  */
 function renderWithRemix() {
-  // Create a stub with the Index route
+  // Create a wrapper component that provides DarkModeContext
+  // This matches the structure in root.tsx where App is wrapped with DarkModeProvider
+  function AppWithProviders() {
+    return (
+      <DarkModeProvider>
+        <Index />
+      </DarkModeProvider>
+    );
+  }
+
+  // Create a stub with the Index route wrapped in DarkModeProvider
   const RemixStub = createRemixStub([
     {
       path: '/',
-      Component: Index,
+      Component: AppWithProviders,
     },
   ]);
 

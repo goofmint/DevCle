@@ -5,6 +5,7 @@
  * The main tailwindcss package now includes everything.
  */
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
 
 /**
  * Custom base styles

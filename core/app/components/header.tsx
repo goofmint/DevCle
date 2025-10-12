@@ -55,48 +55,33 @@ export default function Header({
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
-          {/* Left side: Logo (landing) or Back link (legal) */}
-          {variant === 'landing' ? (
-            <div className="flex items-center space-x-3">
-              {/* Logo */}
-              <Link
-                to="/"
-                className="flex items-center space-x-2 group focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg"
-                aria-label="DevCle Home"
-              >
-                <div
-                  className={`text-2xl font-bold ${
-                    isDark ? 'text-blue-400' : 'text-blue-600'
-                  } group-hover:scale-110 transition-transform`}
-                  aria-hidden="true"
-                >
-                  📊
-                </div>
-                <span
-                  className={`text-xl font-bold ${
-                    isDark ? 'text-white' : 'text-gray-900'
-                  } ${
-                    isDark ? 'group-hover:text-blue-400' : 'group-hover:text-blue-600'
-                  } transition-colors`}
-                >
-                  DevCle
-                </span>
-              </Link>
-            </div>
-          ) : (
+          {/* Left side: Logo (consistent across all page types) */}
+          <div className="flex items-center space-x-3">
+            {/* Logo */}
             <Link
               to="/"
-              className={`flex items-center space-x-2 group focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg transition-colors ${
-                isDark
-                  ? 'text-blue-400 hover:text-blue-300'
-                  : 'text-blue-600 hover:text-blue-700'
-              }`}
-              aria-label="Back to home"
+              className="flex items-center space-x-2 group focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg"
+              aria-label="DevCle Home"
             >
-              <span aria-hidden="true">←</span>
-              <span className="font-semibold">Back to Home</span>
+              <div
+                className={`text-2xl font-bold ${
+                  isDark ? 'text-blue-400' : 'text-blue-600'
+                } group-hover:scale-110 transition-transform`}
+                aria-hidden="true"
+              >
+                📊
+              </div>
+              <span
+                className={`text-xl font-bold ${
+                  isDark ? 'text-white' : 'text-gray-900'
+                } ${
+                  isDark ? 'group-hover:text-blue-400' : 'group-hover:text-blue-600'
+                } transition-colors`}
+              >
+                DevCle
+              </span>
             </Link>
-          )}
+          </div>
 
           {/* Right side: Dark mode toggle (+ Login button for landing) */}
           <div className="flex items-center space-x-4">

@@ -9,6 +9,7 @@ import {
 
 // Import Tailwind CSS
 import styles from './tailwind.css?url';
+import { DarkModeProvider } from './contexts/dark-mode-context';
 
 /**
  * Root layout component for the DRM application
@@ -17,6 +18,7 @@ import styles from './tailwind.css?url';
  * - HTML document structure
  * - Meta tags and links (including Tailwind CSS)
  * - Scripts and scroll restoration
+ * - Dark mode management via Context API
  * - Error boundary for unhandled errors
  */
 export const links: LinksFunction = () => {
@@ -47,9 +49,14 @@ export function Layout({
 
 /**
  * Root component that renders the current route
+ * Wraps all routes with DarkModeProvider for app-level dark mode management
  */
 export default function App(): JSX.Element {
-  return <Outlet />;
+  return (
+    <DarkModeProvider>
+      <Outlet />
+    </DarkModeProvider>
+  );
 }
 
 /**

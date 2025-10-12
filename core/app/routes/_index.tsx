@@ -1,8 +1,8 @@
 import type { MetaFunction } from '@remix-run/node';
 import { Link } from '@remix-run/react';
-import { useState, useEffect } from 'react';
 import Header from '~/components/header';
 import Footer from '~/components/footer';
+import { useDarkMode } from '~/contexts/dark-mode-context';
 
 /**
  * Meta tags for SEO optimization
@@ -253,30 +253,8 @@ function CTASection({
  * - Smooth transitions between modes
  */
 export default function Index(): JSX.Element {
-  // Dark mode state management
-  // Initializes from localStorage or system preference (prefers-color-scheme)
-  const [isDark, setIsDark] = useState<boolean>(false);
-
-  // Load dark mode preference on mount
-  // Priority: 1. localStorage (user preference), 2. System preference (prefers-color-scheme)
-  useEffect(() => {
-    const savedMode = localStorage.getItem('darkMode');
-    if (savedMode !== null) {
-      // User has explicitly set a preference - use it
-      setIsDark(savedMode === 'true');
-    } else {
-      // No saved preference - use system preference
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      setIsDark(prefersDark);
-    }
-  }, []);
-
-  // Toggle dark mode and persist to localStorage
-  const toggleDark = () => {
-    const newMode = !isDark;
-    setIsDark(newMode);
-    localStorage.setItem('darkMode', String(newMode));
-  };
+  // Dark mode state from app-level context
+  const { isDark, toggleDark } = useDarkMode();
 
   // Feature data for the features section
   // Each feature represents a core capability of DevCle

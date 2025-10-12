@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react';
 import { defineConfig, type UserConfig } from 'vite';
 import mdx from '@mdx-js/rollup';
 import remarkGfm from 'remark-gfm';
+import remarkFrontmatter from 'remark-frontmatter';
 import rehypeHighlight from 'rehype-highlight';
 
 /**
@@ -26,7 +27,10 @@ export default defineConfig(({ mode }): UserConfig => {
           mdx({
             // MDX configuration for Terms of Service and other legal pages
             // Allows using React components inside Markdown files
-            remarkPlugins: [remarkGfm], // GitHub Flavored Markdown support
+            remarkPlugins: [
+              remarkFrontmatter, // Parse YAML frontmatter (prevents it from rendering as content)
+              remarkGfm, // GitHub Flavored Markdown support
+            ],
             rehypePlugins: [rehypeHighlight], // Syntax highlighting for code blocks
           }),
           remix({
