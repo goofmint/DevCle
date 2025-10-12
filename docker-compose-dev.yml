@@ -23,6 +23,12 @@ services:
       NODE_ENV: development
       # Set CI flag for non-interactive pnpm install
       CI: "true"
+      # PostgreSQL environment variables for drizzle-kit
+      POSTGRES_DB: ${POSTGRES_DB:-devcle}
+      POSTGRES_USER: ${POSTGRES_USER:-devcle}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      # Database host points to postgres service in docker network
+      DATABASE_HOST: postgres
     volumes:
       # Mount source code for hot reloading from core directory
       - ./core:/app

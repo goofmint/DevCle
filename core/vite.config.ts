@@ -65,9 +65,8 @@ export default defineConfig(({ mode }): UserConfig => {
       environment: 'jsdom',
       setupFiles: ['./vitest.setup.ts'],
       include: ['**/*.test.{ts,tsx}'],
-      // Load .env file from parent directory (where docker-compose is located)
-      // This ensures tests can access database credentials
-      envDir: '../',
+      // Note: Environment variable loading is handled in vitest.setup.ts
+      // (vitest 2.0+ removed test.envDir option)
       coverage: {
         reporter: ['text', 'json', 'html'],
         exclude: [
