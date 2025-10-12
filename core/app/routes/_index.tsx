@@ -51,7 +51,9 @@ function Header({ isDark, toggleDark }: { isDark: boolean; toggleDark: () => voi
               <span
                 className={`text-xl font-bold ${
                   isDark ? 'text-white' : 'text-gray-900'
-                } group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors`}
+                } ${
+                  isDark ? 'group-hover:text-blue-400' : 'group-hover:text-blue-600'
+                } transition-colors`}
               >
                 DevCle
               </span>
