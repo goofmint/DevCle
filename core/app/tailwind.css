@@ -8,6 +8,13 @@
 @plugin "@tailwindcss/typography";
 
 /**
+ * Dark mode configuration
+ * Enable class-based dark mode (e.g., <div class="dark">)
+ * Without this, dark mode defaults to prefers-color-scheme media query
+ */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/**
  * Custom base styles
  */
 @layer base {
