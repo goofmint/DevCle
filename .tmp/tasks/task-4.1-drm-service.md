@@ -613,7 +613,8 @@ describe('getDeveloper', () => {
 
   it('should return null for non-existent ID', async () => {
     // Act: Try to get non-existent developer
-    const result = await getDeveloper('default', 'non-existent-uuid');
+    // Using a valid UUID v4 format that doesn't exist in the database
+    const result = await getDeveloper('default', '99999999-9999-4999-8999-999999999999');
 
     // Assert: Should return null (not throw error)
     expect(result).toBeNull();
