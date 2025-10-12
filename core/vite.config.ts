@@ -1,12 +1,16 @@
 import { vitePlugin as remix } from '@remix-run/dev';
 import react from '@vitejs/plugin-react';
 import { defineConfig, type UserConfig } from 'vite';
+import mdx from '@mdx-js/rollup';
+import remarkGfm from 'remark-gfm';
+import rehypeHighlight from 'rehype-highlight';
 
 /**
  * Vite configuration for DRM core application
  *
  * This configuration sets up:
  * - Remix plugin for SSR and routing (production/dev)
+ * - MDX plugin for Markdown content with React components
  * - React plugin for testing
  * - TypeScript path aliases
  * - Testing configuration with Vitest
@@ -21,6 +25,12 @@ export default defineConfig(({ mode }): UserConfig => {
           remix({
             // Remix configuration
             ignoredRouteFiles: ['**/*.test.{ts,tsx}'],
+          }),
+          mdx({
+            // MDX configuration for Terms of Service and other legal pages
+            // Allows using React components inside Markdown files
+            remarkPlugins: [remarkGfm], // GitHub Flavored Markdown support
+            rehypePlugins: [rehypeHighlight], // Syntax highlighting for code blocks
           }),
         ],
 
