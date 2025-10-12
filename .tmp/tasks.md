@@ -90,16 +90,17 @@
 
 ## Phase 2: Remixアプリケーション基盤（最小限のUI）
 
-### Task 2.1: Remix初期セットアップ
+### Task 2.1: Remix初期セットアップ ✅
 
-- [ ] Remix v2プロジェクト初期化（`core/`）
-- [ ] TailwindCSS設定
-- [ ] ルートレイアウト作成（`app/root.tsx`）
-- [ ] エラーバウンダリ設定
-- [ ] 環境変数読み込み（`DATABASE_URL`, `REDIS_URL`）
+- [x] Remix v2プロジェクト初期化（`core/`）
+- [x] TailwindCSS設定
+- [x] ルートレイアウト作成（`app/root.tsx`）
+- [x] エラーバウンダリ設定
+- [x] 環境変数読み込み（`DATABASE_URL`, `REDIS_URL`）
 - **完了条件**: Remixアプリが起動し、ルートページが表示される
 - **依存**: Task 1.2
 - **推定時間**: 2時間
+- **完了日**: 2025-10-11
 
 ### Task 2.2: LP（トップページ）作成
 

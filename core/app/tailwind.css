@@ -1,12 +1,10 @@
 /**
- * Tailwind CSS styles for DRM core application
+ * Tailwind CSS v4 styles for DRM core application
  *
- * This file imports Tailwind's base, components, and utilities.
- * Custom styles should be added after the @tailwind directives.
+ * Tailwind v4 uses @import instead of @tailwind directives.
+ * The main tailwindcss package now includes everything.
  */
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
 /**
  * Custom base styles
