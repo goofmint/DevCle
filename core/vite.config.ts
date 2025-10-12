@@ -22,15 +22,16 @@ export default defineConfig(({ mode }): UserConfig => {
     plugins: isTest
       ? [react()]
       : [
-          remix({
-            // Remix configuration
-            ignoredRouteFiles: ['**/*.test.{ts,tsx}'],
-          }),
+          // IMPORTANT: MDX plugin must be placed BEFORE Remix plugin
           mdx({
             // MDX configuration for Terms of Service and other legal pages
             // Allows using React components inside Markdown files
             remarkPlugins: [remarkGfm], // GitHub Flavored Markdown support
             rehypePlugins: [rehypeHighlight], // Syntax highlighting for code blocks
+          }),
+          remix({
+            // Remix configuration
+            ignoredRouteFiles: ['**/*.test.{ts,tsx}'],
           }),
         ],
 
