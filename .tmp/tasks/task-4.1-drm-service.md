@@ -156,6 +156,102 @@ export async function listDevelopers(
   // Implementation will be added in coding phase
   throw new Error('Not implemented');
 }
+
+/**
+ * Zod schema for updating a developer
+ *
+ * All fields are optional (partial update support)
+ */
+export const UpdateDeveloperSchema = z.object({
+  displayName: z.string().min(1).max(255).optional(),
+  primaryEmail: z.string().email().nullable().optional(),
+  orgId: z.string().uuid().nullable().optional(),
+  consentAnalytics: z.boolean().optional(),
+  tags: z.array(z.string()).optional(),
+});
+
+/**
+ * Type inferred from UpdateDeveloperSchema
+ */
+export type UpdateDeveloperInput = z.infer<typeof UpdateDeveloperSchema>;
+
+/**
+ * Update an existing developer
+ *
+ * @param tenantId - Tenant ID for multi-tenant isolation
+ * @param developerId - UUID of the developer to update
+ * @param data - Developer data to update (partial update supported)
+ * @returns Updated developer record or null if not found
+ * @throws {Error} If validation fails or database error occurs
+ *
+ * Implementation details:
+ * 1. Validate input using UpdateDeveloperSchema
+ * 2. Query developer by developer_id (RLS applies)
+ * 3. If not found, return null
+ * 4. Update only provided fields using Drizzle ORM
+ * 5. Return updated record
+ *
+ * Partial Update Support:
+ * - Allows updating only specific fields
+ * - Null values are treated as "set to null" (not "skip")
+ * - Empty object {} is allowed (no-op, returns existing record)
+ *
+ * Examples:
+ * - Update email only: { primaryEmail: 'new@example.com' }
+ * - Update tags only: { tags: ['backend', 'python'] }
+ * - Clear organization: { orgId: null }
+ *
+ * RLS: Requires app.current_tenant_id to be set in session
+ */
+export async function updateDeveloper(
+  tenantId: string,
+  developerId: string,
+  data: UpdateDeveloperInput
+): Promise<typeof schema.developers.$inferSelect | null> {
+  // Implementation will be added in coding phase
+  throw new Error('Not implemented');
+}
+
+/**
+ * Delete a developer
+ *
+ * @param tenantId - Tenant ID for multi-tenant isolation
+ * @param developerId - UUID of the developer to delete
+ * @returns True if deleted, false if not found
+ * @throws {Error} If database error occurs
+ *
+ * Implementation details:
+ * 1. Query developer by developer_id (RLS applies)
+ * 2. If not found, return false
+ * 3. Delete developer record using Drizzle ORM
+ * 4. Return true
+ *
+ * Important Notes:
+ * - This is a HARD DELETE (permanent removal)
+ * - Related records (accounts, activities) should be handled by:
+ *   a) Database CASCADE constraints (automatic deletion)
+ *   b) OR: Set developer_id to NULL (orphan records)
+ *   c) OR: Soft delete (set deleted_at timestamp) - preferred for GDPR compliance
+ *
+ * GDPR Considerations:
+ * - Users have "right to erasure" (right to be forgotten)
+ * - Hard delete may be required for GDPR compliance
+ * - Consider soft delete for audit trail requirements
+ *
+ * Alternative: Soft Delete
+ * - Add `deleted_at` timestamp column to schema
+ * - Set deleted_at = NOW() instead of DELETE
+ * - Filter out deleted records in queries (WHERE deleted_at IS NULL)
+ *
+ * RLS: Requires app.current_tenant_id to be set in session
+ */
+export async function deleteDeveloper(
+  tenantId: string,
+  developerId: string
+): Promise<boolean> {
+  // Implementation will be added in coding phase
+  throw new Error('Not implemented');
+}
 ```
 
 ---
