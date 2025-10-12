@@ -204,15 +204,17 @@
 - **推定時間**: 1時間
 - **完了日**: 2025-10-12（Task 3.2に統合）
 
-### Task 3.5: マイグレーション実行とRLS設定
+### Task 3.5: マイグレーション実行とRLS設定 ✅
 
-- [ ] `pnpm db:generate`でマイグレーションファイル生成
-- [ ] `pnpm db:migrate`でマイグレーション実行
-- [ ] PostgreSQL RLS有効化スクリプト作成（`infra/postgres/rls.sql`）
-- [ ] 各テーブルにRLSポリシー追加
+- [x] `pnpm db:generate`でマイグレーションファイル生成
+- [x] `pnpm db:migrate`でマイグレーション実行
+- [x] PostgreSQL RLS有効化スクリプト作成（`infra/postgres/rls.sql`）
+- [x] 各テーブルにRLSポリシー追加
 - **完了条件**: マイグレーションが成功し、RLSが有効化される
 - **依存**: Task 3.4
 - **推定時間**: 2時間
+- **ドキュメント**: [.tmp/tasks/task-3.5-rls-setup.md](.tmp/tasks/task-3.5-rls-setup.md)
+- **完了日**: 2025-10-12
 
 ### Task 3.6: シードデータ作成
 
