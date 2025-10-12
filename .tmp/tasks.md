@@ -114,33 +114,34 @@
 - **推定時間**: 3時間
 - **完了日**: 2025-10-12
 
-### Task 2.3: 利用規約ページ作成
+### Task 2.3: 利用規約ページ作成 ✅
 
-- [ ] `app/routes/terms.tsx`作成
-- [ ] 利用規約の文章作成（OSS版・SaaS版共通）
-- [ ] TailwindCSSでマークダウンスタイル適用
+- [x] `app/routes/terms.tsx`作成
+- [x] 利用規約の文章作成（OSS版・SaaS版共通）
+- [x] TailwindCSSでマークダウンスタイル適用
 - **完了条件**: `/terms`でページが表示される
 - **依存**: Task 2.1
 - **推定時間**: 2時間
+- **ドキュメント**: [.tmp/tasks/task-2.3-terms-page.md](.tmp/tasks/task-2.3-terms-page.md)
+- **完了日**: 2025-10-12
 
 ### Task 2.4: プライバシーポリシーページ作成
 
-- [ ] `app/routes/privacy.tsx`作成
+- [ ] `app/routes/privacy.mdx`作成
 - [ ] プライバシーポリシーの文章作成（GDPR/CCPA対応）
 - [ ] データ収集・利用・保管方針の記載
 - **完了条件**: `/privacy`でページが表示される
 - **依存**: Task 2.1
 - **推定時間**: 2時間
 
-### Task 2.5: ヘルスチェックAPI
+### Task 2.5: プライシングページ作成
 
-- [ ] `app/routes/api/health.ts`作成（Remix Resource Route）
-- [ ] PostgreSQL接続確認
-- [ ] Redis接続確認
-- [ ] JSONレスポンス返却（`{ status: 'ok', db: true, redis: true }`）
-- **完了条件**: `GET /api/health`が200を返す
+- [ ] `app/routes/pricing.mdx`作成
+- [ ] プライバシーポリシーの文章作成（GDPR/CCPA対応）
+- [ ] データ収集・利用・保管方針の記載
+- **完了条件**: `/privacy`でページが表示される
 - **依存**: Task 2.1
-- **推定時間**: 1時間
+- **推定時間**: 2時間
 
 ---
 
