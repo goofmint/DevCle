@@ -55,38 +55,76 @@ export const CreateDeveloperSchema = z.object({
 });
 
 /**
- * Type inferred from CreateDeveloperSchema
+ * Input type for createDeveloper (raw/unvalidated data)
+ *
+ * This type represents data BEFORE validation.
+ * Callers pass raw input, and the service validates it.
  */
-export type CreateDeveloperInput = z.infer<typeof CreateDeveloperSchema>;
+export type CreateDeveloperInput = z.input<typeof CreateDeveloperSchema>;
 
 /**
- * Zod schema for listing developers with pagination
+ * Output type after validation (defaults applied)
+ *
+ * This type represents data AFTER validation.
+ * Used internally after calling schema.parse().
+ */
+export type CreateDeveloperData = z.infer<typeof CreateDeveloperSchema>;
+
+/**
+ * Zod schema for listing developers with pagination and sorting
  */
 export const ListDevelopersSchema = z.object({
   limit: z.number().int().positive().max(100).default(50),
   offset: z.number().int().nonnegative().default(0),
   orgId: z.string().uuid().optional(),
   search: z.string().optional(),
+  orderBy: z
+    .enum(['displayName', 'primaryEmail', 'createdAt', 'updatedAt'])
+    .default('createdAt'),
+  orderDirection: z.enum(['asc', 'desc']).default('desc'),
 });
 
 /**
- * Type inferred from ListDevelopersSchema
+ * Input type for listDevelopers (raw/unvalidated data)
+ *
+ * This type represents data BEFORE validation.
+ * Callers pass raw input, and the service validates it.
  */
-export type ListDevelopersInput = z.infer<typeof ListDevelopersSchema>;
+export type ListDevelopersInput = z.input<typeof ListDevelopersSchema>;
+
+/**
+ * Output type after validation (defaults applied)
+ *
+ * This type represents data AFTER validation.
+ * Used internally after calling schema.parse().
+ */
+export type ListDevelopersParams = z.infer<typeof ListDevelopersSchema>;
 
 /**
  * Create a new developer
  *
  * @param tenantId - Tenant ID for multi-tenant isolation (required for RLS)
- * @param data - Developer data to create
+ * @param data - Raw/unvalidated developer data (z.input type)
  * @returns Created developer record
  * @throws {Error} If validation fails or database error occurs
  *
  * Implementation details:
- * 1. Validate input using CreateDeveloperSchema
+ * 1. Validate input using CreateDeveloperSchema.parse(data)
+ *    - This converts z.input → z.infer (applies defaults)
  * 2. Generate UUID for developer_id
  * 3. Insert into developers table using Drizzle ORM
  * 4. Return inserted record
+ *
+ * Example usage:
+ * ```typescript
+ * // Caller passes raw input (no defaults applied)
+ * const result = await createDeveloper('default', {
+ *   displayName: 'Alice',
+ *   primaryEmail: 'alice@example.com',
+ *   orgId: null,
+ *   // consentAnalytics and tags are optional (defaults will be applied)
+ * });
+ * ```
  *
  * RLS: Requires app.current_tenant_id to be set in session
  */
@@ -95,6 +133,7 @@ export async function createDeveloper(
   data: CreateDeveloperInput
 ): Promise<typeof schema.developers.$inferSelect> {
   // Implementation will be added in coding phase
+  // const validated: CreateDeveloperData = CreateDeveloperSchema.parse(data);
   throw new Error('Not implemented');
 }
 
@@ -122,19 +161,21 @@ export async function getDeveloper(
 }
 
 /**
- * List developers with pagination
+ * List developers with pagination and sorting
  *
  * @param tenantId - Tenant ID for multi-tenant isolation
- * @param params - Pagination and filter parameters
+ * @param params - Raw/unvalidated pagination, filter, and sort parameters (z.input type)
  * @returns Object containing developers array and total count
  * @throws {Error} If validation fails or database error occurs
  *
  * Implementation details:
- * 1. Validate params using ListDevelopersSchema
+ * 1. Validate params using ListDevelopersSchema.parse(params)
+ *    - This converts z.input → z.infer (applies defaults for limit/offset/orderBy/orderDirection)
  * 2. Build query with filters (orgId, search)
- * 3. Apply pagination (limit, offset)
- * 4. Execute query and count query in parallel
- * 5. Return { developers, total }
+ * 3. Apply sorting (orderBy, orderDirection)
+ * 4. Apply pagination (limit, offset)
+ * 5. Execute query and count query in parallel
+ * 6. Return { developers, total }
  *
  * Filters:
  * - orgId: Filter by organization ID
@@ -143,6 +184,22 @@ export async function getDeveloper(
  * Pagination:
  * - limit: Number of records to return (max 100, default 50)
  * - offset: Number of records to skip (default 0)
+ *
+ * Sorting:
+ * - orderBy: Field to sort by ('displayName', 'primaryEmail', 'createdAt', 'updatedAt', default: 'createdAt')
+ * - orderDirection: Sort direction ('asc', 'desc', default: 'desc')
+ *
+ * Example usage:
+ * ```typescript
+ * // Caller passes raw input (defaults will be applied)
+ * const result = await listDevelopers('default', {
+ *   // limit, offset, orderBy, orderDirection are optional
+ *   // Defaults: limit=50, offset=0, orderBy='createdAt', orderDirection='desc'
+ *   orgId: '20000000-0000-4000-8000-000000000001',
+ *   orderBy: 'displayName',
+ *   orderDirection: 'asc',
+ * });
+ * ```
  *
  * RLS: Requires app.current_tenant_id to be set in session
  */
@@ -154,6 +211,7 @@ export async function listDevelopers(
   total: number;
 }> {
   // Implementation will be added in coding phase
+  // const validated: ListDevelopersParams = ListDevelopersSchema.parse(params);
   throw new Error('Not implemented');
 }
 
@@ -326,20 +384,57 @@ Task 4.1では、全ての入力データをZodスキーマで検証します。
 2. **ランタイム検証**: 実行時に不正なデータを拒否
 3. **エラーメッセージ**: ユーザーフレンドリーなエラーメッセージ生成
 
+### z.input vs z.infer の使い分け
+
+Zodスキーマには2つの型が存在します：
+
+**`z.input<typeof Schema>`**: バリデーション前の型（生データ）
+- サービス関数の引数型として使用
+- デフォルト値が適用される前の型
+- 呼び出し側は未検証のデータを渡す
+
+**`z.infer<typeof Schema>`**: バリデーション後の型（検証済みデータ）
+- `schema.parse()`の戻り値の型
+- デフォルト値が適用された後の型
+- サービス関数内部で使用
+
+```typescript
+// Example: Type difference
+type InputType = z.input<typeof CreateDeveloperSchema>;
+// {
+//   displayName: string;
+//   primaryEmail: string | null;
+//   orgId: string | null;
+//   consentAnalytics?: boolean;  // optional (has default)
+//   tags?: string[];              // optional (has default)
+// }
+
+type InferType = z.infer<typeof CreateDeveloperSchema>;
+// {
+//   displayName: string;
+//   primaryEmail: string | null;
+//   orgId: string | null;
+//   consentAnalytics: boolean;    // required (default applied)
+//   tags: string[];               // required (default applied)
+// }
+```
+
 ### バリデーション例
 
 ```typescript
 // Example: createDeveloper input validation
-const input = {
+const input: CreateDeveloperInput = {
   displayName: 'Alice Anderson',
   primaryEmail: 'alice@example.com',
   orgId: '20000000-0000-4000-8000-000000000001',
-  consentAnalytics: true,
-  tags: ['frontend', 'react'],
+  // consentAnalytics and tags are omitted (defaults will be applied)
 };
 
 // Validate using Zod schema
-const validated = CreateDeveloperSchema.parse(input);
+const validated: CreateDeveloperData = CreateDeveloperSchema.parse(input);
+// validated.consentAnalytics === false (default applied)
+// validated.tags === [] (default applied)
+
 // If validation fails, throws ZodError with detailed error messages
 ```
 
@@ -348,34 +443,43 @@ const validated = CreateDeveloperSchema.parse(input);
 ```typescript
 import { z } from 'zod';
 
-try {
-  const validated = CreateDeveloperSchema.parse(data);
-  // Proceed with database operation
-} catch (error) {
-  if (error instanceof z.ZodError) {
-    // Extract field-level errors
-    const fieldErrors = error.flatten().fieldErrors;
-    // Return user-friendly error message
-    throw new Error(`Validation failed: ${JSON.stringify(fieldErrors)}`);
+function validateInput(data: CreateDeveloperInput): CreateDeveloperData {
+  try {
+    // Parse and validate input
+    // z.input → z.infer (applies defaults, validates constraints)
+    const validated: CreateDeveloperData = CreateDeveloperSchema.parse(data);
+    return validated;
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      // Extract field-level errors
+      const fieldErrors = error.flatten().fieldErrors;
+      // Return user-friendly error message
+      throw new Error(`Validation failed: ${JSON.stringify(fieldErrors)}`);
+    }
+    throw error;
   }
-  throw error;
 }
 ```
 
 ---
 
-## ページネーション設計
+## ページネーション・ソート設計
 
 ### パラメータ
 
+**ページネーション**:
 - **limit**: 1ページあたりの件数（最大100、デフォルト50）
 - **offset**: スキップする件数（デフォルト0）
+
+**ソート順**:
+- **orderBy**: ソート対象のフィールド（'displayName', 'primaryEmail', 'createdAt', 'updatedAt'、デフォルト: 'createdAt'）
+- **orderDirection**: ソート方向（'asc', 'desc'、デフォルト: 'desc'）
 
 ### レスポンス形式
 
 ```typescript
 {
-  developers: [...],  // Developer records
+  developers: [...],  // Developer records (sorted and paginated)
   total: 123,         // Total count (for pagination UI)
 }
 ```
@@ -383,15 +487,29 @@ try {
 ### SQLクエリ構造（実装イメージ）
 
 ```typescript
-// 1. Data query with pagination
+import { asc, desc } from 'drizzle-orm';
+
+// 1. Determine sort column and direction
+const sortColumn = params.orderBy === 'displayName'
+  ? schema.developers.displayName
+  : params.orderBy === 'primaryEmail'
+  ? schema.developers.primaryEmail
+  : params.orderBy === 'updatedAt'
+  ? schema.developers.updatedAt
+  : schema.developers.createdAt;
+
+const sortOrder = params.orderDirection === 'asc' ? asc : desc;
+
+// 2. Data query with sorting and pagination
 const developers = await db
   .select()
   .from(schema.developers)
   .where(/* filters */)
+  .orderBy(sortOrder(sortColumn))
   .limit(params.limit)
   .offset(params.offset);
 
-// 2. Count query (without limit/offset)
+// 3. Count query (without limit/offset/order)
 const [{ count }] = await db
   .select({ count: count() })
   .from(schema.developers)
@@ -400,15 +518,24 @@ const [{ count }] = await db
 
 ### フロントエンド実装への考慮
 
-フロントエンドでは以下のようにページネーションを実装可能:
+フロントエンドでは以下のようにページネーション・ソートを実装可能:
 
 ```typescript
-// Example: Page 2 with 50 items per page
+// Example: Page 2 with 50 items per page, sorted by displayName ascending
 const page = 2;
 const limit = 50;
 const offset = (page - 1) * limit; // 50
+const orderBy = 'displayName';
+const orderDirection = 'asc';
 
-const response = await fetch(`/api/developers?limit=${limit}&offset=${offset}`);
+const params = new URLSearchParams({
+  limit: limit.toString(),
+  offset: offset.toString(),
+  orderBy,
+  orderDirection,
+});
+
+const response = await fetch(`/api/developers?${params}`);
 const { developers, total } = await response.json();
 
 // Calculate total pages
@@ -539,6 +666,49 @@ describe('listDevelopers', () => {
 
   it('should calculate total count correctly', async () => {
     // Verify that total count is accurate regardless of pagination
+  });
+
+  it('should sort by displayName ascending', async () => {
+    // Arrange: Create developers with different names
+    // Act: Request with orderBy='displayName', orderDirection='asc'
+    const result = await listDevelopers('default', {
+      orderBy: 'displayName',
+      orderDirection: 'asc',
+    });
+
+    // Assert: Verify sort order
+    for (let i = 0; i < result.developers.length - 1; i++) {
+      const current = result.developers[i]!.displayName;
+      const next = result.developers[i + 1]!.displayName;
+      expect(current <= next).toBe(true);
+    }
+  });
+
+  it('should sort by createdAt descending (default)', async () => {
+    // Test default sort order
+    const result = await listDevelopers('default', {});
+
+    // Verify that createdAt is in descending order (newest first)
+    for (let i = 0; i < result.developers.length - 1; i++) {
+      const current = new Date(result.developers[i]!.createdAt);
+      const next = new Date(result.developers[i + 1]!.createdAt);
+      expect(current >= next).toBe(true);
+    }
+  });
+
+  it('should support combined filters, sorting, and pagination', async () => {
+    // Test combination of orgId filter + search + orderBy + limit/offset
+    const result = await listDevelopers('default', {
+      orgId: '20000000-0000-4000-8000-000000000001',
+      search: 'alice',
+      orderBy: 'primaryEmail',
+      orderDirection: 'desc',
+      limit: 10,
+      offset: 0,
+    });
+
+    // Verify all parameters are applied correctly
+    expect(result.developers.length).toBeLessThanOrEqual(10);
   });
 });
 ```
