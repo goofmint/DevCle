@@ -199,8 +199,9 @@ export const notifications = pgTable('notifications', {
 **ファイルパス**: `app/db/schema/core.ts`
 
 ```typescript
-import { pgTable, uuid, text, timestamp, jsonb, unique } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, timestamp, jsonb, unique, boolean, numeric, index } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
+import { tenants } from './admin';
 
 export const organizations = pgTable('organizations', {
   orgId: uuid('org_id').primaryKey().default(sql`uuid_generate_v4()`),
@@ -228,7 +229,10 @@ export const organizations = pgTable('organizations', {
 **ファイルパス**: `app/db/schema/core.ts`
 
 ```typescript
-import { index } from 'drizzle-orm/pg-core';
+// Note: このファイルの先頭には既に以下のimportがあります（2.1で定義済み）
+// import { pgTable, uuid, text, timestamp, jsonb, unique, boolean, numeric, index } from 'drizzle-orm/pg-core';
+// import { sql } from 'drizzle-orm';
+// import { tenants } from './admin';
 
 export const developers = pgTable('developers', {
   developerId: uuid('developer_id').primaryKey().default(sql`uuid_generate_v4()`),
@@ -750,6 +754,9 @@ export const funnelStages = pgTable('funnel_stages', {
 **ファイルパス**: `app/db/schema/analytics.ts`
 
 ```typescript
+import { pgTable, text, primaryKey } from 'drizzle-orm/pg-core';
+import { tenants } from './admin';
+
 export const activityFunnelMap = pgTable('activity_funnel_map', {
   tenantId: text('tenant_id').notNull().references(() => tenants.tenantId, { onDelete: 'cascade' }),
   action: text('action').notNull(),
