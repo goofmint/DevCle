@@ -18,13 +18,24 @@
 -- ==================================================================
 
 -- ============================================================================
--- SECTION 1: Admin Tables (5 tables - 2 with RLS, 2 without RLS)
+-- SECTION 1: Admin Tables (5 tables - 4 with RLS, 1 without RLS)
 -- ============================================================================
 
 -- 1.1 tenants table
--- Multi-tenant root table - NO RLS (system foundation data)
--- Authentication requires access to tenants table BEFORE tenant context is set
--- Therefore, RLS would create circular dependency
+-- Multi-tenant root table - RLS REQUIRED
+-- Prevents tenants from seeing other tenants' information (plans, settings, etc.)
+ALTER TABLE tenants ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tenants FORCE ROW LEVEL SECURITY;
+
+CREATE POLICY tenant_isolation_policy ON tenants
+  USING (
+    current_setting('app.current_tenant_id', true) IS NOT NULL
+    AND tenant_id = current_setting('app.current_tenant_id', true)::text
+  )
+  WITH CHECK (
+    current_setting('app.current_tenant_id', true) IS NOT NULL
+    AND tenant_id = current_setting('app.current_tenant_id', true)::text
+  );
 
 -- 1.2 users table
 -- Console users (dashboard login) - NO RLS (authentication foundation data)

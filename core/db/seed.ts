@@ -924,17 +924,17 @@ async function seed(): Promise<void> {
     await testConnection();
     console.log('✅ Database connection OK\n');
 
-    // Temporarily disable RLS on business data tables for seeding
-    // Note: tenants and users tables do NOT have RLS (authentication foundation data)
+    // Temporarily disable RLS on all RLS-enabled tables for seeding
+    // Note: users table does NOT have RLS (authentication foundation data)
     // This is necessary because:
     // 1. Connection pooling makes session variables unreliable
     // 2. The devcle user is not a superuser (cannot bypass RLS)
     // 3. We need to seed data without RLS constraints
-    console.log('  🔓 Temporarily disabling RLS on business data tables for seeding...\n');
+    console.log('  🔓 Temporarily disabling RLS on all RLS-enabled tables for seeding...\n');
 
     const tables = [
-      // Admin tables (excluding tenants and users which have no RLS)
-      'api_keys', 'system_settings', 'notifications',
+      // Admin tables (excluding users which has no RLS)
+      'tenants', 'api_keys', 'system_settings', 'notifications',
       // Core entity tables
       'organizations', 'developers', 'accounts', 'developer_identifiers', 'developer_merge_logs',
       // Campaign/Resource tables
