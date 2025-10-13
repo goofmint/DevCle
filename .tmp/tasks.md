@@ -308,24 +308,41 @@
 - **ドキュメント**: [.tmp/tasks/task-4.2-developer-api.md](.tmp/tasks/task-4.2-developer-api.md)
 - **完了日**: 2025-10-13
 
-### Task 4.3: ID統合機能実装
+### Task 4.3: ID統合機能実装 ✅
 
-- [ ] `resolveDeveloper()`実装（identifiersテーブルから検索）
-- [ ] `mergeDevelopers()`実装（重複開発者の統合）
-- [ ] メールアドレス・SNS IDからのマッチングロジック
-- **完了条件**: ID統合ロジックが単体テストでパスする
+- [x] `resolveDeveloper()`実装（identifiersテーブルから検索）
+- [x] `mergeDevelopers()`実装（重複開発者の統合）
+- [x] メールアドレス・SNS IDからのマッチングロジック
+- **完了条件**: ID統合ロジックが単体テストでパスする ✓
 - **依存**: Task 4.1
 - **推定時間**: 3時間
+- **完了日**: 2025-10-13
+- **ドキュメント**: [.tmp/tasks/task-4.3-id-integration.md](.tmp/tasks/task-4.3-id-integration.md)
+- **注意**:
+  - identity.service.tsを3つに分割（identity-resolver.service.ts, identity-merge.service.ts, identity-identifiers.service.ts）
+  - RLS対応：withTenantContext()ヘルパー使用（本番環境のconnection pooling対応）
+  - 全160テスト成功
 
-### Task 4.4: Activityサービス実装
+### Task 4.4: Activityサービス実装 ✅
 
-- [ ] `core/services/activity.service.ts`作成
-- [ ] `createActivity()`実装
-- [ ] `listActivities()`実装（developerId, 日付範囲でフィルタ）
-- [ ] Zodスキーマでバリデーション
-- **完了条件**: サービス関数が単体テストでパスする
+- [x] `core/services/activity.service.ts`作成
+- [x] `createActivity()`実装（CRUD - Create）
+- [x] `listActivities()`実装（CRUD - Read、developerId/accountId/resourceId/action/source/日付範囲でフィルタ、ページネーション、ソート）
+- [x] `updateActivity()`実装（CRUD - Update、部分更新対応）
+- [x] `deleteActivity()`実装（CRUD - Delete、GDPR対応）
+- [x] Zodスキーマでバリデーション（CreateActivitySchema, ListActivitiesSchema, UpdateActivitySchema）
+- [x] 包括的なテスト作成（22 tests、モック不使用）
+- [x] TypeScriptエラー解消（as any/unknown不使用）
+- **完了条件**: サービス関数が単体テストでパスする ✓
 - **依存**: Task 4.1
 - **推定時間**: 2時間
+- **ドキュメント**: [.tmp/tasks/task-4.4-activity-service.md](.tmp/tasks/task-4.4-activity-service.md)
+- **完了日**: 2025-10-13
+- **注意**:
+  - Deduplication機能実装（dedupKey with unique constraint）
+  - Confidence score validation (0.0-1.0)
+  - Event sourcing principles（Activities are event logs）
+  - Drizzleクエリビルダーの型安全性対応（チェーン形式）
 
 ### Task 4.5: Activity API実装
 
