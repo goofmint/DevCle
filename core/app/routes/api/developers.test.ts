@@ -22,6 +22,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { eq } from 'drizzle-orm';
 import {
   closeDb,
   setTenantContext,
@@ -121,9 +122,7 @@ describe('Developer API - /api/developers', () => {
     // Clean up test user
     if (testUserId) {
       const db = getDb();
-      await db.delete(schema.users).where({
-        userId: testUserId,
-      } as never);
+      await db.delete(schema.users).where(eq(schema.users.userId, testUserId));
     }
 
     // Clear tenant context

@@ -16,6 +16,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { eq } from 'drizzle-orm';
 import {
   closeDb,
   setTenantContext,
@@ -93,20 +94,20 @@ describe('Developer API - /api/developers/:id', () => {
     testUserId = testUser!.userId;
 
     // Create session cookie for authentication
+    // Extract only name=value portion from Set-Cookie header (before first semicolon)
     const request = new Request('http://localhost/test');
     const session = await getSession(request);
     session.set('userId', testUserId);
     session.set('tenantId', 'default');
-    testSessionCookie = await commitSession(session);
+    const setCookieHeader = await commitSession(session);
+    testSessionCookie = setCookieHeader.split(';')[0]!;
   });
 
   afterAll(async () => {
     // Clean up test user
     if (testUserId) {
       const db = getDb();
-      await db.delete(schema.users).where({
-        userId: testUserId,
-      } as never);
+      await db.delete(schema.users).where(eq(schema.users.userId, testUserId));
     }
 
     // Clear tenant context
