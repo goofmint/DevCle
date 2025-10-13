@@ -248,18 +248,37 @@
 
 ## Phase 4: DRMコア機能実装（MVP）
 
-### Task 4.1: DRMサービス基盤実装
+### Task 4.1: DRMサービス基盤実装 ✅
 
-- [ ] `core/services/drm.service.ts`作成
-- [ ] `createDeveloper()`実装
-- [ ] `getDeveloper()`実装
-- [ ] `listDevelopers()`実装（ページネーション付き）
-- [ ] Zodスキーマでバリデーション
-- **完了条件**: サービス関数が単体テストでパスする
+- [x] `core/services/drm.service.ts`作成
+- [x] `createDeveloper()`実装
+- [x] `getDeveloper()`実装
+- [x] `listDevelopers()`実装（ページネーション付き）
+- [x] `updateDeveloper()`実装（UPDATE操作）
+- [x] `deleteDeveloper()`実装（DELETE操作）
+- [x] Zodスキーマでバリデーション
+- [x] ソート機能実装（listDevelopers）
+- [x] 包括的なテスト作成（24 tests）
+- **完了条件**: サービス関数が単体テストでパスする ✓
 - **依存**: Task 3.6
 - **推定時間**: 3時間
+- **ドキュメント**: [.tmp/tasks/task-4.1-drm-service.md](.tmp/tasks/task-4.1-drm-service.md)
+- **完了日**: 2025-10-13
 
-### Task 4.2: ID統合機能実装
+### Task 4.2: Developer API実装
+
+- [ ] `app/routes/api/developers.ts`作成（Resource Route）
+- [ ] `GET /api/developers`（一覧取得）
+- [ ] `POST /api/developers`（新規作成）
+- [ ] `GET /api/developers/:id`（詳細取得）
+- [ ] `PUT /api/developers/:id`（更新）
+- [ ] `DELETE /api/developers/:id`（削除）
+- [ ] エラーハンドリング（400, 404, 500）
+- **完了条件**: APIが統合テストでパスする
+- **依存**: Task 4.1
+- **推定時間**: 3時間
+
+### Task 4.3: ID統合機能実装
 
 - [ ] `resolveDeveloper()`実装（identifiersテーブルから検索）
 - [ ] `mergeDevelopers()`実装（重複開発者の統合）
@@ -268,7 +287,7 @@
 - **依存**: Task 4.1
 - **推定時間**: 3時間
 
-### Task 4.3: Activityサービス実装
+### Task 4.4: Activityサービス実装
 
 - [ ] `core/services/activity.service.ts`作成
 - [ ] `createActivity()`実装
@@ -277,17 +296,6 @@
 - **完了条件**: サービス関数が単体テストでパスする
 - **依存**: Task 4.1
 - **推定時間**: 2時間
-
-### Task 4.4: Developer API実装
-
-- [ ] `app/routes/api/developers.ts`作成（Resource Route）
-- [ ] `GET /api/developers`（一覧取得）
-- [ ] `POST /api/developers`（新規作成）
-- [ ] `GET /api/developers/:id`（詳細取得）
-- [ ] エラーハンドリング（400, 404, 500）
-- **完了条件**: APIが統合テストでパスする
-- **依存**: Task 4.1
-- **推定時間**: 3時間
 
 ### Task 4.5: Activity API実装
 
