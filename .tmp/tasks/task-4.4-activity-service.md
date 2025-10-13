@@ -9,10 +9,16 @@
 
 ## 概要
 
-開発者のアクティビティ（活動）を記録・取得する機能を実装します。アクティビティは、開発者が行った全ての行動（クリック、イベント参加、投稿、閲覧、サインアップ等）を時系列で記録し、DevRel分析の基盤となるデータです。
+開発者のアクティビティ（活動）を記録・取得・更新・削除する機能を実装します。アクティビティは、開発者が行った全ての行動（クリック、イベント参加、投稿、閲覧、サインアップ等）を時系列で記録し、DevRel分析の基盤となるデータです。
 
 **Phase 4の位置づけ**:
-Phase 4はDRMのコア機能を実装するフェーズです。Task 4.4では、アクティビティの記録と検索機能を実現します。
+Phase 4はDRMのコア機能を実装するフェーズです。Task 4.4では、アクティビティの完全なCRUD操作（Create, Read, Update, Delete）を実現します。
+
+**実装する機能**:
+- **Create**: `createActivity()` - アクティビティの記録
+- **Read**: `listActivities()` - アクティビティの検索・取得（フィルタ、ページネーション、ソート）
+- **Update**: `updateActivity()` - アクティビティの部分更新（developer_id解決、メタデータ追加等）
+- **Delete**: `deleteActivity()` - アクティビティの削除（GDPR対応、スパム削除等）
 
 **重要**: このタスクではインターフェースの定義とロジック説明のみを行い、実装は後のレビュー後に行います。
 
@@ -202,6 +208,142 @@ export async function listActivities(
   // 2. Build WHERE clause with filters
   // 3. Apply ORDER BY, LIMIT, OFFSET
   // 4. Return activities array
+  throw new Error('Not implemented');
+}
+
+/**
+ * Zod schema for updating activity
+ *
+ * Validates input data for updateActivity().
+ * Only specified fields will be updated (partial update).
+ */
+export const UpdateActivitySchema = z.object({
+  developerId: z.string().uuid().nullable().optional(),
+  accountId: z.string().uuid().nullable().optional(),
+  anonId: z.string().nullable().optional(),
+  resourceId: z.string().uuid().nullable().optional(),
+  action: z.string().min(1).optional(),
+  occurredAt: z.date().optional(),
+  source: z.string().min(1).optional(),
+  sourceRef: z.string().nullable().optional(),
+  category: z.string().nullable().optional(),
+  groupKey: z.string().nullable().optional(),
+  metadata: z.record(z.any()).nullable().optional(),
+  confidence: z.number().min(0).max(1).optional(),
+});
+
+export type UpdateActivityInput = z.infer<typeof UpdateActivitySchema>;
+
+/**
+ * Update activity
+ *
+ * @param tenantId - Tenant ID for multi-tenant isolation
+ * @param activityId - Activity ID to update
+ * @param data - Fields to update (partial update)
+ * @returns Updated activity record
+ * @throws {Error} If validation fails, activity not found, or database error occurs
+ *
+ * Implementation details:
+ * 1. Validate input using UpdateActivitySchema
+ * 2. Query activity by activity_id to verify it exists
+ * 3. Update specified fields only (partial update)
+ * 4. Return updated activity record
+ *
+ * Use cases:
+ * - Resolve developer_id from account_id after identity resolution
+ * - Update metadata with additional information
+ * - Correct data entry errors
+ * - Update confidence score based on new information
+ *
+ * Important notes:
+ * - Activities are EVENT LOG, so updates should be rare
+ * - Prefer creating new activities over updating existing ones (event sourcing principle)
+ * - Use updates only for data correction or enrichment (e.g., developer_id resolution)
+ * - Cannot update dedup_key (immutable for data integrity)
+ *
+ * Example usage:
+ * ```typescript
+ * // Resolve developer_id after identity resolution
+ * const updated = await updateActivity('default', activityId, {
+ *   developerId: '550e8400-e29b-41d4-a716-446655440000',
+ * });
+ *
+ * // Update metadata with additional information
+ * const enriched = await updateActivity('default', activityId, {
+ *   metadata: {
+ *     ...existingMetadata,
+ *     enriched: true,
+ *     processedAt: new Date().toISOString(),
+ *   },
+ * });
+ * ```
+ *
+ * RLS: Requires app.current_tenant_id to be set in session
+ */
+export async function updateActivity(
+  tenantId: string,
+  activityId: string,
+  data: UpdateActivityInput
+): Promise<typeof schema.activities.$inferSelect> {
+  // Implementation will be added in coding phase
+  // 1. Validate input
+  // 2. Query activity to verify it exists
+  // 3. Update specified fields
+  // 4. Return updated activity
+  throw new Error('Not implemented');
+}
+
+/**
+ * Delete activity
+ *
+ * @param tenantId - Tenant ID for multi-tenant isolation
+ * @param activityId - Activity ID to delete
+ * @returns True if deleted, false if not found
+ * @throws {Error} If database error occurs
+ *
+ * Implementation details:
+ * 1. Query activity by activity_id to verify it exists
+ * 2. Verify it belongs to the tenant (RLS)
+ * 3. Delete activity record (hard delete)
+ * 4. Return true if deleted, false if not found
+ *
+ * Use cases:
+ * - GDPR compliance (Right to be forgotten)
+ * - Remove spam or test data
+ * - Delete erroneous data that cannot be corrected
+ *
+ * Important notes:
+ * - Activities are EVENT LOG, so deletion should be EXTREMELY rare
+ * - Consider soft delete (add deleted_at column) for audit trail
+ * - Hard delete is PERMANENT and cannot be undone
+ * - Use with caution in production
+ *
+ * GDPR considerations:
+ * - When deleting for GDPR compliance, also anonymize related data
+ * - Consider keeping anonymized aggregate statistics
+ * - Document deletion reason in audit log
+ *
+ * Example usage:
+ * ```typescript
+ * // Delete spam activity
+ * const deleted = await deleteActivity('default', activityId);
+ * if (deleted) {
+ *   console.log('Activity deleted successfully');
+ * } else {
+ *   console.log('Activity not found');
+ * }
+ * ```
+ *
+ * RLS: Requires app.current_tenant_id to be set in session
+ */
+export async function deleteActivity(
+  tenantId: string,
+  activityId: string
+): Promise<boolean> {
+  // Implementation will be added in coding phase
+  // 1. Query activity to verify it exists
+  // 2. Delete activity record
+  // 3. Return true if deleted, false if not found
   throw new Error('Not implemented');
 }
 ```
@@ -688,6 +830,174 @@ describe('listActivities', () => {
 });
 ```
 
+#### 3. `updateActivity()` のテスト
+
+```typescript
+describe('updateActivity', () => {
+  it('should update activity fields (partial update)', async () => {
+    // Arrange: Create developer and activity
+    const dev = await createDeveloper('default', {
+      displayName: 'Test Developer',
+      primaryEmail: null,
+      orgId: null,
+    });
+
+    const activity = await createActivity('default', {
+      developerId: dev.developerId,
+      action: 'view',
+      occurredAt: new Date('2025-01-15'),
+      source: 'web',
+      metadata: { page: '/docs' },
+    });
+
+    // Act: Update metadata
+    const updated = await updateActivity('default', activity.activityId, {
+      metadata: { page: '/docs', updated: true },
+    });
+
+    // Assert: Should update metadata only
+    expect(updated.activityId).toBe(activity.activityId);
+    expect(updated.metadata).toEqual({ page: '/docs', updated: true });
+    expect(updated.action).toBe('view'); // Other fields unchanged
+  });
+
+  it('should resolve developer_id after identity resolution', async () => {
+    // Arrange: Create activity with anon_id
+    const activity = await createActivity('default', {
+      anonId: 'anon123',
+      action: 'click',
+      occurredAt: new Date(),
+      source: 'shortlink',
+    });
+
+    // Create developer
+    const dev = await createDeveloper('default', {
+      displayName: 'Resolved Developer',
+      primaryEmail: null,
+      orgId: null,
+    });
+
+    // Act: Resolve developer_id
+    const updated = await updateActivity('default', activity.activityId, {
+      developerId: dev.developerId,
+    });
+
+    // Assert: developer_id should be set
+    expect(updated.developerId).toBe(dev.developerId);
+    expect(updated.anonId).toBe('anon123'); // anon_id preserved
+  });
+
+  it('should throw error if activity not found', async () => {
+    // Act & Assert: Update non-existent activity should fail
+    await expect(
+      updateActivity('default', '99999999-9999-4999-8999-999999999999', {
+        action: 'updated',
+      })
+    ).rejects.toThrow(/not found/i);
+  });
+
+  it('should validate confidence score range on update', async () => {
+    // Arrange: Create activity
+    const dev = await createDeveloper('default', {
+      displayName: 'Test',
+      primaryEmail: null,
+      orgId: null,
+    });
+    const activity = await createActivity('default', {
+      developerId: dev.developerId,
+      action: 'view',
+      occurredAt: new Date(),
+      source: 'web',
+    });
+
+    // Act & Assert: Confidence > 1.0 should fail
+    await expect(
+      updateActivity('default', activity.activityId, {
+        confidence: 1.5,
+      })
+    ).rejects.toThrow(/confidence/i);
+  });
+});
+```
+
+#### 4. `deleteActivity()` のテスト
+
+```typescript
+describe('deleteActivity', () => {
+  it('should delete activity successfully', async () => {
+    // Arrange: Create developer and activity
+    const dev = await createDeveloper('default', {
+      displayName: 'Test Developer',
+      primaryEmail: null,
+      orgId: null,
+    });
+
+    const activity = await createActivity('default', {
+      developerId: dev.developerId,
+      action: 'view',
+      occurredAt: new Date(),
+      source: 'web',
+    });
+
+    // Act: Delete activity
+    const deleted = await deleteActivity('default', activity.activityId);
+
+    // Assert: Should return true
+    expect(deleted).toBe(true);
+
+    // Verify activity is deleted
+    const db = getDb();
+    const result = await db
+      .select()
+      .from(schema.activities)
+      .where(eq(schema.activities.activityId, activity.activityId))
+      .limit(1);
+    expect(result.length).toBe(0);
+  });
+
+  it('should return false if activity not found', async () => {
+    // Act: Delete non-existent activity
+    const deleted = await deleteActivity('default', '99999999-9999-4999-8999-999999999999');
+
+    // Assert: Should return false
+    expect(deleted).toBe(false);
+  });
+
+  it('should not affect other activities when deleting one', async () => {
+    // Arrange: Create 2 activities
+    const dev = await createDeveloper('default', {
+      displayName: 'Test',
+      primaryEmail: null,
+      orgId: null,
+    });
+
+    const activity1 = await createActivity('default', {
+      developerId: dev.developerId,
+      action: 'view',
+      occurredAt: new Date('2025-01-10'),
+      source: 'web',
+    });
+
+    const activity2 = await createActivity('default', {
+      developerId: dev.developerId,
+      action: 'click',
+      occurredAt: new Date('2025-01-11'),
+      source: 'web',
+    });
+
+    // Act: Delete only activity1
+    await deleteActivity('default', activity1.activityId);
+
+    // Assert: activity2 should still exist
+    const remaining = await listActivities('default', {
+      developerId: dev.developerId,
+    });
+    expect(remaining.length).toBe(1);
+    expect(remaining[0]!.activityId).toBe(activity2.activityId);
+  });
+});
+```
+
 ### テスト環境セットアップ
 
 ```typescript
@@ -725,11 +1035,12 @@ describe('Activity Service', () => {
 | エラーの種類 | 対応 | HTTPステータス（参考） |
 |-------------|------|---------------------|
 | **バリデーションエラー** | ZodErrorをキャッチし、フィールド別エラーメッセージを返す | 400 Bad Request |
-| **ID未指定エラー** | developerId, accountId, anonIdのいずれも指定されていない場合 | 400 Bad Request |
+| **ID未指定エラー** | developerId, accountId, anonIdのいずれも指定されていない場合（create時） | 400 Bad Request |
 | **重複イベントエラー** | 同じdedupKeyで既にイベントが存在する場合 | 409 Conflict |
 | **信頼度範囲外エラー** | confidenceが0.0未満または1.0超の場合 | 400 Bad Request |
 | **日付範囲エラー** | fromDate > toDateの場合 | 400 Bad Request |
 | **ページネーション範囲外エラー** | limit > 1000の場合 | 400 Bad Request |
+| **アクティビティ不存在エラー** | update/delete対象のアクティビティが存在しない場合 | 404 Not Found |
 | **データベースエラー** | クエリ失敗時 | 500 Internal Server Error |
 
 ---
@@ -737,13 +1048,17 @@ describe('Activity Service', () => {
 ## 完了チェックリスト
 
 - [ ] `core/services/activity.service.ts` ファイル作成
-- [ ] Zodスキーマ定義（`CreateActivitySchema`, `ListActivitiesSchema`）
+- [ ] Zodスキーマ定義（`CreateActivitySchema`, `ListActivitiesSchema`, `UpdateActivitySchema`）
 - [ ] `createActivity()` 実装
 - [ ] `listActivities()` 実装（フィルタ、ページネーション、ソート）
+- [ ] `updateActivity()` 実装（部分更新、developer_id解決）
+- [ ] `deleteActivity()` 実装（ハードデリート）
 - [ ] 単体テストファイル作成（`core/services/activity.service.test.ts`）
-- [ ] `createActivity()` のテスト（正常系・異常系、8テスト以上）
-- [ ] `listActivities()` のテスト（フィルタ、ページネーション、ソート、8テスト以上）
-- [ ] 全テストが成功（`pnpm test`）
+- [ ] `createActivity()` のテスト（正常系・異常系、7テスト）
+- [ ] `listActivities()` のテスト（フィルタ、ページネーション、ソート、8テスト）
+- [ ] `updateActivity()` のテスト（部分更新、異常系、4テスト）
+- [ ] `deleteActivity()` のテスト（削除、異常系、3テスト）
+- [ ] 全テストが成功（`pnpm test`）- 合計22テスト以上
 - [ ] TypeScriptエラーなし（`pnpm typecheck`）
 - [ ] Lintエラーなし（`pnpm lint`）
 
