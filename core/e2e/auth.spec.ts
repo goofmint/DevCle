@@ -22,7 +22,7 @@ import { test, expect } from '@playwright/test';
 
 // Base URL for the application
 // In CI/CD, this would be set via environment variable
-const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
+const BASE_URL = process.env['BASE_URL'] || 'http://localhost:3000';
 
 /**
  * Test: User can login and logout

@@ -15,7 +15,7 @@
 
 import { redirect } from '@remix-run/node';
 import { getSession, destroySession } from './sessions.server';
-import { getUserById, type AuthUser } from '~/core/services/auth.service';
+import { getUserById, type AuthUser } from '../services/auth.service.js';
 
 /**
  * Require authentication for route

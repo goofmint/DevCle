@@ -20,7 +20,7 @@ This is an **early-stage project** with specification documents in `.tmp/` but m
 
 ### Core (`/core/`)
 - **Self-contained OSS** that runs independently on self-hosted environments
-- Data models: Person, Organization, Activity, Identifier
+- Data models: Developer, Organization, Activity, Identifier
 - PostgreSQL + Prisma with RLS for tenant isolation
 - Remix-based dashboard UI
 - Plugin loader at `/core/plugin-loader.ts` for extensibility
@@ -59,13 +59,13 @@ This is an **early-stage project** with specification documents in `.tmp/` but m
 ## Entity Relationships
 
 ```
-Person ||--o{ Activity : has
-Person ||--o{ Identifier : has
-Organization ||--o{ Person : includes
+Developer ||--o{ Activity : has
+Developer ||--o{ Identifier : has
+Organization ||--o{ Developer : includes
 ```
 
-### Person
-- `person_id` (uuid), `display_name`, `primary_email`, `org_id`, `consent_analytics`
+### Developer
+- `developer_id` (uuid), `display_name`, `primary_email`, `org_id`, `consent_analytics`
 
 ### Activity
 - `activity_id` (uuid), `type`, `source`, `metadata` (jsonb), `ts` (timestamptz)
@@ -101,6 +101,33 @@ Organization ||--o{ Person : includes
 - **Cloud Standard**: + Slack/Discord/connpass/X integration (~$300/mo)
 - **Cloud Pro**: + CRM sync, AI attribution, team features (~$1000/mo)
 - **Enterprise**: SLA, SSO, audit, dedicated VPC ($10k+/yr)
+
+## 🚨 Testing Rules 🚨
+
+### Integration Tests (Vitest) - IN DOCKER
+```bash
+# Start dev environment (mounts source + devDependencies)
+docker compose -f docker-compose.yml -f docker-compose-dev.yml up -d
+
+# Run tests
+docker compose exec core pnpm test
+docker compose exec core pnpm typecheck
+```
+
+### E2E Tests (Playwright) - ON HOST
+```bash
+# Dev server must be running first
+docker compose -f docker-compose.yml -f docker-compose-dev.yml up -d
+
+# Run on host (not in docker)
+cd core && pnpm exec playwright test
+```
+
+### Before Commit
+1. `docker compose exec core pnpm test` - ALL tests must pass
+2. `docker compose exec core pnpm typecheck` - No errors
+3. `cd core && pnpm exec playwright test` - All E2E pass
+4. **NEVER skip failing tests**
 
 ## When Implementation Begins
 

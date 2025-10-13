@@ -274,18 +274,22 @@
 
 ## Phase 4: DRMコア機能実装（MVP）
 
-### Task 4.1: DRMサービス基盤実装
+### Task 4.1: DRMサービス基盤実装 ✅
 
-- [ ] `core/services/drm.service.ts`作成
-- [ ] `createDeveloper()`実装
-- [ ] `getDeveloper()`実装
-- [ ] `listDevelopers()`実装（ページネーション付き）
-- [ ] `updateDeveloper()`実装
-- [ ] `deleteDeveloper()`実装
-- [ ] Zodスキーマでバリデーション
-- **完了条件**: サービス関数が単体テストでパスする
-- **依存**: Task 3.8
+- [x] `core/services/drm.service.ts`作成
+- [x] `createDeveloper()`実装
+- [x] `getDeveloper()`実装
+- [x] `listDevelopers()`実装（ページネーション付き）
+- [x] `updateDeveloper()`実装（UPDATE操作）
+- [x] `deleteDeveloper()`実装（DELETE操作）
+- [x] Zodスキーマでバリデーション
+- [x] ソート機能実装（listDevelopers）
+- [x] 包括的なテスト作成（24 tests）
+- **完了条件**: サービス関数が単体テストでパスする ✓
+- **依存**: Task 3.6
 - **推定時間**: 3時間
+- **ドキュメント**: [.tmp/tasks/task-4.1-drm-service.md](.tmp/tasks/task-4.1-drm-service.md)
+- **完了日**: 2025-10-13
 
 ### Task 4.2: Developer API実装
 

@@ -22,9 +22,9 @@
 
 import { json, redirect, type ActionFunctionArgs, type LoaderFunctionArgs } from '@remix-run/node';
 import { Form, useActionData, useSearchParams } from '@remix-run/react';
-import { login } from '~/core/services/auth.service.js';
+import { login } from '../../services/auth.service.js';
 import { getSession, commitSession } from '~/sessions.server.js';
-import { safeRedirect } from '~/core/utils/safeRedirect.js';
+import { safeRedirect } from '../../utils/safeRedirect.js';
 import Header from '~/components/header';
 import Footer from '~/components/footer';
 import { useDarkMode } from '~/contexts/dark-mode-context';
