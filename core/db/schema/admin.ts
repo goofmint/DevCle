@@ -47,6 +47,7 @@ export const tenants = pgTable('tenants', {
  * - display_name: Optional display name
  * - password_hash: Hashed password for local auth (bcrypt/argon2)
  * - auth_provider: Auth method ("password", "github", etc.)
+ * - role: User role ("admin" or "member") for basic RBAC
  * - last_login_at: Last login timestamp
  * - disabled: User account disabled flag (default false)
  * - created_at/updated_at: Timestamp tracking
@@ -61,6 +62,7 @@ export const users = pgTable('users', {
   displayName: text('display_name'),
   passwordHash: text('password_hash'),
   authProvider: text('auth_provider'),
+  role: text('role').notNull().default('member'), // "admin" or "member"
   lastLoginAt: timestamp('last_login_at', { withTimezone: true }),
   disabled: boolean('disabled').notNull().default(false),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

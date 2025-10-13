@@ -8,6 +8,13 @@
       "when": 1760259449694,
       "tag": "0000_round_roughhouse",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1760324689841,
+      "tag": "0001_keen_power_man",
+      "breakpoints": true
     }
   ]
 }

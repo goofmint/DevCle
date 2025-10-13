@@ -4,7 +4,7 @@
  * This script populates the database with initial test data for development and testing.
  * It creates:
  * - Default tenant (tenant_id = 'default')
- * - Test user for dashboard login
+ * - Test users for dashboard login (2: admin and member)
  * - Sample organizations (3)
  * - Sample developers (5)
  * - Sample accounts (4)
@@ -114,45 +114,62 @@ async function seedTenant(): Promise<void> {
 }
 
 /**
- * Seed test user
+ * Seed test users
  *
- * Creates a test user for dashboard login in development.
- * Password is hashed using bcrypt for security.
+ * Creates test users for dashboard login in development.
+ * Passwords are hashed using bcrypt for security.
  *
  * Login credentials:
- * - Email: test@example.com
- * - Password: password123
+ * - Admin: admin@example.com / admin123456 (role: admin)
+ * - Member: test@example.com / password123 (role: member)
  *
- * @returns {Promise<string>} User UUID
+ * @returns {Promise<Record<string, string>>} Map of user types to UUIDs
  */
-async function seedUsers(): Promise<string> {
+async function seedUsers(): Promise<Record<string, string>> {
   const db = getDb();
 
   console.log('  👤 Seeding users...');
 
-  // Generate password hash
-  // This takes ~100ms due to bcrypt's intentional slowness (security feature)
-  const passwordHash = await hashPassword('password123');
+  // Generate password hashes
+  // This takes ~100ms per hash due to bcrypt's intentional slowness (security feature)
+  const memberPasswordHash = await hashPassword('password123');
+  const adminPasswordHash = await hashPassword('admin123456');
 
-  const userId = generateUUID();
+  const memberId = generateUUID();
+  const adminId = generateUUID();
 
-  // Insert test user
+  // Insert test users (member and admin)
   await db
     .insert(schema.users)
-    .values({
-      userId,
-      tenantId: 'default',
-      email: 'test@example.com',
-      displayName: 'Test User',
-      passwordHash,
-      authProvider: 'password',
-      disabled: false,
-    })
+    .values([
+      {
+        userId: memberId,
+        tenantId: 'default',
+        email: 'test@example.com',
+        displayName: 'Test User',
+        passwordHash: memberPasswordHash,
+        authProvider: 'password',
+        role: 'member',
+        disabled: false,
+      },
+      {
+        userId: adminId,
+        tenantId: 'default',
+        email: 'admin@example.com',
+        displayName: 'Admin User',
+        passwordHash: adminPasswordHash,
+        authProvider: 'password',
+        role: 'admin',
+        disabled: false,
+      },
+    ])
     .onConflictDoNothing();
 
-  console.log('    ✅ User seeded (test@example.com / password123)');
+  console.log('    ✅ Users seeded:');
+  console.log('       - test@example.com / password123 (member)');
+  console.log('       - admin@example.com / admin123456 (admin)');
 
-  return userId;
+  return { member: memberId, admin: adminId };
 }
 
 /**
@@ -955,7 +972,7 @@ async function seed(): Promise<void> {
     console.log('\n✅ Seed completed successfully!');
     console.log('\n📊 Summary:');
     console.log('  - Tenant: 1');
-    console.log('  - Users: 1');
+    console.log('  - Users: 2 (1 admin, 1 member)');
     console.log('  - Organizations: 3');
     console.log('  - Developers: 5');
     console.log('  - Accounts: 4');
