@@ -42,7 +42,7 @@ import { ListActivitiesSchema, type ListActivitiesInput } from './activity.schem
 export async function listActivities(
   tenantId: string,
   params: ListActivitiesInput = {}
-): Promise<Array<typeof schema.activities.$inferSelect>> {
+): Promise<{ activities: Array<typeof schema.activities.$inferSelect>; total: number }> {
   // 1. Validate input using ListActivitiesSchema
   const validated = ListActivitiesSchema.parse(params);
 
@@ -87,7 +87,15 @@ export async function listActivities(
         ? schema.activities.ingestedAt
         : schema.activities.occurredAt;
 
-      // 5. Build and execute query with filters, order, limit, and offset (chain form for type safety)
+      // 5. Get total count (without limit/offset)
+      const countResult = await tx
+        .select({ count: schema.activities.activityId })
+        .from(schema.activities)
+        .where(and(...conditions));
+
+      const total = countResult.length;
+
+      // 6. Build and execute query with filters, order, limit, and offset (chain form for type safety)
       const activities = await tx
         .select()
         .from(schema.activities)
@@ -96,7 +104,7 @@ export async function listActivities(
         .limit(limit)
         .offset(offset);
 
-      return activities;
+      return { activities, total };
     } catch (error) {
       console.error('Failed to list activities:', error);
       if (error instanceof Error) {
