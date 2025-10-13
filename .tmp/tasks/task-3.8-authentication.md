@@ -373,9 +373,9 @@ export async function getCurrentUser(
 
 import { json, redirect, type ActionFunctionArgs } from '@remix-run/node';
 import { Form, useActionData, useSearchParams } from '@remix-run/react';
-import { login } from '~/services/auth.service.js';
+import { login } from '~/core/services/auth.service.js';
 import { getSession, commitSession } from '~/sessions.server.js';
-import { setTenantContext } from '~/db/connection.js';
+import { setTenantContext } from '~/core/db/connection.js';
 
 /**
  * POST /auth/login - Handle login form submission
@@ -585,9 +585,35 @@ cookie: {
 
 ### 3. CSRF対策
 
-Remixは自動的にCSRF保護を提供します：
-- `<Form>`コンポーネントが自動的にCSRFトークンを含める
-- `sameSite: 'lax'`設定でさらに保護
+RemixはCSRF攻撃に対して基本的な保護を提供します：
+- same-origin POST動作により、クロスサイトからのフォーム送信を防止
+- Cookie設定（`sameSite: 'lax'`）による追加保護
+
+**注意**: Remixの`<Form>`コンポーネントは自動的にCSRFトークンを埋め込みません。より強固な保護が必要な場合は、手動でCSRFトークンを実装してください：
+
+- **Double-Submit Cookieパターン**: CSRFトークンをCookieと隠しフィールドの両方に設定し、サーバー側で一致を確認
+- **Server-Validated Token**: サーバー側でトークンを生成し、セッションに保存して検証
+
+実装例:
+```typescript
+// CSRF token generation (server-side)
+const csrfToken = crypto.randomBytes(32).toString('hex');
+session.set('csrfToken', csrfToken);
+
+// Form with hidden CSRF field
+<Form method="post">
+  <input type="hidden" name="csrfToken" value={csrfToken} />
+  {/* other fields */}
+</Form>
+
+// Verification in action
+const formData = await request.formData();
+const submittedToken = formData.get('csrfToken');
+const sessionToken = session.get('csrfToken');
+if (submittedToken !== sessionToken) {
+  throw new Error('CSRF token mismatch');
+}
+```
 
 ### 4. タイミング攻撃対策
 
