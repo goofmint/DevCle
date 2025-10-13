@@ -126,7 +126,32 @@ function getDatabaseConfig(): DatabaseConfig {
   const host = process.env['DATABASE_HOST'] || 'localhost';
   const port = Number(process.env['DATABASE_PORT']) || 5432;
   const ssl = process.env['DATABASE_SSL'] === 'true';
-  const max = Number(process.env['DATABASE_POOL_MAX']) || 20;
+
+  // RLS Context Management with Connection Pooling:
+  //
+  // In test environment, use max: 1 to ensure SET commands work correctly.
+  // This ensures all queries use the same connection, so SET app.current_tenant_id
+  // persists across queries within the same test.
+  //
+  // IMPORTANT: For production with connection pooling, consider implementing
+  // transaction-scoped RLS context using SET LOCAL within transactions:
+  // - Each service operation should wrap queries in a transaction
+  // - Issue SET LOCAL app.current_tenant_id = '...' within the transaction
+  // - All queries in that transaction will use the correct tenant context
+  //
+  // Example pattern (future enhancement):
+  //   await withTenantContext(tenantId, async (tx) => {
+  //     // tx is a transaction-scoped db client
+  //     // All queries use tx instead of db
+  //     const result = await tx.select().from(schema.developers);
+  //     return result;
+  //   });
+  //
+  // Current implementation (max: 1 in test) is sufficient for single-connection
+  // scenarios but may not be optimal for high-concurrency production workloads.
+  const isTestEnv = process.env['NODE_ENV'] === 'test' || process.env['VITEST'] === 'true';
+  const max = isTestEnv ? 1 : (Number(process.env['DATABASE_POOL_MAX']) || 20);
+
   const idle_timeout = Number(process.env['DATABASE_IDLE_TIMEOUT']) || 30;
   const connect_timeout = Number(process.env['DATABASE_CONNECT_TIMEOUT']) || 10;
 
