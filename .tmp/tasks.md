@@ -291,20 +291,22 @@
 - **ドキュメント**: [.tmp/tasks/task-4.1-drm-service.md](.tmp/tasks/task-4.1-drm-service.md)
 - **完了日**: 2025-10-13
 
-### Task 4.2: Developer API実装
+### Task 4.2: Developer API実装 ✅
 
-- [ ] `app/routes/api/developers.ts`作成（Resource Route）
-- [ ] `GET /api/developers`（一覧取得、ページネーション、フィルタ、ソート）
-- [ ] `POST /api/developers`（新規作成）
-- [ ] `app/routes/api/developers.$id.ts`作成
-- [ ] `GET /api/developers/:id`（詳細取得）
-- [ ] `PUT /api/developers/:id`（更新）
-- [ ] `DELETE /api/developers/:id`（削除）
-- [ ] 認証チェック（Task 3.8のrequireAuth()使用）
-- [ ] エラーハンドリング（400, 401, 404, 405, 409, 500）
-- **完了条件**: APIが統合テストでパスする
+- [x] `app/routes/api/developers.ts`作成（Resource Route）
+- [x] `GET /api/developers`（一覧取得、ページネーション、フィルタ、ソート）
+- [x] `POST /api/developers`（新規作成）
+- [x] `app/routes/api/developers.$id.ts`作成
+- [x] `GET /api/developers/:id`（詳細取得）
+- [x] `PUT /api/developers/:id`（更新）
+- [x] `DELETE /api/developers/:id`（削除）
+- [x] 認証チェック（Task 3.8のrequireAuth()使用）
+- [x] エラーハンドリング（400, 401, 404, 405, 409, 500）
+- **完了条件**: APIが統合テストでパスする ✓
 - **依存**: Task 3.8, Task 4.1
 - **推定時間**: 3時間
+- **ドキュメント**: [.tmp/tasks/task-4.2-developer-api.md](.tmp/tasks/task-4.2-developer-api.md)
+- **完了日**: 2025-10-13
 
 ### Task 4.3: ID統合機能実装
 
