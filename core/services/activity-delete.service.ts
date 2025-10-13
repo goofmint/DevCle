@@ -47,31 +47,25 @@ export async function deleteActivity(
   // 1. Execute within transaction with tenant context (production-safe with connection pooling)
   return await withTenantContext(tenantId, async (tx) => {
     try {
-      // 2. Query activity to verify it exists
-      const existingResult = await tx
-        .select()
-        .from(schema.activities)
+      // 2. Delete activity record (atomic delete with tenant scoping)
+      // Use RETURNING to check if row was actually deleted (prevents TOCTOU race)
+      const deletedRows = await tx
+        .delete(schema.activities)
         .where(
           and(
             eq(schema.activities.tenantId, tenantId),
             eq(schema.activities.activityId, activityId)
           )
         )
-        .limit(1);
+        .returning();
 
-      // 3. Return false if not found
-      if (!existingResult[0]) {
-        return false;
-      }
-
-      // 4. Delete activity record (hard delete)
-      await tx
-        .delete(schema.activities)
-        .where(eq(schema.activities.activityId, activityId));
-
-      return true;
+      // 3. Return true if deleted, false if not found
+      return deletedRows.length > 0;
     } catch (error) {
       console.error('Failed to delete activity:', error);
+      if (error instanceof Error) {
+        throw new Error('Failed to delete activity due to database error', { cause: error });
+      }
       throw new Error('Failed to delete activity due to database error');
     }
   });

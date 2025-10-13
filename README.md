@@ -117,10 +117,11 @@ The PostgreSQL database is automatically initialized when you first start the se
 
 When the PostgreSQL container starts for the first time:
 
-1. **pgcrypto Extension**: Enabled for UUID generation and PII encryption
-2. **Timezone Configuration**: Set to UTC persistently across all connections
-3. **Permissions**: Database user granted all necessary privileges
-4. **Row Level Security**: RLS policy templates created for multi-tenant isolation
+1. **uuid-ossp Extension**: Enabled for UUID generation (`uuid_generate_v4()`)
+2. **pgcrypto Extension**: Enabled for PII encryption
+3. **Timezone Configuration**: Set to UTC persistently across all connections
+4. **Permissions**: Database user granted all necessary privileges
+5. **Row Level Security**: RLS policy templates created for multi-tenant isolation
 
 #### Verification Steps
 
@@ -135,19 +136,23 @@ docker compose ps postgres
 docker compose exec postgres psql -U devcle -d devcle -c "SELECT version();"
 # Expected: PostgreSQL 15.x version information
 
-# 3. Verify pgcrypto extension
+# 3. Verify uuid-ossp extension
+docker compose exec postgres psql -U devcle -d devcle -c "SELECT extname, extversion FROM pg_extension WHERE extname = 'uuid-ossp';"
+# Expected: uuid-ossp | 1.1
+
+# 4. Verify pgcrypto extension
 docker compose exec postgres psql -U devcle -d devcle -c "SELECT extname, extversion FROM pg_extension WHERE extname = 'pgcrypto';"
 # Expected: pgcrypto | 1.3
 
-# 4. Test UUID generation
-docker compose exec postgres psql -U devcle -d devcle -c "SELECT gen_random_uuid();"
+# 5. Test UUID generation
+docker compose exec postgres psql -U devcle -d devcle -c "SELECT uuid_generate_v4();"
 # Expected: A valid UUID like "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d"
 
-# 5. Verify timezone setting
+# 6. Verify timezone setting
 docker compose exec postgres psql -U devcle -d devcle -c "SHOW timezone;"
 # Expected: UTC
 
-# 6. Check database volume persistence
+# 7. Check database volume persistence
 docker volume inspect app_postgres-data
 # Expected: Volume information with Mountpoint
 ```
@@ -178,7 +183,7 @@ CREATE EXTENSION
 ALTER DATABASE
 GRANT
 Database initialized successfully
-Extensions enabled: pgcrypto
+Extensions enabled: uuid-ossp, pgcrypto
 Timezone set to: UTC (persistent via ALTER DATABASE)
 PostgreSQL initialization completed successfully
 ```
@@ -312,6 +317,7 @@ NODE_ENV=production
 psql $DATABASE_URL
 
 # Run initialization commands manually:
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 ALTER DATABASE devcle SET timezone TO 'UTC';
 -- See infra/postgres/init.sh for full setup

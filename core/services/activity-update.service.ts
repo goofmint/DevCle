@@ -106,11 +106,21 @@ export async function updateActivity(
         updateData.confidence = validated.confidence.toString();
       }
 
-      // 5. Update activity record (partial update)
+      // 5. Guard against empty update
+      if (Object.keys(updateData).length === 0) {
+        throw new Error('No update fields provided');
+      }
+
+      // 6. Update activity record (partial update with tenant scoping)
       const [updated] = await tx
         .update(schema.activities)
         .set(updateData)
-        .where(eq(schema.activities.activityId, activityId))
+        .where(
+          and(
+            eq(schema.activities.tenantId, tenantId),
+            eq(schema.activities.activityId, activityId)
+          )
+        )
         .returning();
 
       if (!updated) {
