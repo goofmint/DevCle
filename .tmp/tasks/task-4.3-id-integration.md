@@ -43,9 +43,23 @@ import * as schema from '../db/schema/index.js';
 import { z } from 'zod';
 
 /**
- * Zod schema for identifier lookup
+ * Zod schema for account lookup (primary method)
  *
- * Validates input data for resolveDeveloper().
+ * Validates input data for resolveDeveloperByAccount().
+ * This is the PRIMARY matching method for most use cases.
+ */
+export const AccountLookupSchema = z.object({
+  provider: z.string().min(1), // 'github', 'slack', 'discord', 'x', etc.
+  externalUserId: z.string().min(1), // Provider-specific user ID
+});
+
+export type AccountLookupInput = z.infer<typeof AccountLookupSchema>;
+
+/**
+ * Zod schema for identifier lookup (secondary method)
+ *
+ * Validates input data for resolveDeveloperByIdentifier().
+ * Used for email, phone, and other non-account identifiers.
  */
 export const IdentifierLookupSchema = z.object({
   kind: z.enum(['email', 'domain', 'phone', 'mlid', 'click_id', 'key_fp']),
@@ -55,7 +69,49 @@ export const IdentifierLookupSchema = z.object({
 export type IdentifierLookupInput = z.infer<typeof IdentifierLookupSchema>;
 
 /**
- * Resolve developer by identifier
+ * Resolve developer by external service account (PRIMARY METHOD)
+ *
+ * @param tenantId - Tenant ID for multi-tenant isolation
+ * @param account - Account to search (provider + externalUserId)
+ * @returns Developer record if found, null otherwise
+ * @throws {Error} If validation fails or database error occurs
+ *
+ * Implementation details:
+ * 1. Validate input using AccountLookupSchema
+ * 2. Query accounts table by (tenant_id, provider, external_user_id)
+ * 3. If found and developer_id is not null, return associated developer
+ * 4. Return null if no match found
+ *
+ * This is the PRIMARY matching method because:
+ * - Most external services provide account IDs (GitHub, Slack, Discord, X, etc.)
+ * - Account IDs are stable and unique per provider
+ * - Confidence is 1.0 (provider guarantees identity)
+ * - Email addresses are rarely available from external services
+ *
+ * Example usage:
+ * ```typescript
+ * // Find developer by GitHub account
+ * const dev = await resolveDeveloperByAccount('default', {
+ *   provider: 'github',
+ *   externalUserId: '12345678',
+ * });
+ * ```
+ *
+ * RLS: Requires app.current_tenant_id to be set in session
+ */
+export async function resolveDeveloperByAccount(
+  tenantId: string,
+  account: AccountLookupInput
+): Promise<typeof schema.developers.$inferSelect | null> {
+  // Implementation will be added in coding phase
+  // 1. Validate input
+  // 2. Query accounts table by (tenant_id, provider, external_user_id)
+  // 3. Return associated developer if found
+  throw new Error('Not implemented');
+}
+
+/**
+ * Resolve developer by identifier (SECONDARY METHOD)
  *
  * @param tenantId - Tenant ID for multi-tenant isolation
  * @param identifier - Identifier to search (kind + value)
@@ -67,18 +123,24 @@ export type IdentifierLookupInput = z.infer<typeof IdentifierLookupSchema>;
  * 2. Normalize value (lowercase, trim)
  * 3. Query developer_identifiers table by (tenant_id, kind, value_normalized)
  * 4. If found, return associated developer
- * 5. If not found, check accounts table (for email matching)
- * 6. Return null if no match found
+ * 5. If kind is 'email', fallback to accounts.email field
+ * 6. If kind is 'email', fallback to developers.primary_email field
+ * 7. Return null if no match found
  *
- * Matching priority:
+ * Matching priority for email:
  * 1. developer_identifiers table (highest priority)
  * 2. accounts table (email field)
  * 3. developers table (primary_email field)
  *
+ * Note: Email matching is less common because:
+ * - Most external services don't provide email addresses
+ * - Email is mainly obtained through business cards or contact forms
+ * - When email DOES match, confidence is 1.0 (100% same person)
+ *
  * Example usage:
  * ```typescript
- * // Find developer by email
- * const dev = await resolveDeveloper('default', {
+ * // Find developer by email (rare case)
+ * const dev = await resolveDeveloperByIdentifier('default', {
  *   kind: 'email',
  *   value: 'alice@example.com',
  * });
@@ -86,15 +148,15 @@ export type IdentifierLookupInput = z.infer<typeof IdentifierLookupSchema>;
  *
  * RLS: Requires app.current_tenant_id to be set in session
  */
-export async function resolveDeveloper(
+export async function resolveDeveloperByIdentifier(
   tenantId: string,
   identifier: IdentifierLookupInput
 ): Promise<typeof schema.developers.$inferSelect | null> {
   // Implementation will be added in coding phase
   // 1. Normalize value
   // 2. Search in developer_identifiers
-  // 3. Fallback to accounts table (email)
-  // 4. Fallback to developers table (primary_email)
+  // 3. If email, fallback to accounts.email
+  // 4. If email, fallback to developers.primary_email
   throw new Error('Not implemented');
 }
 
@@ -107,25 +169,27 @@ export async function resolveDeveloper(
  * @throws {Error} If database error occurs
  *
  * Implementation details:
- * 1. Get all identifiers for the given developer
- * 2. For each identifier, search for other developers with matching identifiers
+ * 1. Get all accounts and identifiers for the given developer
+ * 2. For each account/identifier, search for other developers with matches
  * 3. Calculate confidence score based on:
- *    - Number of matching identifiers
- *    - Type of identifier (email > domain > click_id)
+ *    - Type of match (account > email > other identifiers)
+ *    - Number of matching items
  *    - Existing confidence scores in identifiers table
  * 4. Return candidates sorted by confidence (highest first)
  *
- * Confidence scoring:
- * - Same email: 1.0 (exact match)
- * - Same domain: 0.7 (likely same organization)
- * - Same phone: 0.9 (high confidence)
+ * Confidence scoring (base confidence):
+ * - Same account (provider + external_user_id): 1.0 (provider-guaranteed identity)
+ * - Same email: 1.0 (exact match, 100% same person)
  * - Same mlid: 0.95 (very high confidence, ML-based ID)
- * - Same click_id: 0.6 (medium confidence, anonymous tracking)
+ * - Same phone: 0.9 (high confidence)
  * - Same key_fp: 0.85 (GPG/SSH key fingerprint)
+ * - Same domain: 0.7 (likely same organization)
+ * - Same click_id: 0.6 (medium confidence, anonymous tracking)
  *
- * Multiple matches:
- * - If 2+ identifiers match, multiply confidence scores
- * - Example: email (1.0) + domain (0.7) = 0.85 combined confidence
+ * Multiple matches (combined confidence):
+ * - Use formula: combined = 1 - (1 - conf1) * (1 - conf2) * ... * (1 - confN)
+ * - Example: domain (0.7) + click_id (0.6) = 1 - (0.3 * 0.4) = 0.88
+ * - Example: account (1.0) + anything = 1.0 (already certain)
  *
  * RLS: Requires app.current_tenant_id to be set in session
  */
@@ -301,7 +365,7 @@ export async function removeIdentifier(
 - `identifier_id` (UUID): 識別子ID（主キー）
 - `tenant_id` (text): テナントID（外部キー）
 - `developer_id` (UUID): 開発者ID（外部キー、cascade delete）
-- `kind` (text): 識別子の種類（'email', 'domain', 'phone', 'mlid', 'click_id', 'key_fp'）
+- `kind` (text): 識別子の種類（'email', 'domain', 'phone', 'mlid', 'click_id', 'key_fp', 'account_name', 'display_name'）
 - `value_normalized` (text): 正規化された値（小文字化、トリム済み）
 - `confidence` (numeric): 信頼度スコア（0.0-1.0、デフォルト1.0）
 - `attributes` (jsonb): カスタム属性
@@ -353,20 +417,39 @@ export async function removeIdentifier(
 
 ## マッチングロジック
 
-### 1. 識別子の種類と信頼度
+### 1. マッチング手法の優先順位
 
-| kind | 説明 | 信頼度 | 例 |
-|------|------|--------|-----|
-| **email** | メールアドレス | 1.0 | alice@example.com |
-| **phone** | 電話番号 | 0.9 | +81-90-1234-5678 |
-| **mlid** | ML推定ID（機械学習ベース） | 0.95 | ml_abc123def456 |
-| **key_fp** | GPG/SSH鍵のフィンガープリント | 0.85 | AA:BB:CC:DD:EE:FF |
-| **domain** | ドメイン（組織推定） | 0.7 | example.com |
-| **click_id** | 匿名トラッキングID | 0.6 | click_xyz789 |
+DevRel活動では、**外部サービスのアカウントID**での一致が最も一般的です。
 
-### 2. 複数識別子のマッチング
+**優先順位**:
+1. **accounts テーブル** (provider + external_user_id) - **主力マッチング手法**
+2. **developer_identifiers テーブル** (email等) - **副次的手法**
 
-複数の識別子が一致する場合、信頼度を掛け合わせて総合スコアを計算します。
+**理由**:
+- ほとんどの外部サービス（GitHub、Slack、Discord、X等）はアカウントIDを提供する
+- メールアドレスは名刺交換やお問い合わせフォームでしか取得できない
+- アカウントIDはプロバイダーが保証しているため信頼度100%
+
+### 2. 信頼度スコア
+
+| マッチング種別 | 信頼度 | 説明 | 例 |
+| ------------ | ------ | ---- | -- |
+| **Account ID** | **1.0** | **外部サービスのアカウントID（プロバイダー保証）** | **GitHub ID: 12345678** |
+| **email** | **1.0** | **メールアドレス（一致すれば100%同一人物）** | **alice@example.com** |
+| **mlid** | 0.95 | ML推定ID（機械学習ベース） | ml_abc123def456 |
+| **phone** | 0.9 | 電話番号 | +81-90-1234-5678 |
+| **key_fp** | 0.85 | GPG/SSH鍵のフィンガープリント | AA:BB:CC:DD:EE:FF |
+| **domain** | 0.7 | ドメイン（組織推定） | example.com |
+| **click_id** | 0.6 | 匿名トラッキングID | click_xyz789 |
+
+**重要な注意**:
+- **Account ID**: プロバイダーが保証しているため信頼度1.0（GitHub ID、Slack ID等）
+- **Email**: 一致していれば100%同一人物なので信頼度1.0（ただし取得機会は限定的）
+- **その他**: 推測ベースなので1.0未満
+
+### 3. 複数マッチングの信頼度計算
+
+複数の識別子が一致する場合、信頼度を組み合わせて総合スコアを計算します。
 
 **計算式**:
 ```
@@ -374,24 +457,52 @@ combined_confidence = 1 - (1 - conf1) * (1 - conf2) * ... * (1 - confN)
 ```
 
 **例**:
-- email (1.0) + domain (0.7) = `1 - (1 - 1.0) * (1 - 0.7)` = `1 - 0 * 0.3` = **1.0**
-- domain (0.7) + click_id (0.6) = `1 - (1 - 0.7) * (1 - 0.6)` = `1 - 0.3 * 0.4` = **0.88**
+- Account ID (1.0) + 何か = **1.0**（既に100%確信しているので変わらない）
+- Email (1.0) + 何か = **1.0**（既に100%確信しているので変わらない）
+- domain (0.7) + click_id (0.6) = `1 - (0.3 * 0.4)` = **0.88**
+- phone (0.9) + domain (0.7) = `1 - (0.1 * 0.3)` = **0.97**
 
-### 3. 検索優先順位
+### 4. 検索戦略
 
-`resolveDeveloper()` は以下の順序で検索します:
+#### 主力手法: `resolveDeveloperByAccount()`
 
-1. **developer_identifiers テーブル** (最優先)
-   - `(tenant_id, kind, value_normalized)` でマッチング
-   - 正規化された値で検索
+**ユースケース**: 外部サービスからのアクティビティ記録（最も一般的）
 
-2. **accounts テーブル** (email kind の場合)
-   - `(tenant_id, email)` でマッチング
-   - `developer_id` が NULL でないレコードを検索
+```typescript
+// GitHub からのイベント
+const dev = await resolveDeveloperByAccount('default', {
+  provider: 'github',
+  externalUserId: '12345678', // GitHub user ID
+});
 
-3. **developers テーブル** (email kind の場合)
-   - `(tenant_id, primary_email)` でマッチング
-   - 直接メールアドレスで検索
+// Slack からのメッセージ
+const dev = await resolveDeveloperByAccount('default', {
+  provider: 'slack',
+  externalUserId: 'U01ABC123', // Slack user ID
+});
+```
+
+**検索順序**:
+1. **accounts テーブル**: `(tenant_id, provider, external_user_id)` で検索
+2. `developer_id` が NULL でない場合、関連する開発者を返す
+3. 見つからない場合は null を返す
+
+#### 副次的手法: `resolveDeveloperByIdentifier()`
+
+**ユースケース**: メール、電話番号等（限定的）
+
+```typescript
+// 名刺交換でメールアドレスを取得した場合（レアケース）
+const dev = await resolveDeveloperByIdentifier('default', {
+  kind: 'email',
+  value: 'alice@example.com',
+});
+```
+
+**検索順序（email の場合）**:
+1. **developer_identifiers テーブル**: `(tenant_id, kind='email', value_normalized)` で検索
+2. **accounts テーブル**: `(tenant_id, email)` で検索（フォールバック）
+3. **developers テーブル**: `(tenant_id, primary_email)` で検索（最終フォールバック）
 
 ### 4. 正規化ルール
 
@@ -423,18 +534,19 @@ function normalizeValue(kind: string, value: string): string {
 ### 自動統合（Automatic Merge）
 
 1. **重複検出**:
-   - 新しいアクティビティが記録される
-   - `resolveDeveloper()` で既存開発者を検索
+   - 新しいアクティビティが記録される（例: GitHub イベント）
+   - `resolveDeveloperByAccount()` で既存開発者を検索（主力）
    - 見つからない場合、新規開発者を作成
 
 2. **信頼度判定**:
    - `findDuplicates()` で類似開発者を検索
    - 信頼度スコアが 0.9 以上の場合、自動統合候補とする
+   - Account ID や Email が一致する場合は信頼度 1.0 なので即座に統合可能
 
 3. **統合実行**:
    - `mergeDevelopers()` を自動実行
    - `merged_by = NULL`（自動統合）
-   - `reason = "Automatic merge based on identifier matching"`
+   - `reason = "Automatic merge based on account/identifier matching"`
 
 ### 手動統合（Manual Merge）
 
@@ -487,10 +599,81 @@ function normalizeValue(kind: string, value: string): string {
 
 Task 4.3の完了条件は「ID統合ロジックが単体テストでパスする」ことです。
 
-#### 1. `resolveDeveloper()` のテスト
+#### 1. `resolveDeveloperByAccount()` のテスト（主力マッチング手法）
 
 ```typescript
-describe('resolveDeveloper', () => {
+describe('resolveDeveloperByAccount', () => {
+  it('should find developer by GitHub account ID', async () => {
+    // Arrange: Create developer and link GitHub account
+    const dev = await createDeveloper('default', {
+      displayName: 'Test Developer',
+      primaryEmail: null,
+      orgId: null,
+    });
+
+    // Add GitHub account to accounts table
+    await db.insert(schema.accounts).values({
+      tenantId: 'default',
+      developerId: dev.developerId,
+      provider: 'github',
+      externalUserId: '12345678',
+      handle: 'testdev',
+    });
+
+    // Act: Resolve by GitHub account
+    const result = await resolveDeveloperByAccount('default', {
+      provider: 'github',
+      externalUserId: '12345678',
+    });
+
+    // Assert: Should find the developer
+    expect(result).not.toBeNull();
+    expect(result?.developerId).toBe(dev.developerId);
+  });
+
+  it('should return null if account not found', async () => {
+    // Act: Try to resolve non-existent account
+    const result = await resolveDeveloperByAccount('default', {
+      provider: 'github',
+      externalUserId: '99999999',
+    });
+
+    // Assert: Should return null
+    expect(result).toBeNull();
+  });
+
+  it('should return null if account exists but not linked to developer', async () => {
+    // Arrange: Create account without developer_id
+    await db.insert(schema.accounts).values({
+      tenantId: 'default',
+      developerId: null, // Not linked
+      provider: 'slack',
+      externalUserId: 'U01ABC123',
+      handle: 'testuser',
+    });
+
+    // Act: Try to resolve
+    const result = await resolveDeveloperByAccount('default', {
+      provider: 'slack',
+      externalUserId: 'U01ABC123',
+    });
+
+    // Assert: Should return null (no developer linked)
+    expect(result).toBeNull();
+  });
+
+  it('should work with different providers', async () => {
+    // Test GitHub, Slack, Discord, X, etc.
+    const providers = ['github', 'slack', 'discord', 'x'];
+    // ... (implementation)
+  });
+});
+```
+
+#### 2. `resolveDeveloperByIdentifier()` のテスト（副次的マッチング手法）
+
+```typescript
+describe('resolveDeveloperByIdentifier', () => {
   it('should find developer by email identifier', async () => {
     // Arrange: Create developer with email identifier
     const dev = await createDeveloper('default', {
@@ -504,7 +687,7 @@ describe('resolveDeveloper', () => {
     });
 
     // Act: Resolve by email
-    const result = await resolveDeveloper('default', {
+    const result = await resolveDeveloperByIdentifier('default', {
       kind: 'email',
       value: 'test@example.com',
     });
@@ -516,7 +699,7 @@ describe('resolveDeveloper', () => {
 
   it('should return null if identifier not found', async () => {
     // Act: Try to resolve non-existent identifier
-    const result = await resolveDeveloper('default', {
+    const result = await resolveDeveloperByIdentifier('default', {
       kind: 'email',
       value: 'nonexistent@example.com',
     });
@@ -538,7 +721,7 @@ describe('resolveDeveloper', () => {
     });
 
     // Act: Search with uppercase email
-    const result = await resolveDeveloper('default', {
+    const result = await resolveDeveloperByIdentifier('default', {
       kind: 'email',
       value: 'TEST@EXAMPLE.COM',
     });
@@ -549,10 +732,50 @@ describe('resolveDeveloper', () => {
 });
 ```
 
-#### 2. `findDuplicates()` のテスト
+#### 3. `findDuplicates()` のテスト
 
 ```typescript
 describe('findDuplicates', () => {
+  it('should find duplicates with matching GitHub account', async () => {
+    // Arrange: Create two developers with same GitHub account (should not happen, but test for detection)
+    const dev1 = await createDeveloper('default', {
+      displayName: 'Developer 1',
+      primaryEmail: null,
+      orgId: null,
+    });
+    const dev2 = await createDeveloper('default', {
+      displayName: 'Developer 2',
+      primaryEmail: null,
+      orgId: null,
+    });
+
+    // Add same GitHub account to both (duplicate situation)
+    await db.insert(schema.accounts).values([
+      {
+        tenantId: 'default',
+        developerId: dev1.developerId,
+        provider: 'github',
+        externalUserId: '12345678',
+        handle: 'shareduser',
+      },
+      {
+        tenantId: 'default',
+        developerId: dev2.developerId,
+        provider: 'github',
+        externalUserId: '12345678',
+        handle: 'shareduser',
+      },
+    ]);
+
+    // Act: Find duplicates for dev1
+    const duplicates = await findDuplicates('default', dev1.developerId);
+
+    // Assert: Should find dev2 as duplicate with confidence 1.0
+    expect(duplicates.length).toBe(1);
+    expect(duplicates[0]!.developer.developerId).toBe(dev2.developerId);
+    expect(duplicates[0]!.confidence).toBe(1.0); // Account match = 100% confidence
+  });
+
   it('should find duplicates with matching email', async () => {
     // Arrange: Create two developers with same email
     const dev1 = await createDeveloper('default', {
@@ -569,10 +792,10 @@ describe('findDuplicates', () => {
     // Act: Find duplicates for dev1
     const duplicates = await findDuplicates('default', dev1.developerId);
 
-    // Assert: Should find dev2 as duplicate
+    // Assert: Should find dev2 as duplicate with confidence 1.0
     expect(duplicates.length).toBe(1);
     expect(duplicates[0]!.developer.developerId).toBe(dev2.developerId);
-    expect(duplicates[0]!.confidence).toBeGreaterThan(0.9);
+    expect(duplicates[0]!.confidence).toBe(1.0); // Email match = 100% confidence
   });
 
   it('should calculate confidence for multiple matching identifiers', async () => {
@@ -600,7 +823,7 @@ describe('findDuplicates', () => {
 });
 ```
 
-#### 3. `mergeDevelopers()` のテスト
+#### 4. `mergeDevelopers()` のテスト
 
 ```typescript
 describe('mergeDevelopers', () => {
@@ -676,7 +899,7 @@ describe('mergeDevelopers', () => {
 });
 ```
 
-#### 4. `addIdentifier()` のテスト
+#### 5. `addIdentifier()` のテスト
 
 ```typescript
 describe('addIdentifier', () => {
@@ -772,15 +995,17 @@ describe('Identity Service', () => {
 ## 完了チェックリスト
 
 - [ ] `core/services/identity.service.ts` ファイル作成
-- [ ] Zodスキーマ定義（`IdentifierLookupSchema`, `MergeDevelopersSchema`）
-- [ ] `resolveDeveloper()` 実装
-- [ ] `findDuplicates()` 実装
+- [ ] Zodスキーマ定義（`AccountLookupSchema`, `IdentifierLookupSchema`, `MergeDevelopersSchema`）
+- [ ] `resolveDeveloperByAccount()` 実装（主力マッチング手法）
+- [ ] `resolveDeveloperByIdentifier()` 実装（副次的マッチング手法）
+- [ ] `findDuplicates()` 実装（accounts + identifiers の両方を検索）
 - [ ] `mergeDevelopers()` 実装（トランザクション処理含む）
 - [ ] `addIdentifier()` 実装
 - [ ] `removeIdentifier()` 実装
 - [ ] 単体テストファイル作成（`core/services/identity.service.test.ts`）
-- [ ] `resolveDeveloper()` のテスト（正常系・異常系）
-- [ ] `findDuplicates()` のテスト（信頼度計算を含む）
+- [ ] `resolveDeveloperByAccount()` のテスト（正常系・異常系）
+- [ ] `resolveDeveloperByIdentifier()` のテスト（正常系・異常系）
+- [ ] `findDuplicates()` のテスト（信頼度計算、account + email マッチング）
 - [ ] `mergeDevelopers()` のテスト（トランザクション、監査ログ確認）
 - [ ] `addIdentifier()` のテスト（重複検出含む）
 - [ ] 全テストが成功（`pnpm test`）
