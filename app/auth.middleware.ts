@@ -14,7 +14,7 @@
  */
 
 import { redirect } from '@remix-run/node';
-import { getSession } from './sessions.server.js';
+import { getSession, destroySession } from './sessions.server.js';
 import { getUserById, type AuthUser } from '~/core/services/auth.service.js';
 
 /**
@@ -66,8 +66,12 @@ export async function requireAuth(
   // 3. Get user info from database
   const user = await getUserById(userId);
   if (!user) {
-    // Session is invalid (user deleted or disabled): redirect to login
-    throw redirect('/auth/login');
+    // Session is invalid (user deleted or disabled): destroy session and redirect to login
+    throw redirect('/auth/login', {
+      headers: {
+        'Set-Cookie': await destroySession(session),
+      },
+    });
   }
 
   // 4. Return authenticated user

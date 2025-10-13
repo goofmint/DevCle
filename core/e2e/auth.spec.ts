@@ -37,11 +37,11 @@ const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
  */
 test('user can login and logout', async ({ page }) => {
   // 1. Navigate to login page
-  await page.goto(`${BASE_URL}/login`);
+  await page.goto(`${BASE_URL}/auth/login`);
 
   // Verify we're on the login page
-  await expect(page).toHaveURL(`${BASE_URL}/login`);
-  await expect(page.locator('h1')).toHaveText('Log In');
+  await expect(page).toHaveURL(`${BASE_URL}/auth/login`);
+  await expect(page.locator('h1')).toHaveText('Login');
 
   // 2. Fill login form with test user credentials
   await page.fill('input[name="email"]', 'test@example.com');
@@ -71,7 +71,7 @@ test('user can login and logout', async ({ page }) => {
   await page.evaluate(async () => {
     const form = document.createElement('form');
     form.method = 'POST';
-    form.action = '/logout';
+    form.action = '/auth/logout';
     document.body.appendChild(form);
     form.submit();
   });
@@ -101,7 +101,7 @@ test('user can login and logout', async ({ page }) => {
  */
 test('login fails with invalid credentials', async ({ page }) => {
   // Navigate to login page
-  await page.goto(`${BASE_URL}/login`);
+  await page.goto(`${BASE_URL}/auth/login`);
 
   // Try to login with invalid email
   await page.fill('input[name="email"]', 'nonexistent@example.com');
@@ -116,7 +116,7 @@ test('login fails with invalid credentials', async ({ page }) => {
   expect(errorMessage).toContain('Invalid email or password');
 
   // Verify we're still on login page
-  await expect(page).toHaveURL(`${BASE_URL}/login`);
+  await expect(page).toHaveURL(`${BASE_URL}/auth/login`);
 
   // Verify no session cookie is set
   const cookies = await page.context().cookies();
@@ -136,7 +136,7 @@ test('login fails with invalid credentials', async ({ page }) => {
   expect(errorMessage2).toContain('Invalid email or password');
 
   // Still on login page
-  await expect(page).toHaveURL(`${BASE_URL}/login`);
+  await expect(page).toHaveURL(`${BASE_URL}/auth/login`);
 });
 
 /**
@@ -148,7 +148,7 @@ test('login fails with invalid credentials', async ({ page }) => {
 test('login redirects to returnTo URL', async ({ page }) => {
   // Navigate to login page with returnTo parameter
   const returnToUrl = '/dashboard/developers';
-  await page.goto(`${BASE_URL}/login?returnTo=${encodeURIComponent(returnToUrl)}`);
+  await page.goto(`${BASE_URL}/auth/login?returnTo=${encodeURIComponent(returnToUrl)}`);
 
   // Login with valid credentials
   await page.fill('input[name="email"]', 'test@example.com');
@@ -168,7 +168,7 @@ test('login redirects to returnTo URL', async ({ page }) => {
  */
 test('admin user can login', async ({ page }) => {
   // Navigate to login page
-  await page.goto(`${BASE_URL}/login`);
+  await page.goto(`${BASE_URL}/auth/login`);
 
   // Login with admin credentials
   await page.fill('input[name="email"]', 'admin@example.com');
@@ -193,14 +193,14 @@ test('admin user can login', async ({ page }) => {
  */
 test('authenticated user cannot access login page', async ({ page }) => {
   // First, login
-  await page.goto(`${BASE_URL}/login`);
+  await page.goto(`${BASE_URL}/auth/login`);
   await page.fill('input[name="email"]', 'test@example.com');
   await page.fill('input[name="password"]', 'password123');
   await page.click('button[type="submit"]');
   await page.waitForURL(`${BASE_URL}/dashboard`, { timeout: 5000 });
 
   // Now try to access login page again
-  await page.goto(`${BASE_URL}/login`);
+  await page.goto(`${BASE_URL}/auth/login`);
 
   // Should be redirected to dashboard
   await page.waitForURL(`${BASE_URL}/dashboard`, { timeout: 5000 });
@@ -213,7 +213,7 @@ test('authenticated user cannot access login page', async ({ page }) => {
  * Verifies that the login form has proper HTML5 validation.
  */
 test('login form has proper validation', async ({ page }) => {
-  await page.goto(`${BASE_URL}/login`);
+  await page.goto(`${BASE_URL}/auth/login`);
 
   // Email field should have type="email" and required
   const emailInput = page.locator('input[name="email"]');

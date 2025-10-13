@@ -6,7 +6,6 @@
  *
  * Features:
  * - Clears session cookie
- * - Clears tenant context from database connection
  * - Redirects to home page
  *
  * Security:

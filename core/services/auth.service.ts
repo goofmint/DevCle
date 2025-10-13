@@ -24,6 +24,18 @@ import bcrypt from 'bcryptjs';
 import { eq, and } from 'drizzle-orm';
 
 /**
+ * Dummy bcrypt hash for constant-time comparison
+ *
+ * This is a valid bcrypt hash used when the user doesn't exist.
+ * It ensures login timing is consistent whether user exists or not,
+ * preventing timing attacks that could reveal user existence.
+ *
+ * Generated via: bcrypt.hash('dummy-password', 10)
+ */
+const DUMMY_PASSWORD_HASH =
+  '$2a$10$CwTycUXWue0Thq9StjUM0uJ8ZXoE5s3UeawuO/7dBDEzDfSU/EYEW';
+
+/**
  * Zod schema for login credentials
  *
  * Validates email format and password minimum length.
@@ -109,8 +121,8 @@ export async function login(
   if (!user || !user.passwordHash || user.disabled) {
     // Run bcrypt.compare even when user doesn't exist to maintain constant time
     if (!user || !user.passwordHash) {
-      // Hash a dummy password to maintain consistent timing
-      await bcrypt.compare(password, '$2a$10$abcdefghijklmnopqrstuv');
+      // Compare against dummy hash to maintain consistent timing
+      await bcrypt.compare(password, DUMMY_PASSWORD_HASH);
     }
     return null; // User not found, no password set, or account disabled
   }

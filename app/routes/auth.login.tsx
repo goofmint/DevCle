@@ -24,6 +24,7 @@ import { Form, useActionData, useSearchParams } from '@remix-run/react';
 import { login } from '~/core/services/auth.service.js';
 import { getSession, commitSession } from '~/sessions.server.js';
 import { setTenantContext } from '~/core/db/connection.js';
+import { safeRedirect } from '~/core/utils/safeRedirect.js';
 
 /**
  * Loader function
@@ -105,9 +106,10 @@ export async function action({ request }: ActionFunctionArgs) {
     // This ensures all subsequent database queries are filtered by tenant
     await setTenantContext(user.tenantId);
 
-    // 6. Determine redirect URL
+    // 6. Determine redirect URL (with open redirect protection)
     const url = new URL(request.url);
-    const returnTo = url.searchParams.get('returnTo') || '/dashboard';
+    const requestedReturnTo = url.searchParams.get('returnTo');
+    const returnTo = safeRedirect(requestedReturnTo, '/dashboard');
 
     // 7. Redirect with session cookie
     return redirect(returnTo, {

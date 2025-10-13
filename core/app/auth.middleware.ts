@@ -14,8 +14,8 @@
  */
 
 import { redirect } from '@remix-run/node';
-import { getSession } from './sessions.server';
-import { getUserById, type AuthUser } from '~/services/auth.service';
+import { getSession, destroySession } from './sessions.server';
+import { getUserById, type AuthUser } from '~/core/services/auth.service';
 
 /**
  * Require authentication for route
@@ -60,14 +60,18 @@ export async function requireAuth(
     // Not authenticated: redirect to login with returnTo parameter
     const url = new URL(request.url);
     const returnToPath = redirectTo || url.pathname + url.search;
-    throw redirect(`/login?returnTo=${encodeURIComponent(returnToPath)}`);
+    throw redirect(`/auth/login?returnTo=${encodeURIComponent(returnToPath)}`);
   }
 
   // 3. Get user info from database
   const user = await getUserById(userId);
   if (!user) {
-    // Session is invalid (user deleted or disabled): redirect to login
-    throw redirect('/login');
+    // Session is invalid (user deleted or disabled): destroy session and redirect to login
+    throw redirect('/auth/login', {
+      headers: {
+        'Set-Cookie': await destroySession(session),
+      },
+    });
   }
 
   // 4. Return authenticated user

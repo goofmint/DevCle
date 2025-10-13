@@ -18,8 +18,9 @@
 
 import { createCookieSessionStorage } from '@remix-run/node';
 
-// Validate that SESSION_SECRET is set
-if (!process.env['SESSION_SECRET']) {
+// Validate that SESSION_SECRET is set and capture it as string
+const sessionSecret = process.env['SESSION_SECRET'];
+if (!sessionSecret) {
   throw new Error('SESSION_SECRET environment variable is required');
 }
 
@@ -31,7 +32,7 @@ if (!process.env['SESSION_SECRET']) {
  * - httpOnly: Prevents JavaScript access to cookies (XSS protection)
  * - path: Cookie available for all routes
  * - sameSite: 'lax' protects against CSRF while allowing normal navigation
- * - secrets: Array of secrets for cookie signing/encryption (supports rotation)
+ * - secrets: Array of secrets for cookie signing (integrity-protected, not encrypted)
  * - secure: HTTPS-only in production
  * - maxAge: Session expires after 7 days
  */
@@ -41,7 +42,7 @@ export const sessionStorage = createCookieSessionStorage({
     httpOnly: true,
     path: '/',
     sameSite: 'lax',
-    secrets: [process.env['SESSION_SECRET']],
+    secrets: [sessionSecret],
     secure: process.env['NODE_ENV'] === 'production',
     maxAge: 60 * 60 * 24 * 7, // 7 days in seconds
   },
