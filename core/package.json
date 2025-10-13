@@ -27,6 +27,8 @@
     "@remix-run/react": "^2.14.0",
     "@remix-run/serve": "^2.14.0",
     "@tailwindcss/typography": "^0.5.19",
+    "@types/bcryptjs": "^3.0.0",
+    "bcryptjs": "^3.0.2",
     "drizzle-orm": "^0.44.6",
     "isbot": "^4",
     "postgres": "^3.4.7",

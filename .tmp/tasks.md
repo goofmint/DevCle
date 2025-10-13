@@ -10,7 +10,7 @@
 
 サービス名は `DevCle`（DevRel + Circleの造語）。本番環境のドメインは `devcle.com`。開発環境は `devcle.test`。
 
-- **総タスク数**: 47タスク
+- **総タスク数**: 48タスク
 - **推定作業時間**: 4-6週間（1名）
 - **優先度**: 高
 - **開発方針**:
@@ -244,6 +244,32 @@
 - **ドキュメント**: [.tmp/tasks/task-3.7-tenant-context-api.md](.tmp/tasks/task-3.7-tenant-context-api.md)
 - **完了日**: 2025-10-12
 
+### Task 3.8: 認証システム実装 ✅
+
+- [x] Remix Sessionsセットアップ（Cookie-based）
+- [x] `core/services/auth.service.ts`作成
+- [x] `login(email, password)`実装（bcryptでパスワード検証）
+- [x] `logout()`実装（セッション破棄）
+- [x] `getCurrentUser(request)`実装（セッションからユーザー取得）
+- [x] `app/routes/login.tsx`作成（ログインフォーム、Header/Footer/ダークモード対応）
+- [x] `app/routes/logout.ts`作成（ログアウト処理、POST-only）
+- [x] 認証ミドルウェア実装（`requireAuth()`, `getCurrentUser()`）
+- [x] セッションとテナントIDの紐付け
+- [x] E2Eテスト実装（6 tests、全49 E2Eテストパス）
+- [x] RLS設計の修正（tenantsはRLS有効、usersはRLS無効で認証基盤化）
+- [x] Idempotent seeding実装（TRUNCATE CASCADE）
+- **完了条件**: ログイン/ログアウトが機能し、セッションが保持される ✓
+- **依存**: Task 3.7
+- **推定時間**: 4時間
+- **完了日**: 2025-10-13
+- **ドキュメント**: [.tmp/tasks/task-3.8-authentication.md](.tmp/tasks/task-3.8-authentication.md)
+- **注意**:
+  - usersテーブルは既にTask 3.2で実装済み（admin.ts）
+  - パスワードはbcryptでハッシュ化（constant-time comparison）
+  - セッションCookieは`httpOnly`, `secure`, `sameSite`設定
+  - テスト用ユーザー: test@example.com / password123（member）、admin@example.com / admin123456（admin）
+  - 重要な修正: `/auth/login` → `/login`、RLS設計の修正（users tableはRLS無効）
+
 ---
 
 ## Phase 4: DRMコア機能実装（MVP）
@@ -254,12 +280,29 @@
 - [ ] `createDeveloper()`実装
 - [ ] `getDeveloper()`実装
 - [ ] `listDevelopers()`実装（ページネーション付き）
+- [ ] `updateDeveloper()`実装
+- [ ] `deleteDeveloper()`実装
 - [ ] Zodスキーマでバリデーション
 - **完了条件**: サービス関数が単体テストでパスする
-- **依存**: Task 3.6
+- **依存**: Task 3.8
 - **推定時間**: 3時間
 
-### Task 4.2: ID統合機能実装
+### Task 4.2: Developer API実装
+
+- [ ] `app/routes/api/developers.ts`作成（Resource Route）
+- [ ] `GET /api/developers`（一覧取得、ページネーション、フィルタ、ソート）
+- [ ] `POST /api/developers`（新規作成）
+- [ ] `app/routes/api/developers.$id.ts`作成
+- [ ] `GET /api/developers/:id`（詳細取得）
+- [ ] `PUT /api/developers/:id`（更新）
+- [ ] `DELETE /api/developers/:id`（削除）
+- [ ] 認証チェック（Task 3.8のrequireAuth()使用）
+- [ ] エラーハンドリング（400, 401, 404, 405, 409, 500）
+- **完了条件**: APIが統合テストでパスする
+- **依存**: Task 3.8, Task 4.1
+- **推定時間**: 3時間
+
+### Task 4.3: ID統合機能実装
 
 - [ ] `resolveDeveloper()`実装（identifiersテーブルから検索）
 - [ ] `mergeDevelopers()`実装（重複開発者の統合）
@@ -268,7 +311,7 @@
 - **依存**: Task 4.1
 - **推定時間**: 3時間
 
-### Task 4.3: Activityサービス実装
+### Task 4.4: Activityサービス実装
 
 - [ ] `core/services/activity.service.ts`作成
 - [ ] `createActivity()`実装
@@ -278,25 +321,15 @@
 - **依存**: Task 4.1
 - **推定時間**: 2時間
 
-### Task 4.4: Developer API実装
-
-- [ ] `app/routes/api/developers.ts`作成（Resource Route）
-- [ ] `GET /api/developers`（一覧取得）
-- [ ] `POST /api/developers`（新規作成）
-- [ ] `GET /api/developers/:id`（詳細取得）
-- [ ] エラーハンドリング（400, 404, 500）
-- **完了条件**: APIが統合テストでパスする
-- **依存**: Task 4.1
-- **推定時間**: 3時間
-
 ### Task 4.5: Activity API実装
 
 - [ ] `app/routes/api/activities.ts`作成（Resource Route）
 - [ ] `GET /api/activities?developer_id=xxx`（一覧取得）
 - [ ] `POST /api/activities`（新規登録）
-- [ ] エラーハンドリング
+- [ ] 認証チェック（Task 3.8のrequireAuth()使用）
+- [ ] エラーハンドリング（400, 401, 500）
 - **完了条件**: APIが統合テストでパスする
-- **依存**: Task 4.3
+- **依存**: Task 3.8, Task 4.4
 - **推定時間**: 2時間
 
 ---
@@ -570,10 +603,10 @@
 - Task 2.1 → Task 2.2 → Task 2.3 → Task 2.4 → Task 2.5
 - **デプロイ確認**: docker-compose up -dでLP・規約・プライバシーポリシーが表示される
 
-### Sprint 2（Week 2）: データベース設計とDRMコア
-- Task 3.1 → Task 3.2 → Task 3.3 → Task 3.4 → Task 3.5 → Task 3.6
+### Sprint 2（Week 2）: データベース設計、認証、DRMコア
+- Task 3.1 → Task 3.2 → Task 3.3 → Task 3.4 → Task 3.5 → Task 3.6 → Task 3.7 → Task 3.8
 - Task 4.1 → Task 4.2 → Task 4.3 → Task 4.4 → Task 4.5
-- **デプロイ確認**: Developer API・Activity APIが機能する
+- **デプロイ確認**: 認証が機能し、Developer API・Activity APIが認証付きで動作する
 
 ### Sprint 3（Week 3）: ROI・ファネル分析
 - Task 5.1 → Task 5.2 → Task 5.3 → Task 5.4
