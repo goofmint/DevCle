@@ -1041,6 +1041,642 @@ catch (error) {
 
 ---
 
+## OpenAPI仕様生成
+
+### 概要
+
+`@asteasolutions/zod-to-openapi` ライブラリを使用して、既存のZodスキーマからOpenAPI 3.x仕様を自動生成します。これにより、API仕様の一貫性を保ちながら、Swagger UIなどでのドキュメント生成が可能になります。
+
+### 依存パッケージのインストール
+
+```bash
+pnpm add @asteasolutions/zod-to-openapi
+```
+
+### 実装方針
+
+1. **Zodスキーマの拡張**: 既存のスキーマに`.openapi()`メソッドでメタデータを追加
+2. **OpenAPIレジストリの設定**: エンドポイント情報をレジストリに登録
+3. **仕様ドキュメント生成**: `/api/openapi.json`エンドポイントで公開
+
+### Zodスキーマの拡張
+
+`core/services/drm.service.ts`のスキーマに`.openapi()`メタデータを追加します。
+
+```typescript
+import { extendZodWithOpenApi } from '@asteasolutions/zod-to-openapi';
+import { z } from 'zod';
+
+// Zodの拡張（ファイルの最初で一度だけ実行）
+extendZodWithOpenApi(z);
+
+/**
+ * Developer creation schema with OpenAPI metadata
+ */
+export const CreateDeveloperSchema = z
+  .object({
+    displayName: z
+      .string()
+      .min(1)
+      .max(255)
+      .openapi({
+        example: 'Alice Anderson',
+        description: 'Display name of the developer',
+      }),
+    primaryEmail: z
+      .string()
+      .email()
+      .nullable()
+      .openapi({
+        example: 'alice@example.com',
+        description: 'Primary email address (null if not available)',
+      }),
+    orgId: z
+      .string()
+      .uuid()
+      .nullable()
+      .openapi({
+        example: '20000000-0000-4000-8000-000000000001',
+        description: 'Organization ID (UUID)',
+      }),
+    consentAnalytics: z
+      .boolean()
+      .default(false)
+      .openapi({
+        example: true,
+        description: 'Whether the developer consented to analytics tracking',
+      }),
+    tags: z
+      .array(z.string())
+      .default([])
+      .openapi({
+        example: ['backend', 'python'],
+        description: 'Tags associated with the developer',
+      }),
+  })
+  .openapi('CreateDeveloperInput');
+
+/**
+ * Developer response schema with OpenAPI metadata
+ */
+export const DeveloperSchema = z
+  .object({
+    developerId: z
+      .string()
+      .uuid()
+      .openapi({
+        example: '10000000-0000-4000-8000-000000000001',
+        description: 'Unique developer ID',
+      }),
+    tenantId: z
+      .string()
+      .openapi({
+        example: 'default',
+        description: 'Tenant ID for multi-tenant isolation',
+      }),
+    displayName: z.string().openapi({ example: 'Alice Anderson' }),
+    primaryEmail: z.string().email().nullable().openapi({ example: 'alice@example.com' }),
+    orgId: z.string().uuid().nullable().openapi({ example: '20000000-0000-4000-8000-000000000001' }),
+    consentAnalytics: z.boolean().openapi({ example: true }),
+    tags: z.array(z.string()).openapi({ example: ['backend', 'python'] }),
+    createdAt: z
+      .string()
+      .datetime()
+      .openapi({
+        example: '2025-10-13T00:00:00.000Z',
+        description: 'Creation timestamp',
+      }),
+    updatedAt: z
+      .string()
+      .datetime()
+      .openapi({
+        example: '2025-10-13T00:00:00.000Z',
+        description: 'Last update timestamp',
+      }),
+  })
+  .openapi('Developer');
+
+/**
+ * List developers query parameters schema with OpenAPI metadata
+ */
+export const ListDevelopersSchema = z
+  .object({
+    limit: z
+      .number()
+      .int()
+      .positive()
+      .max(100)
+      .default(50)
+      .openapi({
+        example: 50,
+        description: 'Number of records to return (max 100)',
+      }),
+    offset: z
+      .number()
+      .int()
+      .nonnegative()
+      .default(0)
+      .openapi({
+        example: 0,
+        description: 'Number of records to skip',
+      }),
+    orgId: z
+      .string()
+      .uuid()
+      .optional()
+      .openapi({
+        example: '20000000-0000-4000-8000-000000000001',
+        description: 'Filter by organization ID',
+      }),
+    search: z
+      .string()
+      .optional()
+      .openapi({
+        example: 'alice',
+        description: 'Search in displayName and primaryEmail',
+      }),
+    orderBy: z
+      .enum(['displayName', 'primaryEmail', 'createdAt', 'updatedAt'])
+      .default('createdAt')
+      .openapi({
+        example: 'createdAt',
+        description: 'Field to sort by',
+      }),
+    orderDirection: z
+      .enum(['asc', 'desc'])
+      .default('desc')
+      .openapi({
+        example: 'desc',
+        description: 'Sort direction',
+      }),
+  })
+  .openapi('ListDevelopersParams');
+
+/**
+ * Update developer schema with OpenAPI metadata
+ */
+export const UpdateDeveloperSchema = z
+  .object({
+    displayName: z.string().min(1).max(255).optional().openapi({ example: 'Alice Anderson (Updated)' }),
+    primaryEmail: z.string().email().nullable().optional().openapi({ example: 'alice.new@example.com' }),
+    orgId: z.string().uuid().nullable().optional().openapi({ example: '20000000-0000-4000-8000-000000000002' }),
+    consentAnalytics: z.boolean().optional().openapi({ example: false }),
+    tags: z.array(z.string()).optional().openapi({ example: ['backend', 'python', 'go'] }),
+  })
+  .openapi('UpdateDeveloperInput');
+```
+
+### OpenAPIレジストリの設定
+
+`app/routes/api/openapi-registry.ts`を作成し、全エンドポイントを登録します。
+
+```typescript
+/**
+ * OpenAPI Registry - Developer API
+ *
+ * Registers all Developer API endpoints for OpenAPI documentation generation.
+ */
+
+import { OpenAPIRegistry } from '@asteasolutions/zod-to-openapi';
+import { z } from 'zod';
+import {
+  CreateDeveloperSchema,
+  DeveloperSchema,
+  ListDevelopersSchema,
+  UpdateDeveloperSchema,
+} from '~/services/drm.service.js';
+
+export const registry = new OpenAPIRegistry();
+
+/**
+ * Error response schema
+ */
+const ErrorResponseSchema = z
+  .object({
+    error: z.string().openapi({ example: 'Error message' }),
+    details: z
+      .record(z.string())
+      .optional()
+      .openapi({
+        example: { email: 'Invalid email format' },
+        description: 'Field-level error details',
+      }),
+  })
+  .openapi('ErrorResponse');
+
+/**
+ * List response schema
+ */
+const ListDevelopersResponseSchema = z
+  .object({
+    developers: z.array(DeveloperSchema),
+    total: z.number().int().openapi({ example: 123, description: 'Total count of developers' }),
+  })
+  .openapi('ListDevelopersResponse');
+
+// Register GET /api/developers - List developers
+registry.registerPath({
+  method: 'get',
+  path: '/api/developers',
+  summary: 'List developers',
+  description: 'Retrieve a paginated list of developers with optional filtering and sorting',
+  tags: ['Developers'],
+  request: {
+    query: ListDevelopersSchema,
+  },
+  responses: {
+    200: {
+      description: 'Successful response with developers list',
+      content: {
+        'application/json': {
+          schema: ListDevelopersResponseSchema,
+        },
+      },
+    },
+    400: {
+      description: 'Invalid query parameters',
+      content: {
+        'application/json': {
+          schema: ErrorResponseSchema,
+        },
+      },
+    },
+    401: {
+      description: 'Unauthorized - Missing or invalid authentication',
+      content: {
+        'application/json': {
+          schema: ErrorResponseSchema,
+        },
+      },
+    },
+    500: {
+      description: 'Internal server error',
+      content: {
+        'application/json': {
+          schema: ErrorResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+// Register POST /api/developers - Create developer
+registry.registerPath({
+  method: 'post',
+  path: '/api/developers',
+  summary: 'Create a new developer',
+  description: 'Create a new developer record',
+  tags: ['Developers'],
+  request: {
+    body: {
+      content: {
+        'application/json': {
+          schema: CreateDeveloperSchema,
+        },
+      },
+    },
+  },
+  responses: {
+    201: {
+      description: 'Developer created successfully',
+      content: {
+        'application/json': {
+          schema: DeveloperSchema,
+        },
+      },
+    },
+    400: {
+      description: 'Validation error',
+      content: {
+        'application/json': {
+          schema: ErrorResponseSchema,
+        },
+      },
+    },
+    401: {
+      description: 'Unauthorized',
+      content: {
+        'application/json': {
+          schema: ErrorResponseSchema,
+        },
+      },
+    },
+    409: {
+      description: 'Conflict - Developer with this email already exists',
+      content: {
+        'application/json': {
+          schema: ErrorResponseSchema,
+        },
+      },
+    },
+    500: {
+      description: 'Internal server error',
+      content: {
+        'application/json': {
+          schema: ErrorResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+// Register GET /api/developers/:id - Get developer by ID
+registry.registerPath({
+  method: 'get',
+  path: '/api/developers/{id}',
+  summary: 'Get developer by ID',
+  description: 'Retrieve a single developer by their unique ID',
+  tags: ['Developers'],
+  request: {
+    params: z.object({
+      id: z.string().uuid().openapi({
+        example: '10000000-0000-4000-8000-000000000001',
+        description: 'Developer ID',
+      }),
+    }),
+  },
+  responses: {
+    200: {
+      description: 'Successful response with developer data',
+      content: {
+        'application/json': {
+          schema: DeveloperSchema,
+        },
+      },
+    },
+    400: {
+      description: 'Invalid developer ID format',
+      content: {
+        'application/json': {
+          schema: ErrorResponseSchema,
+        },
+      },
+    },
+    401: {
+      description: 'Unauthorized',
+      content: {
+        'application/json': {
+          schema: ErrorResponseSchema,
+        },
+      },
+    },
+    404: {
+      description: 'Developer not found',
+      content: {
+        'application/json': {
+          schema: ErrorResponseSchema,
+        },
+      },
+    },
+    500: {
+      description: 'Internal server error',
+      content: {
+        'application/json': {
+          schema: ErrorResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+// Register PUT /api/developers/:id - Update developer
+registry.registerPath({
+  method: 'put',
+  path: '/api/developers/{id}',
+  summary: 'Update developer',
+  description: 'Update an existing developer (partial update supported)',
+  tags: ['Developers'],
+  request: {
+    params: z.object({
+      id: z.string().uuid().openapi({
+        example: '10000000-0000-4000-8000-000000000001',
+        description: 'Developer ID',
+      }),
+    }),
+    body: {
+      content: {
+        'application/json': {
+          schema: UpdateDeveloperSchema,
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: 'Developer updated successfully',
+      content: {
+        'application/json': {
+          schema: DeveloperSchema,
+        },
+      },
+    },
+    400: {
+      description: 'Validation error or invalid developer ID',
+      content: {
+        'application/json': {
+          schema: ErrorResponseSchema,
+        },
+      },
+    },
+    401: {
+      description: 'Unauthorized',
+      content: {
+        'application/json': {
+          schema: ErrorResponseSchema,
+        },
+      },
+    },
+    404: {
+      description: 'Developer not found',
+      content: {
+        'application/json': {
+          schema: ErrorResponseSchema,
+        },
+      },
+    },
+    500: {
+      description: 'Internal server error',
+      content: {
+        'application/json': {
+          schema: ErrorResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+// Register DELETE /api/developers/:id - Delete developer
+registry.registerPath({
+  method: 'delete',
+  path: '/api/developers/{id}',
+  summary: 'Delete developer',
+  description: 'Delete a developer (hard delete)',
+  tags: ['Developers'],
+  request: {
+    params: z.object({
+      id: z.string().uuid().openapi({
+        example: '10000000-0000-4000-8000-000000000001',
+        description: 'Developer ID',
+      }),
+    }),
+  },
+  responses: {
+    204: {
+      description: 'Developer deleted successfully (no content)',
+    },
+    400: {
+      description: 'Invalid developer ID format',
+      content: {
+        'application/json': {
+          schema: ErrorResponseSchema,
+        },
+      },
+    },
+    401: {
+      description: 'Unauthorized',
+      content: {
+        'application/json': {
+          schema: ErrorResponseSchema,
+        },
+      },
+    },
+    404: {
+      description: 'Developer not found',
+      content: {
+        'application/json': {
+          schema: ErrorResponseSchema,
+        },
+      },
+    },
+    500: {
+      description: 'Internal server error',
+      content: {
+        'application/json': {
+          schema: ErrorResponseSchema,
+        },
+      },
+    },
+  },
+});
+```
+
+### OpenAPI仕様ドキュメント公開エンドポイント
+
+`app/routes/api/openapi.json.ts`を作成し、生成したOpenAPI仕様を公開します。
+
+```typescript
+/**
+ * OpenAPI Specification Endpoint
+ *
+ * Generates and serves OpenAPI 3.x specification for the Developer API.
+ * Accessible at: /api/openapi.json
+ */
+
+import { json, type LoaderFunctionArgs } from '@remix-run/node';
+import { OpenApiGeneratorV3 } from '@asteasolutions/zod-to-openapi';
+import { registry } from './openapi-registry.js';
+
+export async function loader({ request }: LoaderFunctionArgs) {
+  // Generate OpenAPI document
+  const generator = new OpenApiGeneratorV3(registry.definitions);
+
+  const document = generator.generateDocument({
+    openapi: '3.0.0',
+    info: {
+      title: 'DevCle Developer API',
+      version: '1.0.0',
+      description: 'Developer Relationship Management API',
+      contact: {
+        name: 'DevCle Support',
+        url: 'https://devcle.com',
+      },
+    },
+    servers: [
+      {
+        url: 'https://api.devcle.com',
+        description: 'Production server',
+      },
+      {
+        url: 'http://localhost:3000',
+        description: 'Development server',
+      },
+    ],
+    tags: [
+      {
+        name: 'Developers',
+        description: 'Developer management endpoints',
+      },
+    ],
+  });
+
+  // Return OpenAPI document as JSON
+  return json(document, {
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+}
+```
+
+### Swagger UIの統合（オプション）
+
+Swagger UIを統合する場合は、`app/routes/api/docs.tsx`を作成します。
+
+```typescript
+/**
+ * Swagger UI Page
+ *
+ * Displays interactive API documentation using Swagger UI.
+ * Accessible at: /api/docs
+ */
+
+export default function ApiDocs() {
+  return (
+    <html>
+      <head>
+        <title>DevCle API Documentation</title>
+        <link
+          rel="stylesheet"
+          href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css"
+        />
+      </head>
+      <body>
+        <div id="swagger-ui"></div>
+        <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.onload = () => {
+                window.ui = SwaggerUIBundle({
+                  url: '/api/openapi.json',
+                  dom_id: '#swagger-ui',
+                });
+              };
+            `,
+          }}
+        />
+      </body>
+    </html>
+  );
+}
+```
+
+### 利点
+
+1. **自動生成**: Zodスキーマから自動的にOpenAPI仕様を生成
+2. **一貫性**: スキーマとドキュメントが常に同期
+3. **型安全**: TypeScriptの型とランタイムバリデーションが一致
+4. **開発者体験**: Swagger UIで対話的にAPIをテスト可能
+5. **クライアント生成**: OpenAPI仕様から各言語のクライアントSDKを生成可能
+
+### 参考資料
+
+- [@asteasolutions/zod-to-openapi](https://github.com/asteasolutions/zod-to-openapi)
+- [OpenAPI Specification 3.0](https://swagger.io/specification/)
+- [Swagger UI](https://swagger.io/tools/swagger-ui/)
+
+---
+
 ## 完了チェックリスト
 
 - [ ] `app/routes/api/developers.ts`ファイル作成
@@ -1061,6 +1697,14 @@ catch (error) {
 - [ ] 全テストが成功（`pnpm test`）
 - [ ] TypeScriptエラーなし（`pnpm typecheck`）
 - [ ] Lintエラーなし（`pnpm lint`）
+- [ ] **OpenAPI仕様生成（オプション）**
+  - [ ] `@asteasolutions/zod-to-openapi`パッケージインストール
+  - [ ] Zodスキーマに`.openapi()`メタデータ追加
+  - [ ] `app/routes/api/openapi-registry.ts`作成
+  - [ ] `app/routes/api/openapi.json.ts`作成
+  - [ ] `app/routes/api/docs.tsx`作成（Swagger UI統合）
+  - [ ] `/api/openapi.json`でOpenAPI仕様が取得できる
+  - [ ] `/api/docs`でSwagger UIが表示される
 
 ---
 
@@ -1080,3 +1724,6 @@ Task 4.2完了後、以下のタスクに進みます：
 - [Remix Loader/Action](https://remix.run/docs/en/main/route/loader)
 - [HTTP Status Codes](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status)
 - [RESTful API Design Best Practices](https://restfulapi.net/)
+- [@asteasolutions/zod-to-openapi](https://github.com/asteasolutions/zod-to-openapi) - OpenAPI生成ライブラリ
+- [OpenAPI Specification 3.0](https://swagger.io/specification/)
+- [Swagger UI](https://swagger.io/tools/swagger-ui/)
