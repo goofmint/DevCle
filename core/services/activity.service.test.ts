@@ -264,7 +264,7 @@ describe('Activity Service', () => {
       });
 
       // Assert: Should return 3 activities
-      expect(activities.length).toBe(3);
+      expect(activities.activities.length).toBe(3);
 
       // Cleanup
       const db = getDb();
@@ -310,8 +310,8 @@ describe('Activity Service', () => {
       });
 
       // Assert: Should return only 1 activity (2025-01-15)
-      expect(activities.length).toBe(1);
-      expect(activities[0]!.action).toBe('click');
+      expect(activities.activities.length).toBe(1);
+      expect(activities.activities[0]!.action).toBe('click');
 
       // Cleanup
       const db = getDb();
@@ -350,8 +350,8 @@ describe('Activity Service', () => {
       });
 
       // Assert: Should return only signup activities
-      expect(signups.length).toBe(1);
-      expect(signups[0]!.action).toBe('signup');
+      expect(signups.activities.length).toBe(1);
+      expect(signups.activities[0]!.action).toBe('signup');
 
       // Cleanup
       const db = getDb();
@@ -395,8 +395,8 @@ describe('Activity Service', () => {
       });
 
       // Assert: Should have 5 activities each
-      expect(page1.length).toBe(5);
-      expect(page2.length).toBe(5);
+      expect(page1.activities.length).toBe(5);
+      expect(page2.activities.length).toBe(5);
 
       // Cleanup
       const db = getDb();
@@ -440,9 +440,9 @@ describe('Activity Service', () => {
       });
 
       // Assert: Should be sorted DESC (newest first)
-      expect(activities[0]!.action).toBe('b'); // 2025-01-20
-      expect(activities[1]!.action).toBe('a'); // 2025-01-15
-      expect(activities[2]!.action).toBe('c'); // 2025-01-10
+      expect(activities.activities[0]!.action).toBe('b'); // 2025-01-20
+      expect(activities.activities[1]!.action).toBe('a'); // 2025-01-15
+      expect(activities.activities[2]!.action).toBe('c'); // 2025-01-10
 
       // Cleanup
       const db = getDb();
@@ -487,9 +487,9 @@ describe('Activity Service', () => {
       });
 
       // Assert: Should be sorted ASC (oldest first)
-      expect(activities[0]!.action).toBe('c'); // 2025-01-10
-      expect(activities[1]!.action).toBe('a'); // 2025-01-15
-      expect(activities[2]!.action).toBe('b'); // 2025-01-20
+      expect(activities.activities[0]!.action).toBe('c'); // 2025-01-10
+      expect(activities.activities[1]!.action).toBe('a'); // 2025-01-15
+      expect(activities.activities[2]!.action).toBe('b'); // 2025-01-20
 
       // Cleanup
       const db = getDb();
@@ -528,8 +528,8 @@ describe('Activity Service', () => {
       });
 
       // Assert: Should return only github activities
-      expect(githubActivities.length).toBe(1);
-      expect(githubActivities[0]!.source).toBe('github');
+      expect(githubActivities.activities.length).toBe(1);
+      expect(githubActivities.activities[0]!.source).toBe('github');
 
       // Cleanup
       const db = getDb();
@@ -544,8 +544,9 @@ describe('Activity Service', () => {
         developerId: '99999999-9999-4999-8999-999999999999',
       });
 
-      // Assert: Should return empty array
-      expect(activities).toEqual([]);
+      // Assert: Should return empty array with total 0
+      expect(activities.activities).toEqual([]);
+      expect(activities.total).toBe(0);
     });
   });
 
@@ -811,8 +812,8 @@ describe('Activity Service', () => {
       const remaining = await listActivities('default', {
         developerId: dev.developerId,
       });
-      expect(remaining.length).toBe(1);
-      expect(remaining[0]!.activityId).toBe(activity2.activityId);
+      expect(remaining.activities.length).toBe(1);
+      expect(remaining.activities[0]!.activityId).toBe(activity2.activityId);
 
       // Cleanup
       const db = getDb();

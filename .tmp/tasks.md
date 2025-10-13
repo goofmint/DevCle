@@ -325,13 +325,18 @@
 
 ### Task 4.4: Activityサービス実装 ✅
 
-- [x] `core/services/activity.service.ts`作成
+- [x] `core/services/activity.service.ts`作成（barrel file）
 - [x] `createActivity()`実装（CRUD - Create）
+- [x] `getActivity()`実装（CRUD - Read single）
 - [x] `listActivities()`実装（CRUD - Read、developerId/accountId/resourceId/action/source/日付範囲でフィルタ、ページネーション、ソート）
 - [x] `updateActivity()`実装（CRUD - Update、部分更新対応）
 - [x] `deleteActivity()`実装（CRUD - Delete、GDPR対応）
 - [x] Zodスキーマでバリデーション（CreateActivitySchema, ListActivitiesSchema, UpdateActivitySchema）
-- [x] 包括的なテスト作成（22 tests、モック不使用）
+- [x] ファイル分割（activity-create/get/list/update/delete.service.ts、各150行以下）
+- [x] セキュリティ修正（race condition対策、tenant scoping、empty update guard）
+- [x] バリデーション修正（date coercion、date range validation）
+- [x] UUID関数統一（uuid-ossp extension追加）
+- [x] 包括的なテスト作成（25 tests、モック不使用、全て通過）
 - [x] TypeScriptエラー解消（as any/unknown不使用）
 - **完了条件**: サービス関数が単体テストでパスする ✓
 - **依存**: Task 4.1
@@ -343,12 +348,17 @@
   - Confidence score validation (0.0-1.0)
   - Event sourcing principles（Activities are event logs）
   - Drizzleクエリビルダーの型安全性対応（チェーン形式）
+  - Critical security fixes implemented (atomic operations, tenant scoping)
+  - Date validation and coercion for ISO string support
 
 ### Task 4.5: Activity API実装
 
 - [ ] `app/routes/api/activities.ts`作成（Resource Route）
 - [ ] `GET /api/activities?developer_id=xxx`（一覧取得）
 - [ ] `POST /api/activities`（新規登録）
+- [ ] `GET /api/activities/:id`（詳細取得）
+- [ ] `PUT /api/activities/:id`（更新）
+- [ ] `DELETE /api/activities/:id`（削除）
 - [ ] 認証チェック（Task 3.8のrequireAuth()使用）
 - [ ] エラーハンドリング（400, 401, 500）
 - **完了条件**: APIが統合テストでパスする
