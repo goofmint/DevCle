@@ -148,8 +148,8 @@ export async function action({ request }: ActionFunctionArgs) {
     throw new Error('Not implemented');
   }
 
-  // Handle other methods (PUT, DELETE) - see below
-  throw new Error('Method not allowed');
+  // Method not allowed
+  return json({ error: 'Method not allowed' }, { status: 405 });
 }
 ```
 
