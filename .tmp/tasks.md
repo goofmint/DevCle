@@ -308,14 +308,20 @@
 - **ドキュメント**: [.tmp/tasks/task-4.2-developer-api.md](.tmp/tasks/task-4.2-developer-api.md)
 - **完了日**: 2025-10-13
 
-### Task 4.3: ID統合機能実装
+### Task 4.3: ID統合機能実装 ✅
 
-- [ ] `resolveDeveloper()`実装（identifiersテーブルから検索）
-- [ ] `mergeDevelopers()`実装（重複開発者の統合）
-- [ ] メールアドレス・SNS IDからのマッチングロジック
-- **完了条件**: ID統合ロジックが単体テストでパスする
+- [x] `resolveDeveloper()`実装（identifiersテーブルから検索）
+- [x] `mergeDevelopers()`実装（重複開発者の統合）
+- [x] メールアドレス・SNS IDからのマッチングロジック
+- **完了条件**: ID統合ロジックが単体テストでパスする ✓
 - **依存**: Task 4.1
 - **推定時間**: 3時間
+- **完了日**: 2025-10-13
+- **ドキュメント**: [.tmp/tasks/task-4.3-id-integration.md](.tmp/tasks/task-4.3-id-integration.md)
+- **注意**:
+  - identity.service.tsを3つに分割（identity-resolver.service.ts, identity-merge.service.ts, identity-identifiers.service.ts）
+  - RLS対応：withTenantContext()ヘルパー使用（本番環境のconnection pooling対応）
+  - 全160テスト成功
 
 ### Task 4.4: Activityサービス実装
 
