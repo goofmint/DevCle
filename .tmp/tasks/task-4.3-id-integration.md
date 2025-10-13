@@ -187,7 +187,9 @@ export async function resolveDeveloperByIdentifier(
  * - Same click_id: 0.6 (medium confidence, anonymous tracking)
  *
  * Multiple matches (combined confidence):
- * - Use formula: combined = 1 - (1 - conf1) * (1 - conf2) * ... * (1 - confN)
+ * - Combine confidences with: combined = 1 - product(1 - conf_i)
+ * - Formula: combined = 1 - (1 - conf1) * (1 - conf2) * ... * (1 - confN)
+ * - Example: email (1.0) + domain (0.7) = 1 - (0.0 * 0.3) = 1.0
  * - Example: domain (0.7) + click_id (0.6) = 1 - (0.3 * 0.4) = 0.88
  * - Example: account (1.0) + anything = 1.0 (already certain)
  *
@@ -399,10 +401,12 @@ export async function removeIdentifier(
     { "kind": "email", "value": "alice@example.com", "confidence": 1.0 },
     { "kind": "domain", "value": "example.com", "confidence": 0.7 }
   ],
-  "combined_confidence": 0.85,
+  "combined_confidence": 1.0,
   "method": "automatic"
 }
 ```
+
+**注**: email (1.0) + domain (0.7) の組み合わせは `1 - (0.0 * 0.3) = 1.0` になります。
 
 ### 3. `accounts` テーブル（参照）
 
@@ -449,16 +453,21 @@ DevRel活動では、**外部サービスのアカウントID**での一致が�
 
 ### 3. 複数マッチングの信頼度計算
 
-複数の識別子が一致する場合、信頼度を組み合わせて総合スコアを計算します。
+複数の識別子が一致する場合、以下の数式で信頼度を組み合わせて総合スコアを計算します。
 
-**計算式**:
+**数式**:
+```
+combined = 1 - product(1 - conf_i)
+```
+
+詳細:
 ```
 combined_confidence = 1 - (1 - conf1) * (1 - conf2) * ... * (1 - confN)
 ```
 
 **例**:
+- email (1.0) + domain (0.7) = `1 - (0.0 * 0.3)` = **1.0**（100%確信）
 - Account ID (1.0) + 何か = **1.0**（既に100%確信しているので変わらない）
-- Email (1.0) + 何か = **1.0**（既に100%確信しているので変わらない）
 - domain (0.7) + click_id (0.6) = `1 - (0.3 * 0.4)` = **0.88**
 - phone (0.9) + domain (0.7) = `1 - (0.1 * 0.3)` = **0.97**
 
