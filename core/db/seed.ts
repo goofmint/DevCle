@@ -101,16 +101,22 @@ async function seedTenant(): Promise<void> {
 
   // Insert default tenant
   // Uses onConflictDoNothing() for idempotency (skip if already exists)
-  await db
-    .insert(schema.tenants)
-    .values({
-      tenantId: 'default',
-      name: 'Default Tenant',
-      plan: 'OSS',
-    })
-    .onConflictDoNothing();
+  try {
+    const result = await db
+      .insert(schema.tenants)
+      .values({
+        tenantId: 'default',
+        name: 'Default Tenant',
+        plan: 'OSS',
+      })
+      .onConflictDoNothing()
+      .returning();
 
-  console.log('    ✅ Tenant seeded');
+    console.log('    ✅ Tenant seeded:', result.length > 0 ? 'inserted' : 'skipped (exists)');
+  } catch (error) {
+    console.error('    ❌ Failed to seed tenant:', error);
+    throw error;
+  }
 }
 
 /**
@@ -918,16 +924,17 @@ async function seed(): Promise<void> {
     await testConnection();
     console.log('✅ Database connection OK\n');
 
-    // Temporarily disable RLS on all tables for seeding
+    // Temporarily disable RLS on business data tables for seeding
+    // Note: tenants and users tables do NOT have RLS (authentication foundation data)
     // This is necessary because:
     // 1. Connection pooling makes session variables unreliable
     // 2. The devcle user is not a superuser (cannot bypass RLS)
     // 3. We need to seed data without RLS constraints
-    console.log('  🔓 Temporarily disabling RLS on all tables for seeding...\n');
+    console.log('  🔓 Temporarily disabling RLS on business data tables for seeding...\n');
 
     const tables = [
-      // Admin tables
-      'tenants', 'users', 'api_keys', 'system_settings', 'notifications',
+      // Admin tables (excluding tenants and users which have no RLS)
+      'api_keys', 'system_settings', 'notifications',
       // Core entity tables
       'organizations', 'developers', 'accounts', 'developer_identifiers', 'developer_merge_logs',
       // Campaign/Resource tables
@@ -941,6 +948,9 @@ async function seed(): Promise<void> {
     ];
 
     for (const table of tables) {
+      // Remove FORCE RLS first, then disable RLS
+      // FORCE RLS prevents table owners from bypassing RLS
+      await sql.unsafe(`ALTER TABLE ${table} NO FORCE ROW LEVEL SECURITY`);
       await sql.unsafe(`ALTER TABLE ${table} DISABLE ROW LEVEL SECURITY`);
     }
 
@@ -990,11 +1000,12 @@ async function seed(): Promise<void> {
   } finally {
     // Always re-enable RLS, even if seeding fails
     // This ensures security policies are restored
-    console.log('\n  🔒 Re-enabling RLS on all tables...\n');
+    // Note: tenants and users tables do NOT have RLS
+    console.log('\n  🔒 Re-enabling RLS on business data tables...\n');
 
     const tables = [
-      // Admin tables
-      'tenants', 'users', 'api_keys', 'system_settings', 'notifications',
+      // Admin tables (excluding tenants and users which have no RLS)
+      'api_keys', 'system_settings', 'notifications',
       // Core entity tables
       'organizations', 'developers', 'accounts', 'developer_identifiers', 'developer_merge_logs',
       // Campaign/Resource tables
@@ -1009,7 +1020,10 @@ async function seed(): Promise<void> {
 
     for (const table of tables) {
       try {
+        // Re-enable RLS and restore FORCE RLS
+        // This ensures security policies are fully restored
         await sql.unsafe(`ALTER TABLE ${table} ENABLE ROW LEVEL SECURITY`);
+        await sql.unsafe(`ALTER TABLE ${table} FORCE ROW LEVEL SECURITY`);
       } catch (error) {
         // Log error but don't throw - we want to re-enable as many tables as possible
         console.error(`    ⚠️  Failed to re-enable RLS on ${table}:`, error);
