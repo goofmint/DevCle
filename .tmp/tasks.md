@@ -244,25 +244,31 @@
 - **ドキュメント**: [.tmp/tasks/task-3.7-tenant-context-api.md](.tmp/tasks/task-3.7-tenant-context-api.md)
 - **完了日**: 2025-10-12
 
-### Task 3.8: 認証システム実装
+### Task 3.8: 認証システム実装 ✅
 
-- [ ] Remix Sessionsセットアップ（Cookie-based）
-- [ ] `core/services/auth.service.ts`作成
-- [ ] `login(email, password)`実装（bcryptでパスワード検証）
-- [ ] `logout()`実装（セッション破棄）
-- [ ] `getCurrentUser(request)`実装（セッションからユーザー取得）
-- [ ] `app/routes/auth/login.tsx`作成（ログインフォーム）
-- [ ] `app/routes/auth/logout.ts`作成（ログアウト処理）
-- [ ] 認証ミドルウェア実装（`requireAuth()`）
-- [ ] セッションとテナントIDの紐付け
-- **完了条件**: ログイン/ログアウトが機能し、セッションが保持される
+- [x] Remix Sessionsセットアップ（Cookie-based）
+- [x] `core/services/auth.service.ts`作成
+- [x] `login(email, password)`実装（bcryptでパスワード検証）
+- [x] `logout()`実装（セッション破棄）
+- [x] `getCurrentUser(request)`実装（セッションからユーザー取得）
+- [x] `app/routes/login.tsx`作成（ログインフォーム、Header/Footer/ダークモード対応）
+- [x] `app/routes/logout.ts`作成（ログアウト処理、POST-only）
+- [x] 認証ミドルウェア実装（`requireAuth()`, `getCurrentUser()`）
+- [x] セッションとテナントIDの紐付け
+- [x] E2Eテスト実装（6 tests、全49 E2Eテストパス）
+- [x] RLS設計の修正（tenantsはRLS有効、usersはRLS無効で認証基盤化）
+- [x] Idempotent seeding実装（TRUNCATE CASCADE）
+- **完了条件**: ログイン/ログアウトが機能し、セッションが保持される ✓
 - **依存**: Task 3.7
 - **推定時間**: 4時間
+- **完了日**: 2025-10-13
+- **ドキュメント**: [.tmp/tasks/task-3.8-authentication.md](.tmp/tasks/task-3.8-authentication.md)
 - **注意**:
   - usersテーブルは既にTask 3.2で実装済み（admin.ts）
-  - パスワードはbcryptでハッシュ化
+  - パスワードはbcryptでハッシュ化（constant-time comparison）
   - セッションCookieは`httpOnly`, `secure`, `sameSite`設定
-  - 開発環境では固定ユーザー（admin@example.com）を使用可能
+  - テスト用ユーザー: test@example.com / password123（member）、admin@example.com / admin123456（admin）
+  - 重要な修正: `/auth/login` → `/login`、RLS設計の修正（users tableはRLS無効）
 
 ---
 
