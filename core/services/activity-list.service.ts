@@ -6,7 +6,7 @@
 
 import { withTenantContext } from '../db/connection.js';
 import * as schema from '../db/schema/index.js';
-import { eq, and, desc, asc, gte, lte } from 'drizzle-orm';
+import { eq, and, desc, asc, gte, lte, count } from 'drizzle-orm';
 import { ListActivitiesSchema, type ListActivitiesInput } from './activity.schemas.js';
 
 /**
@@ -87,13 +87,13 @@ export async function listActivities(
         ? schema.activities.ingestedAt
         : schema.activities.occurredAt;
 
-      // 5. Get total count (without limit/offset)
+      // 5. Get total count using COUNT aggregate (efficient, no limit/offset)
       const countResult = await tx
-        .select({ count: schema.activities.activityId })
+        .select({ count: count() })
         .from(schema.activities)
         .where(and(...conditions));
 
-      const total = countResult.length;
+      const total = Number(countResult[0]?.count ?? 0);
 
       // 6. Build and execute query with filters, order, limit, and offset (chain form for type safety)
       const activities = await tx

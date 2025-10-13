@@ -91,21 +91,38 @@ export async function handleUpdateActivity({ request, params }: ActionFunctionAr
       return json({ error: 'Invalid JSON in request body' }, { status: 400 });
     }
 
-    // 5. Convert occurredAt string to Date object if present
+    // 5. Guard: Verify body is a non-null plain object
+    if (typeof body !== 'object' || body === null || Array.isArray(body)) {
+      return json({ error: 'Invalid request body' }, { status: 400 });
+    }
+
+    // 6. Convert occurredAt string to Date object if present
     // The service layer expects Date objects, not ISO 8601 strings
-    if (body.occurredAt && typeof body.occurredAt === 'string') {
+    if (body.occurredAt !== undefined && body.occurredAt !== null) {
+      // Validate occurredAt is a string
+      if (typeof body.occurredAt !== 'string') {
+        return json({ error: 'Invalid occurredAt format' }, { status: 400 });
+      }
+
+      // Validate occurredAt is a valid date string
+      const timestamp = Date.parse(body.occurredAt);
+      if (isNaN(timestamp)) {
+        return json({ error: 'Invalid occurredAt' }, { status: 400 });
+      }
+
+      // Safe to convert now
       body.occurredAt = new Date(body.occurredAt);
     }
 
-    // 6. Build input for service layer (type assertion will be validated by service)
+    // 7. Build input for service layer (type assertion will be validated by service)
     const serviceInput: UpdateActivityInput = body;
 
-    // 7. Call service layer to update activity
+    // 8. Call service layer to update activity
     // Service layer will validate input using Zod schema
     // Service layer will also check if activity exists and throw if not found
     const result = await updateActivity(tenantId, activityId, serviceInput);
 
-    // 8. Return JSON response with 200 OK
+    // 9. Return JSON response with 200 OK
     return json(result, { status: 200 });
   } catch (error) {
     // Handle "Activity not found" error from service layer
