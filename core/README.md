@@ -1,12 +1,12 @@
 # @drm/core
 
-Developer Relationship Management - Core Package (OSS)
+Developer Relationship Management
 
 ## Overview
 
 This package contains the core functionality of the DRM system, including:
 
-- **API Layer**: Hono-based REST API
+- **API Layer**: Remix-based REST API
 - **Database Layer**: Drizzle ORM with PostgreSQL
 - **Services**: Business logic and domain services
 - **Plugin System**: Extensible plugin architecture
@@ -40,8 +40,7 @@ pnpm typecheck
 
 - **Runtime**: Node.js 20+
 - **Language**: TypeScript 5.9+ (strict mode)
-- **API Framework**: Hono
-- **UI Framework**: Remix
+- **UI/API Framework**: Remix
 - **ORM**: Drizzle ORM
 - **Database**: PostgreSQL 15+
 - **Validation**: Zod
