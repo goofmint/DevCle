@@ -44,7 +44,8 @@ Remix Resource Routeとして、以下のHTTPメソッドを実装します。
  */
 
 import { json, type LoaderFunctionArgs, type ActionFunctionArgs } from '@remix-run/node';
-import { setTenantContext, clearTenantContext } from '~/db/connection.js';
+import { requireAuth } from '~/core/services/auth.middleware.js';
+import { setTenantContext, clearTenantContext } from '~/core/db/connection.js';
 import {
   createDeveloper,
   getDeveloper,
@@ -53,7 +54,7 @@ import {
   deleteDeveloper,
   type CreateDeveloperInput,
   type UpdateDeveloperInput,
-} from '~/services/drm.service.js';
+} from '~/core/services/drm.service.js';
 import { z } from 'zod';
 
 /**
@@ -80,7 +81,7 @@ import { z } from 'zod';
  * - 500 Internal Server Error: Database error
  *
  * Implementation:
- * 1. Extract tenant ID from session/headers
+ * 1. Authenticate user using requireAuth() middleware
  * 2. Parse and validate query parameters
  * 3. Set tenant context for RLS
  * 4. Call listDevelopers() from DRM Service
@@ -89,13 +90,14 @@ import { z } from 'zod';
  */
 export async function loader({ request }: LoaderFunctionArgs) {
   // Implementation will be added in coding phase
-  // 1. Authentication/Authorization check
-  // 2. Extract tenant ID from session
-  // 3. Parse query parameters (limit, offset, orgId, search, orderBy, orderDirection)
-  // 4. Set tenant context: await setTenantContext(tenantId)
-  // 5. Call service: const result = await listDevelopers(tenantId, params)
-  // 6. Clear tenant context: await clearTenantContext()
-  // 7. Return: return json(result)
+  // 1. Authentication/Authorization check using requireAuth()
+  //    const user = await requireAuth(request);
+  //    const tenantId = user.tenantId;
+  // 2. Parse query parameters (limit, offset, orgId, search, orderBy, orderDirection)
+  // 3. Set tenant context: await setTenantContext(tenantId)
+  // 4. Call service: const result = await listDevelopers(tenantId, params)
+  // 5. Clear tenant context: await clearTenantContext()
+  // 6. Return: return json(result)
   throw new Error('Not implemented');
 }
 
@@ -126,7 +128,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
  * - 500 Internal Server Error: Database error
  *
  * Implementation:
- * 1. Extract tenant ID from session/headers
+ * 1. Authenticate user using requireAuth() middleware
  * 2. Parse and validate request body (JSON)
  * 3. Set tenant context for RLS
  * 4. Call createDeveloper() from DRM Service
@@ -138,13 +140,14 @@ export async function action({ request }: ActionFunctionArgs) {
 
   if (method === 'POST') {
     // Implementation will be added in coding phase
-    // 1. Authentication/Authorization check
-    // 2. Extract tenant ID from session
-    // 3. Parse request body: const data = await request.json()
-    // 4. Set tenant context: await setTenantContext(tenantId)
-    // 5. Call service: const result = await createDeveloper(tenantId, data)
-    // 6. Clear tenant context: await clearTenantContext()
-    // 7. Return: return json(result, { status: 201 })
+    // 1. Authentication/Authorization check using requireAuth()
+    //    const user = await requireAuth(request);
+    //    const tenantId = user.tenantId;
+    // 2. Parse request body: const data = await request.json()
+    // 3. Set tenant context: await setTenantContext(tenantId)
+    // 4. Call service: const result = await createDeveloper(tenantId, data)
+    // 5. Clear tenant context: await clearTenantContext()
+    // 6. Return: return json(result, { status: 201 })
     throw new Error('Not implemented');
   }
 
@@ -170,13 +173,14 @@ export async function action({ request }: ActionFunctionArgs) {
  */
 
 import { json, type LoaderFunctionArgs, type ActionFunctionArgs } from '@remix-run/node';
-import { setTenantContext, clearTenantContext } from '~/db/connection.js';
+import { requireAuth } from '~/core/services/auth.middleware.js';
+import { setTenantContext, clearTenantContext } from '~/core/db/connection.js';
 import {
   getDeveloper,
   updateDeveloper,
   deleteDeveloper,
   type UpdateDeveloperInput,
-} from '~/services/drm.service.js';
+} from '~/core/services/drm.service.js';
 
 /**
  * GET /api/developers/:id - Get developer by ID
@@ -199,7 +203,7 @@ import {
  * - 500 Internal Server Error: Database error
  *
  * Implementation:
- * 1. Extract tenant ID from session/headers
+ * 1. Authenticate user using requireAuth() middleware
  * 2. Extract developer ID from URL params
  * 3. Validate developer ID (UUID format)
  * 4. Set tenant context for RLS
@@ -209,14 +213,15 @@ import {
  */
 export async function loader({ params, request }: LoaderFunctionArgs) {
   // Implementation will be added in coding phase
-  // 1. Authentication/Authorization check
-  // 2. Extract tenant ID from session
-  // 3. Validate developer ID: const developerId = params.id
-  // 4. Set tenant context: await setTenantContext(tenantId)
-  // 5. Call service: const result = await getDeveloper(tenantId, developerId)
-  // 6. Clear tenant context: await clearTenantContext()
-  // 7. If result is null: return json({ error: 'Not found' }, { status: 404 })
-  // 8. Return: return json(result)
+  // 1. Authentication/Authorization check using requireAuth()
+  //    const user = await requireAuth(request);
+  //    const tenantId = user.tenantId;
+  // 2. Validate developer ID: const developerId = params.id
+  // 3. Set tenant context: await setTenantContext(tenantId)
+  // 4. Call service: const result = await getDeveloper(tenantId, developerId)
+  // 5. Clear tenant context: await clearTenantContext()
+  // 6. If result is null: return json({ error: 'Not found' }, { status: 404 })
+  // 7. Return: return json(result)
   throw new Error('Not implemented');
 }
 
@@ -250,7 +255,7 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
  * - 500 Internal Server Error: Database error
  *
  * Implementation:
- * 1. Extract tenant ID from session/headers
+ * 1. Authenticate user using requireAuth() middleware
  * 2. Extract developer ID from URL params
  * 3. Parse and validate request body (JSON)
  * 4. Set tenant context for RLS
@@ -263,15 +268,16 @@ export async function action({ params, request }: ActionFunctionArgs) {
 
   if (method === 'PUT') {
     // Implementation will be added in coding phase
-    // 1. Authentication/Authorization check
-    // 2. Extract tenant ID from session
-    // 3. Validate developer ID: const developerId = params.id
-    // 4. Parse request body: const data = await request.json()
-    // 5. Set tenant context: await setTenantContext(tenantId)
-    // 6. Call service: const result = await updateDeveloper(tenantId, developerId, data)
-    // 7. Clear tenant context: await clearTenantContext()
-    // 8. If result is null: return json({ error: 'Not found' }, { status: 404 })
-    // 9. Return: return json(result)
+    // 1. Authentication/Authorization check using requireAuth()
+    //    const user = await requireAuth(request);
+    //    const tenantId = user.tenantId;
+    // 2. Validate developer ID: const developerId = params.id
+    // 3. Parse request body: const data = await request.json()
+    // 4. Set tenant context: await setTenantContext(tenantId)
+    // 5. Call service: const result = await updateDeveloper(tenantId, developerId, data)
+    // 6. Clear tenant context: await clearTenantContext()
+    // 7. If result is null: return json({ error: 'Not found' }, { status: 404 })
+    // 8. Return: return json(result)
     throw new Error('Not implemented');
   }
 
@@ -301,13 +307,27 @@ export async function action({ params, request }: ActionFunctionArgs) {
  * - 500 Internal Server Error: Database error
  *
  * Implementation:
- * 1. Extract tenant ID from session/headers
+ * 1. Authenticate user using requireAuth() middleware
  * 2. Extract developer ID from URL params
  * 3. Validate developer ID (UUID format)
  * 4. Set tenant context for RLS
  * 5. Call deleteDeveloper() from DRM Service
  * 6. If false (not found), return 404
  * 7. Return 204 No Content (no body)
+ *
+ * Implementation in action() method above:
+ * // if (method === 'DELETE') {
+ * //   const user = await requireAuth(request);
+ * //   const tenantId = user.tenantId;
+ * //   const developerId = params.id;
+ * //   await setTenantContext(tenantId);
+ * //   const result = await deleteDeveloper(tenantId, developerId);
+ * //   await clearTenantContext();
+ * //   if (!result) {
+ * //     return json({ error: 'Not found' }, { status: 404 });
+ * //   }
+ * //   return new Response(null, { status: 204 });
+ * // }
  *
  * Note: This is a HARD DELETE. Consider soft delete for GDPR compliance.
  */
@@ -584,15 +604,13 @@ interface ErrorResponse {
 ### エラーハンドリング実装例
 
 ```typescript
+import { requireAuth } from '~/core/services/auth.middleware.js';
+
 export async function loader({ request }: LoaderFunctionArgs) {
   try {
-    // 1. Authentication check
-    const session = await getSession(request.headers.get('Cookie'));
-    const tenantId = session.get('tenantId');
-
-    if (!tenantId) {
-      return json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    // 1. Authentication check using requireAuth middleware
+    const user = await requireAuth(request);
+    const tenantId = user.tenantId;
 
     // 2. Parse query parameters
     const url = new URL(request.url);
@@ -619,6 +637,11 @@ export async function loader({ request }: LoaderFunctionArgs) {
   } catch (error) {
     // 7. Handle errors
     await clearTenantContext(); // Ensure cleanup
+
+    // Handle requireAuth() redirect (API should return 401 instead of redirect)
+    if (error instanceof Response && error.status === 302) {
+      return json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
     if (error instanceof z.ZodError) {
       // Validation error
@@ -657,26 +680,42 @@ export async function loader({ request }: LoaderFunctionArgs) {
 開発者APIは、認証済みユーザーのみがアクセス可能です。
 
 **実装方針**:
-1. Remixの`getSession()`でCookieからセッション取得
-2. セッションに`tenantId`が含まれていることを確認
-3. 含まれていない場合は401 Unauthorizedを返す
+1. Task 3.8で実装した`requireAuth()`ミドルウェアを使用
+2. `requireAuth()`がユーザー情報（userId, tenantId, email, role）を返す
+3. 未認証の場合は自動的に`/auth/login`にリダイレクト
 
 ```typescript
-import { getSession } from '~/sessions.server';
+import { requireAuth } from '~/core/services/auth.middleware.js';
 
 export async function loader({ request }: LoaderFunctionArgs) {
-  // 1. Get session from cookie
-  const session = await getSession(request.headers.get('Cookie'));
+  // 1. Require authentication (throws redirect if not authenticated)
+  const user = await requireAuth(request);
 
-  // 2. Extract tenant ID
-  const tenantId = session.get('tenantId');
-
-  // 3. Check authentication
-  if (!tenantId) {
-    return json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  // 2. Extract tenant ID from authenticated user
+  const tenantId = user.tenantId;
 
   // ... proceed with authenticated request
+}
+```
+
+**認証エラーハンドリング**:
+- `requireAuth()`は未認証時に`throw redirect('/auth/login?returnTo=...')` を実行
+- API routesでは、リダイレクトの代わりに401 Unauthorizedを返したい場合は、`try-catch`で処理
+
+```typescript
+export async function loader({ request }: LoaderFunctionArgs) {
+  try {
+    const user = await requireAuth(request);
+    const tenantId = user.tenantId;
+
+    // ... API処理
+  } catch (error) {
+    // requireAuth()のredirectをキャッチして401を返す（API用）
+    if (error instanceof Response && error.status === 302) {
+      return json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    throw error; // その他のエラーは再throw
+  }
 }
 ```
 
@@ -1244,7 +1283,7 @@ import {
   DeveloperSchema,
   ListDevelopersSchema,
   UpdateDeveloperSchema,
-} from '~/services/drm.service.js';
+} from '~/core/services/drm.service.js';
 
 export const registry = new OpenAPIRegistry();
 

@@ -18,11 +18,12 @@
 -- ==================================================================
 
 -- ============================================================================
--- SECTION 1: Admin Tables (5 tables)
+-- SECTION 1: Admin Tables (5 tables - 4 with RLS, 1 without RLS)
 -- ============================================================================
 
 -- 1.1 tenants table
--- Multi-tenant root table
+-- Multi-tenant root table - RLS REQUIRED
+-- Prevents tenants from seeing other tenants' information (plans, settings, etc.)
 ALTER TABLE tenants ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tenants FORCE ROW LEVEL SECURITY;
 
@@ -37,19 +38,12 @@ CREATE POLICY tenant_isolation_policy ON tenants
   );
 
 -- 1.2 users table
--- Console users (dashboard login)
-ALTER TABLE users ENABLE ROW LEVEL SECURITY;
-ALTER TABLE users FORCE ROW LEVEL SECURITY;
-
-CREATE POLICY tenant_isolation_policy ON users
-  USING (
-    current_setting('app.current_tenant_id', true) IS NOT NULL
-    AND tenant_id = current_setting('app.current_tenant_id', true)::text
-  )
-  WITH CHECK (
-    current_setting('app.current_tenant_id', true) IS NOT NULL
-    AND tenant_id = current_setting('app.current_tenant_id', true)::text
-  );
+-- Console users (dashboard login) - NO RLS (authentication foundation data)
+-- Login flow needs to query users table BEFORE tenant context is set
+-- Therefore, RLS would prevent authentication from working
+-- Security is enforced by:
+-- - Password hashing (bcrypt)
+-- - Application-level filtering by tenant_id in auth.service.ts
 
 -- 1.3 api_keys table
 -- API keys for programmatic access

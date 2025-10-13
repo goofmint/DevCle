@@ -4,7 +4,7 @@
  * This script populates the database with initial test data for development and testing.
  * It creates:
  * - Default tenant (tenant_id = 'default')
- * - Test user for dashboard login
+ * - Test users for dashboard login (2: admin and member)
  * - Sample organizations (3)
  * - Sample developers (5)
  * - Sample accounts (4)
@@ -101,58 +101,81 @@ async function seedTenant(): Promise<void> {
 
   // Insert default tenant
   // Uses onConflictDoNothing() for idempotency (skip if already exists)
-  await db
-    .insert(schema.tenants)
-    .values({
-      tenantId: 'default',
-      name: 'Default Tenant',
-      plan: 'OSS',
-    })
-    .onConflictDoNothing();
+  try {
+    const result = await db
+      .insert(schema.tenants)
+      .values({
+        tenantId: 'default',
+        name: 'Default Tenant',
+        plan: 'OSS',
+      })
+      .onConflictDoNothing()
+      .returning();
 
-  console.log('    ✅ Tenant seeded');
+    console.log('    ✅ Tenant seeded:', result.length > 0 ? 'inserted' : 'skipped (exists)');
+  } catch (error) {
+    console.error('    ❌ Failed to seed tenant:', error);
+    throw error;
+  }
 }
 
 /**
- * Seed test user
+ * Seed test users
  *
- * Creates a test user for dashboard login in development.
- * Password is hashed using bcrypt for security.
+ * Creates test users for dashboard login in development.
+ * Passwords are hashed using bcrypt for security.
  *
  * Login credentials:
- * - Email: test@example.com
- * - Password: password123
+ * - Admin: admin@example.com / admin123456 (role: admin)
+ * - Member: test@example.com / password123 (role: member)
  *
- * @returns {Promise<string>} User UUID
+ * @returns {Promise<Record<string, string>>} Map of user types to UUIDs
  */
-async function seedUsers(): Promise<string> {
+async function seedUsers(): Promise<Record<string, string>> {
   const db = getDb();
 
   console.log('  👤 Seeding users...');
 
-  // Generate password hash
-  // This takes ~100ms due to bcrypt's intentional slowness (security feature)
-  const passwordHash = await hashPassword('password123');
+  // Generate password hashes
+  // This takes ~100ms per hash due to bcrypt's intentional slowness (security feature)
+  const memberPasswordHash = await hashPassword('password123');
+  const adminPasswordHash = await hashPassword('admin123456');
 
-  const userId = generateUUID();
+  const memberId = generateUUID();
+  const adminId = generateUUID();
 
-  // Insert test user
+  // Insert test users (member and admin)
   await db
     .insert(schema.users)
-    .values({
-      userId,
-      tenantId: 'default',
-      email: 'test@example.com',
-      displayName: 'Test User',
-      passwordHash,
-      authProvider: 'password',
-      disabled: false,
-    })
+    .values([
+      {
+        userId: memberId,
+        tenantId: 'default',
+        email: 'test@example.com',
+        displayName: 'Test User',
+        passwordHash: memberPasswordHash,
+        authProvider: 'password',
+        role: 'member',
+        disabled: false,
+      },
+      {
+        userId: adminId,
+        tenantId: 'default',
+        email: 'admin@example.com',
+        displayName: 'Admin User',
+        passwordHash: adminPasswordHash,
+        authProvider: 'password',
+        role: 'admin',
+        disabled: false,
+      },
+    ])
     .onConflictDoNothing();
 
-  console.log('    ✅ User seeded (test@example.com / password123)');
+  console.log('    ✅ Users seeded:');
+  console.log('       - test@example.com / password123 (member)');
+  console.log('       - admin@example.com / admin123456 (admin)');
 
-  return userId;
+  return { member: memberId, admin: adminId };
 }
 
 /**
@@ -901,16 +924,17 @@ async function seed(): Promise<void> {
     await testConnection();
     console.log('✅ Database connection OK\n');
 
-    // Temporarily disable RLS on all tables for seeding
+    // Temporarily disable RLS on all RLS-enabled tables for seeding
+    // Note: users table does NOT have RLS (authentication foundation data)
     // This is necessary because:
     // 1. Connection pooling makes session variables unreliable
     // 2. The devcle user is not a superuser (cannot bypass RLS)
     // 3. We need to seed data without RLS constraints
-    console.log('  🔓 Temporarily disabling RLS on all tables for seeding...\n');
+    console.log('  🔓 Temporarily disabling RLS on all RLS-enabled tables for seeding...\n');
 
     const tables = [
-      // Admin tables
-      'tenants', 'users', 'api_keys', 'system_settings', 'notifications',
+      // Admin tables (excluding users which has no RLS)
+      'tenants', 'api_keys', 'system_settings', 'notifications',
       // Core entity tables
       'organizations', 'developers', 'accounts', 'developer_identifiers', 'developer_merge_logs',
       // Campaign/Resource tables
@@ -924,10 +948,47 @@ async function seed(): Promise<void> {
     ];
 
     for (const table of tables) {
+      // Remove FORCE RLS first, then disable RLS
+      // FORCE RLS prevents table owners from bypassing RLS
+      await sql.unsafe(`ALTER TABLE ${table} NO FORCE ROW LEVEL SECURITY`);
       await sql.unsafe(`ALTER TABLE ${table} DISABLE ROW LEVEL SECURITY`);
     }
 
     console.log('    ✅ RLS disabled on all tables\n');
+
+    // Clear all existing data for idempotent seeding
+    // This allows running the seed script multiple times (useful for testing)
+    // Uses TRUNCATE CASCADE to handle foreign key constraints
+    console.log('  🗑️  Clearing existing data...\n');
+
+    // TRUNCATE in reverse dependency order to avoid FK violations
+    // Note: CASCADE handles all FK constraints automatically
+    await sql.unsafe('TRUNCATE TABLE activity_funnel_map CASCADE');
+    await sql.unsafe('TRUNCATE TABLE funnel_stages CASCADE');
+    await sql.unsafe('TRUNCATE TABLE activities CASCADE');
+    await sql.unsafe('TRUNCATE TABLE activity_campaigns CASCADE');
+    await sql.unsafe('TRUNCATE TABLE resources CASCADE');
+    await sql.unsafe('TRUNCATE TABLE campaigns CASCADE');
+    await sql.unsafe('TRUNCATE TABLE budgets CASCADE');
+    await sql.unsafe('TRUNCATE TABLE accounts CASCADE');
+    await sql.unsafe('TRUNCATE TABLE developer_identifiers CASCADE');
+    await sql.unsafe('TRUNCATE TABLE developer_merge_logs CASCADE');
+    await sql.unsafe('TRUNCATE TABLE developers CASCADE');
+    await sql.unsafe('TRUNCATE TABLE organizations CASCADE');
+    await sql.unsafe('TRUNCATE TABLE users CASCADE');
+    await sql.unsafe('TRUNCATE TABLE api_keys CASCADE');
+    await sql.unsafe('TRUNCATE TABLE system_settings CASCADE');
+    await sql.unsafe('TRUNCATE TABLE notifications CASCADE');
+    await sql.unsafe('TRUNCATE TABLE plugins CASCADE');
+    await sql.unsafe('TRUNCATE TABLE plugin_runs CASCADE');
+    await sql.unsafe('TRUNCATE TABLE plugin_events_raw CASCADE');
+    await sql.unsafe('TRUNCATE TABLE import_jobs CASCADE');
+    await sql.unsafe('TRUNCATE TABLE shortlinks CASCADE');
+    await sql.unsafe('TRUNCATE TABLE developer_stats CASCADE');
+    await sql.unsafe('TRUNCATE TABLE campaign_stats CASCADE');
+    await sql.unsafe('TRUNCATE TABLE tenants CASCADE');
+
+    console.log('    ✅ All data cleared\n');
 
     // Seed in dependency order
     // Each function is idempotent (can be run multiple times safely)
@@ -955,7 +1016,7 @@ async function seed(): Promise<void> {
     console.log('\n✅ Seed completed successfully!');
     console.log('\n📊 Summary:');
     console.log('  - Tenant: 1');
-    console.log('  - Users: 1');
+    console.log('  - Users: 2 (1 admin, 1 member)');
     console.log('  - Organizations: 3');
     console.log('  - Developers: 5');
     console.log('  - Accounts: 4');
@@ -973,11 +1034,12 @@ async function seed(): Promise<void> {
   } finally {
     // Always re-enable RLS, even if seeding fails
     // This ensures security policies are restored
-    console.log('\n  🔒 Re-enabling RLS on all tables...\n');
+    // Note: tenants and users tables do NOT have RLS
+    console.log('\n  🔒 Re-enabling RLS on business data tables...\n');
 
     const tables = [
-      // Admin tables
-      'tenants', 'users', 'api_keys', 'system_settings', 'notifications',
+      // Admin tables (excluding tenants and users which have no RLS)
+      'api_keys', 'system_settings', 'notifications',
       // Core entity tables
       'organizations', 'developers', 'accounts', 'developer_identifiers', 'developer_merge_logs',
       // Campaign/Resource tables
@@ -992,7 +1054,10 @@ async function seed(): Promise<void> {
 
     for (const table of tables) {
       try {
+        // Re-enable RLS and restore FORCE RLS
+        // This ensures security policies are fully restored
         await sql.unsafe(`ALTER TABLE ${table} ENABLE ROW LEVEL SECURITY`);
+        await sql.unsafe(`ALTER TABLE ${table} FORCE ROW LEVEL SECURITY`);
       } catch (error) {
         // Log error but don't throw - we want to re-enable as many tables as possible
         console.error(`    ⚠️  Failed to re-enable RLS on ${table}:`, error);
