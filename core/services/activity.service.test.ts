@@ -4,6 +4,7 @@
  * Tests for the Activity Service (Developer Activity Management).
  * These tests verify that:
  * - createActivity() works correctly (record activities)
+ * - getActivity() works correctly (get by ID)
  * - listActivities() works correctly (filter, paginate, sort)
  * - updateActivity() works correctly (partial updates)
  * - deleteActivity() works correctly (hard delete)
@@ -26,6 +27,7 @@ import * as schema from '../db/schema/index.js';
 import { eq } from 'drizzle-orm';
 import {
   createActivity,
+  getActivity,
   listActivities,
   updateActivity,
   deleteActivity,
@@ -544,6 +546,90 @@ describe('Activity Service', () => {
 
       // Assert: Should return empty array
       expect(activities).toEqual([]);
+    });
+  });
+
+  describe('getActivity', () => {
+    it('should get activity by ID', async () => {
+      // Arrange: Create developer and activity
+      const timestamp = Date.now();
+      const dev = await createDeveloper('default', {
+        displayName: 'Test Developer',
+        primaryEmail: `get-by-id-${timestamp}@example.com`,
+        orgId: null,
+      });
+
+      const activity = await createActivity('default', {
+        developerId: dev.developerId,
+        action: 'view',
+        occurredAt: new Date('2025-01-15'),
+        source: 'web',
+        metadata: { page: '/docs' },
+      });
+
+      // Act: Get activity by ID
+      const retrieved = await getActivity('default', activity.activityId);
+
+      // Assert: Should return the activity
+      expect(retrieved).not.toBeNull();
+      expect(retrieved!.activityId).toBe(activity.activityId);
+      expect(retrieved!.developerId).toBe(dev.developerId);
+      expect(retrieved!.action).toBe('view');
+      expect(retrieved!.metadata).toEqual({ page: '/docs' });
+
+      // Cleanup
+      const db = getDb();
+      await db.delete(schema.activities).where(eq(schema.activities.activityId, activity.activityId));
+      await deleteDeveloper('default', dev.developerId);
+    });
+
+    it('should return null if activity not found', async () => {
+      // Act: Get non-existent activity
+      const retrieved = await getActivity('default', '99999999-9999-4999-8999-999999999999');
+
+      // Assert: Should return null
+      expect(retrieved).toBeNull();
+    });
+
+    it('should get activity with all fields', async () => {
+      // Arrange: Create activity with all optional fields
+      const timestamp = Date.now();
+      const dev = await createDeveloper('default', {
+        displayName: 'Test Developer',
+        primaryEmail: `get-all-fields-${timestamp}@example.com`,
+        orgId: null,
+      });
+
+      const activity = await createActivity('default', {
+        developerId: dev.developerId,
+        action: 'star',
+        occurredAt: new Date('2025-01-20'),
+        source: 'github',
+        sourceRef: 'https://github.com/user/repo',
+        category: 'engagement',
+        groupKey: 'repo-stars',
+        metadata: { repo: 'user/repo', stars: 100 },
+        confidence: 0.95,
+      });
+
+      // Act: Get activity
+      const retrieved = await getActivity('default', activity.activityId);
+
+      // Assert: Should return all fields
+      expect(retrieved).not.toBeNull();
+      expect(retrieved!.developerId).toBe(dev.developerId);
+      expect(retrieved!.action).toBe('star');
+      expect(retrieved!.source).toBe('github');
+      expect(retrieved!.sourceRef).toBe('https://github.com/user/repo');
+      expect(retrieved!.category).toBe('engagement');
+      expect(retrieved!.groupKey).toBe('repo-stars');
+      expect(retrieved!.metadata).toEqual({ repo: 'user/repo', stars: 100 });
+      expect(retrieved!.confidence).toBe('0.95');
+
+      // Cleanup
+      const db = getDb();
+      await db.delete(schema.activities).where(eq(schema.activities.activityId, activity.activityId));
+      await deleteDeveloper('default', dev.developerId);
     });
   });
 

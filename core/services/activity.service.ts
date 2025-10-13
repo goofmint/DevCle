@@ -25,6 +25,7 @@ export {
 
 // Export CRUD operations
 export { createActivity } from './activity-create.service.js';
+export { getActivity } from './activity-get.service.js';
 export { listActivities } from './activity-list.service.js';
 export { updateActivity } from './activity-update.service.js';
 export { deleteActivity } from './activity-delete.service.js';
