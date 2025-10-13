@@ -6,7 +6,7 @@
 
 import { withTenantContext } from '../db/connection.js';
 import * as schema from '../db/schema/index.js';
-import { eq, and, desc, asc, gte, lte, count } from 'drizzle-orm';
+import { eq, and, desc, asc, gte, lte, sql } from 'drizzle-orm';
 import { ListActivitiesSchema, type ListActivitiesInput } from './activity.schemas.js';
 
 /**
@@ -89,7 +89,7 @@ export async function listActivities(
 
       // 5. Get total count using COUNT aggregate (efficient, no limit/offset)
       const countResult = await tx
-        .select({ count: count() })
+        .select({ count: sql<number>`count(*)` })
         .from(schema.activities)
         .where(and(...conditions));
 
