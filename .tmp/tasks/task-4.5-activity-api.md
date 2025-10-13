@@ -448,7 +448,7 @@ export async function action({ params, request }: ActionFunctionArgs) {
       "category": "engagement",
       "groupKey": "repo-stars",
       "metadata": { "repo": "example/repo", "language": "typescript" },
-      "confidence": "1.0",
+      "confidence": 1.0,
       "dedupKey": "github_star_repo_12345",
       "ingestedAt": "2025-10-13T10:00:02.000Z"
     }
@@ -516,7 +516,7 @@ export async function action({ params, request }: ActionFunctionArgs) {
   "category": "engagement",
   "groupKey": "repo-stars",
   "metadata": { "repo": "example/repo", "language": "typescript" },
-  "confidence": "1.0",
+  "confidence": 1.0,
   "dedupKey": "github_star_repo_12345",
   "ingestedAt": "2025-10-13T10:00:02.000Z"
 }
@@ -566,7 +566,7 @@ export async function action({ params, request }: ActionFunctionArgs) {
   "category": "engagement",
   "groupKey": "repo-stars",
   "metadata": { "repo": "example/repo", "language": "typescript" },
-  "confidence": "1.0",
+  "confidence": 1.0,
   "dedupKey": "github_star_repo_12345",
   "ingestedAt": "2025-10-13T10:00:02.000Z"
 }
@@ -615,7 +615,7 @@ export async function action({ params, request }: ActionFunctionArgs) {
   "category": "engagement",
   "groupKey": "repo-stars",
   "metadata": { "repo": "example/repo", "language": "typescript", "stars": 100 },
-  "confidence": "1.0",
+  "confidence": 1.0,
   "dedupKey": "github_star_repo_12345",
   "ingestedAt": "2025-10-13T10:00:02.000Z"
 }
