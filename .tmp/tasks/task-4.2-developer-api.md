@@ -418,7 +418,7 @@ export async function action({ params, request }: ActionFunctionArgs) {
 {
   "error": "Invalid query parameters",
   "details": {
-    "limit": "Must be a positive integer"
+    "limit": ["Must be a positive integer"]
   }
 }
 
@@ -462,7 +462,7 @@ export async function action({ params, request }: ActionFunctionArgs) {
 {
   "error": "Validation failed",
   "details": {
-    "primaryEmail": "Invalid email format"
+    "primaryEmail": ["Invalid email format"]
   }
 }
 
@@ -544,7 +544,7 @@ export async function action({ params, request }: ActionFunctionArgs) {
 {
   "error": "Validation failed",
   "details": {
-    "primaryEmail": "Invalid email format"
+    "primaryEmail": ["Invalid email format"]
   }
 }
 ```
@@ -597,7 +597,7 @@ export async function action({ params, request }: ActionFunctionArgs) {
 ```typescript
 interface ErrorResponse {
   error: string;           // エラーメッセージ
-  details?: Record<string, string>; // フィールド別エラー（バリデーション時）
+  details?: Record<string, string[]>; // フィールド別エラー（バリデーション時）
 }
 ```
 
@@ -1294,10 +1294,10 @@ const ErrorResponseSchema = z
   .object({
     error: z.string().openapi({ example: 'Error message' }),
     details: z
-      .record(z.string())
+      .record(z.array(z.string()))
       .optional()
       .openapi({
-        example: { email: 'Invalid email format' },
+        example: { email: ['Invalid email format'] },
         description: 'Field-level error details',
       }),
   })

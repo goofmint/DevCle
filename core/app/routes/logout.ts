@@ -21,7 +21,7 @@
  * ```
  */
 
-import { redirect, type ActionFunctionArgs, type LoaderFunctionArgs } from '@remix-run/node';
+import { redirect, type ActionFunctionArgs } from '@remix-run/node';
 import { getSession, destroySession } from '~/sessions.server.js';
 
 /**
@@ -55,7 +55,7 @@ export async function action({ request }: ActionFunctionArgs) {
  * Logout requires POST for security (prevents CSRF via image src, etc.)
  * If user navigates to /logout directly, redirect to home page.
  */
-export async function loader({ request }: LoaderFunctionArgs) {
+export async function loader() {
   // GET requests to /logout should redirect to home
   // Actual logout must be done via POST
   return redirect('/');
