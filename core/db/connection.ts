@@ -40,6 +40,7 @@
 import postgres from 'postgres';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
+import { sql as drizzleSql } from 'drizzle-orm';
 import * as schema from './schema';
 
 /**
@@ -577,5 +578,96 @@ export async function clearTenantContext(): Promise<void> {
     const message =
       error instanceof Error ? error.message : 'Unknown error';
     throw new Error(`Failed to clear tenant context: ${message}`);
+  }
+}
+
+/**
+ * Execute callback within a transaction with tenant context
+ *
+ * This is the CORRECT way to use RLS with connection pooling.
+ * Uses SET LOCAL to set tenant context ONLY for this transaction.
+ *
+ * Why SET LOCAL instead of SET:
+ * - SET LOCAL is transaction-scoped (automatically cleared on commit/rollback)
+ * - SET is session-scoped (persists across queries, dangerous with pooling)
+ * - Connection pooling reuses connections, so SET would leak to other requests
+ *
+ * How it works:
+ * 1. Start transaction
+ * 2. Execute SET LOCAL app.current_tenant_id = '<tenantId>'
+ * 3. Execute callback (all queries in callback use this tenant context)
+ * 4. Commit or rollback (tenant context automatically cleared)
+ *
+ * Production Safety:
+ * - Works correctly with connection pooling (max: 20)
+ * - No tenant context leakage between requests
+ * - Automatic cleanup on error (rollback clears SET LOCAL)
+ *
+ * Usage in service functions:
+ * ```typescript
+ * export async function getDeveloper(
+ *   tenantId: string,
+ *   developerId: string
+ * ): Promise<Developer | null> {
+ *   return await withTenantContext(tenantId, async (tx) => {
+ *     const result = await tx
+ *       .select()
+ *       .from(schema.developers)
+ *       .where(eq(schema.developers.developerId, developerId))
+ *       .limit(1);
+ *     return result[0] ?? null;
+ *   });
+ * }
+ * ```
+ *
+ * @param tenantId - Tenant ID to set (e.g., 'default', 'acme-corp')
+ * @param callback - Async function that receives transaction client
+ * @returns Result of callback
+ * @throws {Error} If tenantId is invalid or callback throws
+ */
+export async function withTenantContext<T>(
+  tenantId: string,
+  callback: (tx: Parameters<Parameters<ReturnType<typeof getDb>['transaction']>[0]>[0]) => Promise<T>
+): Promise<T> {
+  // Validate tenantId (same validation as setTenantContext)
+  if (!tenantId || tenantId.trim() === '') {
+    throw new Error('Tenant ID cannot be empty');
+  }
+
+  const safePattern = /^[a-zA-Z0-9_-]+$/;
+  if (!safePattern.test(tenantId)) {
+    throw new Error(
+      `Tenant ID contains invalid characters. Only alphanumeric, hyphen, and underscore are allowed. Got: ${tenantId}`
+    );
+  }
+
+  const db = getDb();
+
+  try {
+    // Execute callback within transaction with tenant context
+    return await db.transaction(async (tx) => {
+      // Set tenant context ONLY for this transaction using SET LOCAL
+      // SET LOCAL is automatically cleared on commit/rollback
+      // CRITICAL: This is safe with connection pooling because it's transaction-scoped
+
+      // Execute SET LOCAL using Drizzle's execute method
+      // SET LOCAL command does not support parameterized queries, so we use sql.raw()
+      // SECURITY: tenantId has been validated above to prevent SQL injection
+      await tx.execute(
+        drizzleSql.raw(`SET LOCAL app.current_tenant_id = '${tenantId}'`)
+      );
+
+      // Execute callback with transaction client
+      // All queries in callback will use the tenant context
+      return await callback(tx);
+    });
+  } catch (error) {
+    console.error(
+      `Failed to execute query with tenant context '${tenantId}':`,
+      error
+    );
+
+    // Re-throw original error (don't wrap, preserves stack trace)
+    throw error;
   }
 }

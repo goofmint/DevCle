@@ -14,7 +14,7 @@
  * must be called to set up RLS policy context. See Task 3.7 for details.
  */
 
-import { getDb, setTenantContext } from '../db/connection.js';
+import { withTenantContext } from '../db/connection.js';
 import * as schema from '../db/schema/index.js';
 import { z } from 'zod';
 import { eq, and, or, like, count, asc, desc, sql, type SQL } from 'drizzle-orm';
@@ -133,53 +133,49 @@ export async function createDeveloper(
   // This transforms z.input → z.infer (applies defaults: consentAnalytics=true, tags=[])
   const validated: CreateDeveloperData = CreateDeveloperSchema.parse(data);
 
-  // 2. Set tenant context for RLS (MUST be called before any database operations)
-  // This sets the session variable that RLS policies use to filter data
-  await setTenantContext(tenantId);
+  // 2. Execute within transaction with tenant context (production-safe with connection pooling)
+  return await withTenantContext(tenantId, async (tx) => {
+    try {
+      // 3. Insert into database using Drizzle ORM
+      // RLS policy will automatically filter by tenant_id
+      const [result] = await tx
+        .insert(schema.developers)
+        .values({
+          developerId: crypto.randomUUID(), // Generate UUID v4
+          tenantId,
+          displayName: validated.displayName,
+          primaryEmail: validated.primaryEmail,
+          orgId: validated.orgId,
+          consentAnalytics: validated.consentAnalytics,
+          tags: validated.tags,
+        })
+        .returning();
 
-  // 3. Get database connection
-  const db = getDb();
-
-  try {
-    // 3. Insert into database using Drizzle ORM
-    // RLS policy will automatically filter by tenant_id
-    const [result] = await db
-      .insert(schema.developers)
-      .values({
-        developerId: crypto.randomUUID(), // Generate UUID v4
-        tenantId,
-        displayName: validated.displayName,
-        primaryEmail: validated.primaryEmail,
-        orgId: validated.orgId,
-        consentAnalytics: validated.consentAnalytics,
-        tags: validated.tags,
-      })
-      .returning();
-
-    // 4. Return created record
-    // TypeScript ensures result exists because .returning() always returns array
-    if (!result) {
-      throw new Error('Failed to create developer: No record returned');
-    }
-
-    return result;
-  } catch (error) {
-    // Handle database-specific errors
-    if (error instanceof Error) {
-      // Check for unique constraint violation (duplicate email)
-      if (error.message.includes('duplicate key')) {
-        throw new Error('Developer with this email already exists');
+      // 4. Return created record
+      // TypeScript ensures result exists because .returning() always returns array
+      if (!result) {
+        throw new Error('Failed to create developer: No record returned');
       }
-      // Check for foreign key constraint violation (invalid orgId)
-      if (error.message.includes('foreign key')) {
-        throw new Error('Referenced organization does not exist');
-      }
-    }
 
-    // Log unexpected errors for debugging
-    console.error('Failed to create developer:', error);
-    throw new Error('Failed to create developer due to database error');
-  }
+      return result;
+    } catch (error) {
+      // Handle database-specific errors
+      if (error instanceof Error) {
+        // Check for unique constraint violation (duplicate email)
+        if (error.message.includes('duplicate key')) {
+          throw new Error('Developer with this email already exists');
+        }
+        // Check for foreign key constraint violation (invalid orgId)
+        if (error.message.includes('foreign key')) {
+          throw new Error('Referenced organization does not exist');
+        }
+      }
+
+      // Log unexpected errors for debugging
+      console.error('Failed to create developer:', error);
+      throw new Error('Failed to create developer due to database error');
+    }
+  });
 }
 
 /**
@@ -201,27 +197,25 @@ export async function getDeveloper(
   tenantId: string,
   developerId: string
 ): Promise<typeof schema.developers.$inferSelect | null> {
-  // Set tenant context for RLS (MUST be called before any database operations)
-  await setTenantContext(tenantId);
+  // Execute within transaction with tenant context (production-safe with connection pooling)
+  return await withTenantContext(tenantId, async (tx) => {
+    try {
+      // Query by developer_id
+      // RLS policy will automatically filter by tenant_id
+      const result = await tx
+        .select()
+        .from(schema.developers)
+        .where(eq(schema.developers.developerId, developerId))
+        .limit(1);
 
-  const db = getDb();
-
-  try {
-    // Query by developer_id
-    // RLS policy will automatically filter by tenant_id
-    const result = await db
-      .select()
-      .from(schema.developers)
-      .where(eq(schema.developers.developerId, developerId))
-      .limit(1);
-
-    // Return null if not found (this is expected behavior, not an error)
-    return result[0] ?? null;
-  } catch (error) {
-    // Log unexpected errors
-    console.error('Failed to get developer:', error);
-    throw new Error('Failed to retrieve developer from database');
-  }
+      // Return null if not found (this is expected behavior, not an error)
+      return result[0] ?? null;
+    } catch (error) {
+      // Log unexpected errors
+      console.error('Failed to get developer:', error);
+      throw new Error('Failed to retrieve developer from database');
+    }
+  });
 }
 
 /**
@@ -277,75 +271,73 @@ export async function listDevelopers(
   // 1. Validate and apply defaults
   const validated: ListDevelopersParams = ListDevelopersSchema.parse(params);
 
-  // 2. Set tenant context for RLS (MUST be called before any database operations)
-  await setTenantContext(tenantId);
+  // 2. Execute within transaction with tenant context (production-safe with connection pooling)
+  return await withTenantContext(tenantId, async (tx) => {
+    try {
+      // 2. Build WHERE conditions
+      const whereConditions: SQL[] = [];
 
-  const db = getDb();
+      // Filter by organization ID if provided
+      if (validated.orgId) {
+        whereConditions.push(eq(schema.developers.orgId, validated.orgId));
+      }
 
-  try {
-    // 2. Build WHERE conditions
-    const whereConditions: SQL[] = [];
+      // Search in displayName and primaryEmail (case-insensitive)
+      if (validated.search) {
+        const searchPattern = `%${validated.search}%`;
+        whereConditions.push(
+          or(
+            like(schema.developers.displayName, searchPattern),
+            like(schema.developers.primaryEmail, searchPattern)
+          ) as SQL
+        );
+      }
 
-    // Filter by organization ID if provided
-    if (validated.orgId) {
-      whereConditions.push(eq(schema.developers.orgId, validated.orgId));
+      // Combine conditions with AND (RLS will add tenant_id filter automatically)
+      const whereClause =
+        whereConditions.length > 0 ? and(...whereConditions) : undefined;
+
+      // 3. Determine sort column
+      const sortColumn =
+        validated.orderBy === 'displayName'
+          ? schema.developers.displayName
+          : validated.orderBy === 'primaryEmail'
+          ? schema.developers.primaryEmail
+          : validated.orderBy === 'updatedAt'
+          ? schema.developers.updatedAt
+          : schema.developers.createdAt;
+
+      // Determine sort direction
+      const sortOrder = validated.orderDirection === 'asc' ? asc : desc;
+
+      // 4. Execute data query and count query in parallel
+      const [developers, countResult] = await Promise.all([
+        // Data query with sorting and pagination
+        tx
+          .select()
+          .from(schema.developers)
+          .where(whereClause)
+          .orderBy(sortOrder(sortColumn))
+          .limit(validated.limit)
+          .offset(validated.offset),
+
+        // Count query (without limit/offset/order)
+        tx
+          .select({ count: count() })
+          .from(schema.developers)
+          .where(whereClause),
+      ]);
+
+      // 5. Return results
+      return {
+        developers,
+        total: countResult[0]?.count ?? 0,
+      };
+    } catch (error) {
+      console.error('Failed to list developers:', error);
+      throw new Error('Failed to retrieve developers from database');
     }
-
-    // Search in displayName and primaryEmail (case-insensitive)
-    if (validated.search) {
-      const searchPattern = `%${validated.search}%`;
-      whereConditions.push(
-        or(
-          like(schema.developers.displayName, searchPattern),
-          like(schema.developers.primaryEmail, searchPattern)
-        ) as SQL
-      );
-    }
-
-    // Combine conditions with AND (RLS will add tenant_id filter automatically)
-    const whereClause =
-      whereConditions.length > 0 ? and(...whereConditions) : undefined;
-
-    // 3. Determine sort column
-    const sortColumn =
-      validated.orderBy === 'displayName'
-        ? schema.developers.displayName
-        : validated.orderBy === 'primaryEmail'
-        ? schema.developers.primaryEmail
-        : validated.orderBy === 'updatedAt'
-        ? schema.developers.updatedAt
-        : schema.developers.createdAt;
-
-    // Determine sort direction
-    const sortOrder = validated.orderDirection === 'asc' ? asc : desc;
-
-    // 4. Execute data query and count query in parallel
-    const [developers, countResult] = await Promise.all([
-      // Data query with sorting and pagination
-      db
-        .select()
-        .from(schema.developers)
-        .where(whereClause)
-        .orderBy(sortOrder(sortColumn))
-        .limit(validated.limit)
-        .offset(validated.offset),
-
-      // Count query (without limit/offset/order)
-      db
-        .select({ count: count() })
-        .from(schema.developers)
-        .where(whereClause),
-    ]);
-
-    // 5. Return results
-    return {
-      developers,
-      total: countResult[0]?.count ?? 0,
-    };
-  } catch (error) {
-    console.error('Failed to list developers:', error);
-    throw new Error('Failed to retrieve developers from database');
-  }
+  });
 }
 
 /**
@@ -384,60 +376,62 @@ export async function updateDeveloper(
   // 1. Validate input
   const validated: UpdateDeveloperInput = UpdateDeveloperSchema.parse(data);
 
-  // 2. Set tenant context for RLS (MUST be called before any database operations)
-  // Note: getDeveloper also sets tenant context, but we set it here explicitly
-  // to ensure it's set even if getDeveloper's implementation changes
-  await setTenantContext(tenantId);
+  // 2. Execute within transaction with tenant context (production-safe with connection pooling)
+  return await withTenantContext(tenantId, async (tx) => {
+    try {
+      // 3. Check if developer exists
+      const existingResult = await tx
+        .select()
+        .from(schema.developers)
+        .where(eq(schema.developers.developerId, developerId))
+        .limit(1);
 
-  // 3. Check if developer exists
-  const existing = await getDeveloper(tenantId, developerId);
-  if (!existing) {
-    return null; // Not found
-  }
-
-  // 3. If no fields to update, return existing record (no-op)
-  if (Object.keys(validated).length === 0) {
-    return existing;
-  }
-
-  const db = getDb();
-
-  try {
-    // 4. Update record using Drizzle ORM
-    // RLS policy will automatically filter by tenant_id
-    const [result] = await db
-      .update(schema.developers)
-      .set({
-        ...validated,
-        // Explicitly set updatedAt to current timestamp
-        updatedAt: sql`now()`,
-      })
-      .where(eq(schema.developers.developerId, developerId))
-      .returning();
-
-    // 5. Return updated record
-    if (!result) {
-      throw new Error('Failed to update developer: No record returned');
-    }
-
-    return result;
-  } catch (error) {
-    // Handle database-specific errors
-    if (error instanceof Error) {
-      // Check for unique constraint violation (duplicate email)
-      if (error.message.includes('duplicate key')) {
-        throw new Error('Developer with this email already exists');
+      const existing = existingResult[0];
+      if (!existing) {
+        return null; // Not found
       }
-      // Check for foreign key constraint violation (invalid orgId)
-      if (error.message.includes('foreign key')) {
-        throw new Error('Referenced organization does not exist');
-      }
-    }
 
-    // Log unexpected errors
-    console.error('Failed to update developer:', error);
-    throw new Error('Failed to update developer due to database error');
-  }
+      // 4. If no fields to update, return existing record (no-op)
+      if (Object.keys(validated).length === 0) {
+        return existing;
+      }
+
+      // 5. Update record using Drizzle ORM
+      // RLS policy will automatically filter by tenant_id
+      const [result] = await tx
+        .update(schema.developers)
+        .set({
+          ...validated,
+          // Explicitly set updatedAt to current timestamp
+          updatedAt: sql`now()`,
+        })
+        .where(eq(schema.developers.developerId, developerId))
+        .returning();
+
+      // 6. Return updated record
+      if (!result) {
+        throw new Error('Failed to update developer: No record returned');
+      }
+
+      return result;
+    } catch (error) {
+      // Handle database-specific errors
+      if (error instanceof Error) {
+        // Check for unique constraint violation (duplicate email)
+        if (error.message.includes('duplicate key')) {
+          throw new Error('Developer with this email already exists');
+        }
+        // Check for foreign key constraint violation (invalid orgId)
+        if (error.message.includes('foreign key')) {
+          throw new Error('Referenced organization does not exist');
+        }
+      }
+
+      // Log unexpected errors
+      console.error('Failed to update developer:', error);
+      throw new Error('Failed to update developer due to database error');
+    }
+  });
 }
 
 /**
@@ -477,30 +471,32 @@ export async function deleteDeveloper(
   tenantId: string,
   developerId: string
 ): Promise<boolean> {
-  // 1. Set tenant context for RLS (MUST be called before any database operations)
-  // Note: getDeveloper also sets tenant context, but we set it here explicitly
-  await setTenantContext(tenantId);
+  // 1. Execute within transaction with tenant context (production-safe with connection pooling)
+  return await withTenantContext(tenantId, async (tx) => {
+    try {
+      // 2. Check if developer exists
+      const existingResult = await tx
+        .select()
+        .from(schema.developers)
+        .where(eq(schema.developers.developerId, developerId))
+        .limit(1);
 
-  // 2. Check if developer exists
-  const existing = await getDeveloper(tenantId, developerId);
-  if (!existing) {
-    return false; // Not found
-  }
+      if (!existingResult[0]) {
+        return false; // Not found
+      }
 
-  const db = getDb();
+      // 3. Delete record using Drizzle ORM
+      // RLS policy will automatically filter by tenant_id
+      await tx
+        .delete(schema.developers)
+        .where(eq(schema.developers.developerId, developerId));
 
-  try {
-    // 2. Delete record using Drizzle ORM
-    // RLS policy will automatically filter by tenant_id
-    await db
-      .delete(schema.developers)
-      .where(eq(schema.developers.developerId, developerId));
-
-    // 3. Return success
-    return true;
-  } catch (error) {
-    // Log unexpected errors
-    console.error('Failed to delete developer:', error);
-    throw new Error('Failed to delete developer from database');
-  }
+      // 4. Return success
+      return true;
+    } catch (error) {
+      // Log unexpected errors
+      console.error('Failed to delete developer:', error);
+      throw new Error('Failed to delete developer from database');
+    }
+  });
 }
