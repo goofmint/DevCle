@@ -6,7 +6,7 @@
 
 import { withTenantContext } from '../db/connection.js';
 import * as schema from '../db/schema/index.js';
-import { eq, and, like, asc, desc, sql, type SQL } from 'drizzle-orm';
+import { eq, and, ilike, asc, desc, sql, type SQL } from 'drizzle-orm';
 import {
   ListCampaignsSchema,
   type ListCampaignsInput,
@@ -81,7 +81,7 @@ export async function listCampaigns(
       // Search in name (case-insensitive partial match)
       if (validated.search) {
         const searchPattern = `%${validated.search}%`;
-        whereConditions.push(like(schema.campaigns.name, searchPattern));
+        whereConditions.push(ilike(schema.campaigns.name, searchPattern));
       }
 
       // Combine conditions with AND (RLS will add tenant_id filter automatically)
