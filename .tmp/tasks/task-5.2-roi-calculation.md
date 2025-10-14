@@ -49,7 +49,7 @@ interface CampaignROI {
   campaignName: string;
   totalCost: string;          // 総投資額（decimal型）
   totalValue: string;         // 総効果値（decimal型）
-  roi: number;                // ROI（パーセント、小数第2位まで）
+  roi: number | null;         // ROI（パーセント、小数第2位まで）、投資額が0の場合はnull
   activityCount: number;      // 関連Activity数
   developerCount: number;     // 関連Developer数（重複排除）
   calculatedAt: Date;         // 計算日時
