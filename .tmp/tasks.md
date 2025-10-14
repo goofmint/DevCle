@@ -405,8 +405,15 @@
 ### Task 5.2: ROI計算ロジック実装 ✅
 
 - [x] `calculateROI(campaignId)`実装
-- [x] 予算（budgets）と効果値の集計
-- [x] ROI計算式の実装（`(効果値 - 投資額) / 投資額`）
+- [x] `getCampaignCost()`実装（budgetsからSUM集計）
+- [x] `getCampaignValue()`実装（activitiesのvalue列からSUM集計）
+- [x] ROI計算式の実装（`(効果値 - 投資額) / 投資額 * 100`）
+- [x] Zodスキーマでバリデーション（CampaignROISchema）
+- [x] ファイル分割（roi.schemas.ts, roi-{cost,value,calculate}.service.ts、各150行以下）
+- [x] 包括的なテスト作成（16テスト、モック不使用、全て通過）
+- [x] TypeScriptエラー解消（`as any`/`as unknown`不使用）
+- [x] activities.value カラム追加（migration 0002）
+- [x] RLS対応（withTenantContext使用）
 - **完了条件**: 計算ロジックが単体テストでパスする ✓
 - **依存**: Task 5.1
 - **推定時間**: 2時間
@@ -422,6 +429,7 @@
 - **完了条件**: 短縮URLが機能し、クリック数がカウントされる
 - **依存**: Task 5.1
 - **推定時間**: 3時間
+- **ドキュメント**: [.tmp/tasks/task-5.3-shorturl.md](.tmp/tasks/task-5.3-shorturl.md)
 
 ### Task 5.4: Campaign API実装
 
