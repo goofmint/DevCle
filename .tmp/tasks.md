@@ -381,21 +381,26 @@
 
 ## Phase 5: ROI分析機能実装（MVP）
 
-### Task 5.1: ROIサービス基盤実装
+### Task 5.1: ROIサービス基盤実装 ✅
 
-- [ ] `core/services/campaign.service.ts`作成
-- [ ] `createCampaign()`実装（Campaign作成）
-- [ ] `getCampaign()`実装（Campaign詳細取得）
-- [ ] `listCampaigns()`実装（Campaign一覧取得、ページネーション・フィルタ・ソート）
-- [ ] `updateCampaign()`実装（Campaign更新）
-- [ ] `deleteCampaign()`実装（Campaign削除）
-- [ ] Zodスキーマでバリデーション（CreateCampaignSchema, ListCampaignsSchema, UpdateCampaignSchema）
-- [ ] RLS対応（withTenantContext使用）
-- [ ] 包括的なテスト作成（20テスト以上、モック不使用）
-- **完了条件**: サービス関数が単体テストでパスする
+- [x] `core/services/campaign.service.ts`作成（barrel file）
+- [x] `createCampaign()`実装（Campaign作成）
+- [x] `getCampaign()`実装（Campaign詳細取得）
+- [x] `listCampaigns()`実装（Campaign一覧取得、ページネーション・フィルタ・ソート）
+- [x] `updateCampaign()`実装（Campaign更新）
+- [x] `deleteCampaign()`実装（Campaign削除）
+- [x] Zodスキーマでバリデーション（CreateCampaignSchema, ListCampaignsSchema, UpdateCampaignSchema）
+- [x] RLS対応（withTenantContext使用）
+- [x] ファイル分割（campaign.schemas.ts, campaign-{create,get,list,update,delete}.service.ts、各150行以下）
+- [x] 包括的なテスト作成（22テスト、モック不使用、全て通過）
+- [x] TypeScriptエラー解消（`as any`/`as unknown`不使用）
+- [x] Date型 → PostgreSQL date string変換（'YYYY-MM-DD'）
+- [x] CASCADE削除実装（budgets削除、resources orphan化）
+- **完了条件**: サービス関数が単体テストでパスする ✓
 - **依存**: Task 3.6
 - **推定時間**: 2時間
 - **ドキュメント**: [.tmp/tasks/task-5.1-roi-service.md](.tmp/tasks/task-5.1-roi-service.md)
+- **完了日**: 2025-10-14
 
 ### Task 5.2: ROI計算ロジック実装
 
