@@ -27,7 +27,6 @@ beforeAll(async () => {
   await db.insert(schema.tenants).values({
     tenantId: OTHER_TENANT_ID,
     name: 'Other Tenant',
-    contactEmail: 'other@example.com',
   }).onConflictDoNothing();
 });
 
