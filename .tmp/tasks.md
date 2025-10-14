@@ -351,33 +351,56 @@
   - Critical security fixes implemented (atomic operations, tenant scoping)
   - Date validation and coercion for ISO string support
 
-### Task 4.5: Activity API実装
+### Task 4.5: Activity API実装 ✅
 
-- [ ] `app/routes/api/activities.ts`作成（Resource Route）
-- [ ] `GET /api/activities?developer_id=xxx`（一覧取得）
-- [ ] `POST /api/activities`（新規登録）
-- [ ] `GET /api/activities/:id`（詳細取得）
-- [ ] `PUT /api/activities/:id`（更新）
-- [ ] `DELETE /api/activities/:id`（削除）
-- [ ] 認証チェック（Task 3.8のrequireAuth()使用）
-- [ ] エラーハンドリング（400, 401, 500）
-- **完了条件**: APIが統合テストでパスする
+- [x] `app/routes/api/activities.ts`作成（Resource Route）
+- [x] `GET /api/activities?developer_id=xxx`（一覧取得）
+- [x] `POST /api/activities`（新規登録）
+- [x] `GET /api/activities/:id`（詳細取得）
+- [x] `PUT /api/activities/:id`（更新）
+- [x] `DELETE /api/activities/:id`（削除）
+- [x] 認証チェック（Task 3.8のrequireAuth()使用）
+- [x] エラーハンドリング（400, 401, 404, 409, 500）
+- [x] ハンドラーファイル分割（list/create/get/update/delete.handler.ts、各150行以下）
+- [x] セキュリティ修正（request body guard、date validation、COUNT最適化）
+- [x] 包括的なテスト作成（26 tests、モック不使用、全て通過）
+- [x] TypeScriptエラー解消（as any/unknown不使用）
+- **完了条件**: APIが統合テストでパスする ✓
 - **依存**: Task 3.8, Task 4.4
 - **推定時間**: 2時間
+- **ドキュメント**: [.tmp/tasks/task-4.5-activity-api.md](.tmp/tasks/task-4.5-activity-api.md)
+- **完了日**: 2025-10-13
+- **注意**:
+  - Event sourcing principles（Activities are event logs）
+  - UPDATE/DELETEは極めて稀な操作（GDPR対応等）
+  - Deduplication via dedupKey（409 Conflict response）
+  - ハンドラー分離でコード可読性向上
+  - COUNT aggregateクエリでパフォーマンス最適化
 
 ---
 
 ## Phase 5: ROI分析機能実装（MVP）
 
-### Task 5.1: ROIサービス基盤実装
+### Task 5.1: ROIサービス基盤実装 ✅
 
-- [ ] `core/services/roi.service.ts`作成
-- [ ] `createCampaign()`実装
-- [ ] `getCampaign()`実装
-- [ ] `listCampaigns()`実装
-- **完了条件**: サービス関数が単体テストでパスする
+- [x] `core/services/campaign.service.ts`作成（barrel file）
+- [x] `createCampaign()`実装（Campaign作成）
+- [x] `getCampaign()`実装（Campaign詳細取得）
+- [x] `listCampaigns()`実装（Campaign一覧取得、ページネーション・フィルタ・ソート）
+- [x] `updateCampaign()`実装（Campaign更新）
+- [x] `deleteCampaign()`実装（Campaign削除）
+- [x] Zodスキーマでバリデーション（CreateCampaignSchema, ListCampaignsSchema, UpdateCampaignSchema）
+- [x] RLS対応（withTenantContext使用）
+- [x] ファイル分割（campaign.schemas.ts, campaign-{create,get,list,update,delete}.service.ts、各150行以下）
+- [x] 包括的なテスト作成（22テスト、モック不使用、全て通過）
+- [x] TypeScriptエラー解消（`as any`/`as unknown`不使用）
+- [x] Date型 → PostgreSQL date string変換（'YYYY-MM-DD'）
+- [x] CASCADE削除実装（budgets削除、resources orphan化）
+- **完了条件**: サービス関数が単体テストでパスする ✓
 - **依存**: Task 3.6
 - **推定時間**: 2時間
+- **ドキュメント**: [.tmp/tasks/task-5.1-roi-service.md](.tmp/tasks/task-5.1-roi-service.md)
+- **完了日**: 2025-10-14
 
 ### Task 5.2: ROI計算ロジック実装
 
