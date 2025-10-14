@@ -69,6 +69,7 @@ export const activities = pgTable('activities', {
   groupKey: text('group_key'),
   metadata: jsonb('metadata'),
   confidence: numeric('confidence').notNull().default('1.0'),
+  value: numeric('value'), // Monetary value of this activity for ROI calculation (nullable)
   dedupKey: text('dedup_key').unique(),
   ingestedAt: timestamp('ingested_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => ({

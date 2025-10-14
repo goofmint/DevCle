@@ -402,14 +402,16 @@
 - **ドキュメント**: [.tmp/tasks/task-5.1-roi-service.md](.tmp/tasks/task-5.1-roi-service.md)
 - **完了日**: 2025-10-14
 
-### Task 5.2: ROI計算ロジック実装
+### Task 5.2: ROI計算ロジック実装 ✅
 
-- [ ] `calculateROI(campaignId)`実装
-- [ ] 予算（budgets）と効果値の集計
-- [ ] ROI計算式の実装（`(効果値 - 投資額) / 投資額`）
-- **完了条件**: 計算ロジックが単体テストでパスする
+- [x] `calculateROI(campaignId)`実装
+- [x] 予算（budgets）と効果値の集計
+- [x] ROI計算式の実装（`(効果値 - 投資額) / 投資額`）
+- **完了条件**: 計算ロジックが単体テストでパスする ✓
 - **依存**: Task 5.1
 - **推定時間**: 2時間
+- **ドキュメント**: [.tmp/tasks/task-5.2-roi-calculation.md](.tmp/tasks/task-5.2-roi-calculation.md)
+- **完了日**: 2025-10-14
 
 ### Task 5.3: 短縮URL機能実装
 
