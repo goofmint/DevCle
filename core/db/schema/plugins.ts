@@ -155,6 +155,7 @@ export const importJobs = pgTable('import_jobs', {
  * - resource_id: Optional foreign key to resources (set null on resource delete)
  * - attributes: JSONB containing UTM parameters, medium, source, etc.
  * - created_at: Creation timestamp
+ * - updated_at: Last updated timestamp (for tracking url/key changes)
  *
  * Unique constraint on (tenant_id, key) to prevent duplicate shortlink keys per tenant.
  *
@@ -169,6 +170,7 @@ export const shortlinks = pgTable('shortlinks', {
   resourceId: uuid('resource_id').references(() => resources.resourceId, { onDelete: 'set null' }),
   attributes: jsonb('attributes'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => ({
   keyUnique: unique('shortlinks_tenant_key_unique').on(t.tenantId, t.key),
 }));
