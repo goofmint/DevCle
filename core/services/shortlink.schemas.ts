@@ -36,7 +36,20 @@ import { z } from 'zod';
  * ```
  */
 export const CreateShortlinkSchema = z.object({
-  targetUrl: z.string().url(),
+  targetUrl: z
+    .string()
+    .url()
+    .refine(
+      (url) => {
+        try {
+          const parsedUrl = new URL(url);
+          return parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:';
+        } catch {
+          return false;
+        }
+      },
+      { message: 'Only HTTP/S URLs are allowed' }
+    ),
   key: z
     .string()
     .min(4)
@@ -163,17 +176,36 @@ export interface ListShortlinksResult {
  * }
  * ```
  */
-export const UpdateShortlinkSchema = z.object({
-  targetUrl: z.string().url().optional(),
-  key: z
-    .string()
-    .min(4)
-    .max(20)
-    .regex(/^[a-zA-Z0-9_-]+$/)
-    .optional(),
-  campaignId: z.string().uuid().nullable().optional(),
-  resourceId: z.string().uuid().nullable().optional(),
-  attributes: z.record(z.string(), z.unknown()).nullable().optional(),
-});
+export const UpdateShortlinkSchema = z
+  .object({
+    targetUrl: z
+      .string()
+      .url()
+      .refine(
+        (url) => {
+          try {
+            const parsedUrl = new URL(url);
+            return parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:';
+          } catch {
+            return false;
+          }
+        },
+        { message: 'Only HTTP/S URLs are allowed' }
+      )
+      .optional(),
+    key: z
+      .string()
+      .min(4)
+      .max(20)
+      .regex(/^[a-zA-Z0-9_-]+$/)
+      .optional(),
+    campaignId: z.string().uuid().nullable().optional(),
+    resourceId: z.string().uuid().nullable().optional(),
+    attributes: z.record(z.string(), z.unknown()).nullable().optional(),
+  })
+  .refine(
+    (obj) => Object.values(obj).some((v) => v !== undefined),
+    { message: 'At least one field must be provided' }
+  );
 
 export type UpdateShortlink = z.infer<typeof UpdateShortlinkSchema>;

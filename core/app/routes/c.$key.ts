@@ -112,6 +112,74 @@ function getOrCreateAnonId(request: Request): string {
 }
 
 /**
+ * Validate Redirect URL
+ *
+ * Validates that the target URL is safe for redirection:
+ * 1. URL must use http or https protocol
+ * 2. Hostname must be in the allowed list (from environment variable or tenant settings)
+ *
+ * Allowed hosts are configured via ALLOWED_REDIRECT_HOSTS environment variable.
+ * Format: Comma-separated list of hosts or wildcard patterns (e.g., "example.com,*.example.com")
+ * If not set, all HTTP/HTTPS URLs are allowed (warn in production).
+ *
+ * @param targetUrl - URL to validate
+ * @returns true if URL is safe for redirection
+ */
+function isValidRedirectUrl(targetUrl: string): boolean {
+  let parsedUrl: URL;
+
+  // 1. Parse URL and validate protocol
+  try {
+    parsedUrl = new URL(targetUrl);
+  } catch {
+    return false;
+  }
+
+  // Only allow http and https protocols
+  if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+    return false;
+  }
+
+  // 2. Check hostname against whitelist
+  const allowedHosts = process.env['ALLOWED_REDIRECT_HOSTS'];
+
+  // If no whitelist is configured, allow all HTTP/HTTPS URLs (warn in production)
+  if (!allowedHosts) {
+    if (process.env['NODE_ENV'] === 'production') {
+      console.warn(
+        'ALLOWED_REDIRECT_HOSTS is not configured. All HTTP/HTTPS URLs are allowed. ' +
+        'Set ALLOWED_REDIRECT_HOSTS to restrict redirect destinations.'
+      );
+    }
+    return true;
+  }
+
+  // Parse allowed hosts (comma-separated)
+  const allowedList = allowedHosts.split(',').map(h => h.trim());
+  const hostname = parsedUrl.hostname.toLowerCase();
+
+  // Check if hostname matches any allowed pattern
+  for (const allowed of allowedList) {
+    const pattern = allowed.toLowerCase();
+
+    // Exact match
+    if (pattern === hostname) {
+      return true;
+    }
+
+    // Wildcard match (e.g., *.example.com)
+    if (pattern.startsWith('*.')) {
+      const domain = pattern.slice(2); // Remove "*."
+      if (hostname === domain || hostname.endsWith(`.${domain}`)) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+/**
  * Shortlink Redirect Loader
  *
  * Handles GET requests to /c/{key}.
@@ -146,7 +214,19 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
     // Note: In production, use X-Forwarded-For or similar for real IP
     const ip = request.headers.get('X-Forwarded-For') ?? undefined;
 
-    // 6. Create activity record (click tracking)
+    // 6. Validate redirect URL for security
+    if (!isValidRedirectUrl(shortlink.targetUrl)) {
+      console.error('Invalid redirect URL detected:', {
+        shortlinkId: shortlink.shortlinkId,
+        targetUrl: shortlink.targetUrl,
+      });
+      throw new Response(
+        'Invalid redirect destination. This shortlink target is not allowed.',
+        { status: 403 }
+      );
+    }
+
+    // 7. Create activity record (click tracking)
     // Use try-catch to ensure redirect happens even if activity creation fails
     try {
       await createActivity(tenantId, {
@@ -168,12 +248,16 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
       console.error('Failed to create activity for shortlink click:', error);
     }
 
-    // 7. Redirect to target URL with Set-Cookie header
+    // 8. Redirect to target URL with Set-Cookie header
     const headers = new Headers();
     headers.set('Location', shortlink.targetUrl);
+
+    // Add Secure flag in production for HTTPS-only cookies
+    const isProduction = process.env['NODE_ENV'] === 'production';
+    const secureFlagStr = isProduction ? '; Secure' : '';
     headers.set(
       'Set-Cookie',
-      `${ANON_ID_COOKIE_NAME}=${anonId}; Max-Age=${ANON_ID_MAX_AGE}; Path=/; HttpOnly; SameSite=Lax`
+      `${ANON_ID_COOKIE_NAME}=${anonId}; Max-Age=${ANON_ID_MAX_AGE}; Path=/; HttpOnly${secureFlagStr}; SameSite=Lax`
     );
 
     return new Response(null, {
