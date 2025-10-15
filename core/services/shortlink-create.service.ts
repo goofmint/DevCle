@@ -122,11 +122,15 @@ export async function createShortlink(
       };
     } catch (error) {
       // Check if error is unique constraint violation
+      // postgres.js wraps PostgreSQL errors in error.cause
+      const cause = typeof error === 'object' && error !== null && 'cause' in error ? error.cause : null;
+      const causeMessage = cause && typeof cause === 'object' && 'message' in cause && typeof cause.message === 'string' ? cause.message : '';
+      const causeCode = cause && typeof cause === 'object' && 'code' in cause ? cause.code : '';
+
       const isUniqueConstraintError =
-        error instanceof Error &&
-        (error.message.includes('unique constraint') ||
-          error.message.includes('shortlinks_tenant_key_unique') ||
-          ('code' in error && error.code === '23505'));
+        causeCode === '23505' ||
+        causeMessage.includes('duplicate key') ||
+        causeMessage.includes('unique constraint');
 
       if (isUniqueConstraintError) {
         lastError = error instanceof Error ? error : new Error(String(error));
@@ -134,7 +138,7 @@ export async function createShortlink(
         // If custom key, throw error immediately (no retry)
         if (isCustomKey) {
           throw new Error(
-            `Shortlink with key "${key}" already exists for this tenant`
+            `Shortlink with key "${key}" already exists`
           );
         }
 

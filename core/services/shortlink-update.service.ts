@@ -12,6 +12,7 @@ import {
   type UpdateShortlink,
   type Shortlink,
 } from './shortlink.schemas.js';
+import { ZodError } from 'zod';
 
 /**
  * Update Shortlink
@@ -57,18 +58,20 @@ export async function updateShortlink(
   input: UpdateShortlink
 ): Promise<Shortlink> {
   // 1. Validate input
-  const validated = UpdateShortlinkSchema.parse(input);
-
-  // 2. Check if at least one field is provided
-  const hasUpdates =
-    validated.targetUrl !== undefined ||
-    validated.key !== undefined ||
-    validated.campaignId !== undefined ||
-    validated.resourceId !== undefined ||
-    validated.attributes !== undefined;
-
-  if (!hasUpdates) {
-    throw new Error('At least one field must be provided for update');
+  let validated: UpdateShortlink;
+  try {
+    validated = UpdateShortlinkSchema.parse(input);
+  } catch (error) {
+    // If Zod validation fails, check if it's the empty object error
+    if (error instanceof ZodError) {
+      const hasEmptyObjectError = error.issues.some((issue) =>
+        issue.message.includes('At least one field must be provided')
+      );
+      if (hasEmptyObjectError) {
+        throw new Error('At least one field must be provided for update');
+      }
+    }
+    throw error;
   }
 
   // 3. Update shortlink with RLS context
@@ -152,15 +155,19 @@ export async function updateShortlink(
     };
   } catch (error) {
     // Check if error is unique constraint violation
+    // postgres.js wraps PostgreSQL errors in error.cause
+    const cause = typeof error === 'object' && error !== null && 'cause' in error ? error.cause : null;
+    const causeMessage = cause && typeof cause === 'object' && 'message' in cause && typeof cause.message === 'string' ? cause.message : '';
+    const causeCode = cause && typeof cause === 'object' && 'code' in cause ? cause.code : '';
+
     const isUniqueConstraintError =
-      error instanceof Error &&
-      (error.message.includes('unique constraint') ||
-        error.message.includes('shortlinks_tenant_key_unique') ||
-        ('code' in error && error.code === '23505'));
+      causeCode === '23505' ||
+      causeMessage.includes('duplicate key') ||
+      causeMessage.includes('unique constraint');
 
     if (isUniqueConstraintError) {
       throw new Error(
-        `Shortlink with key "${validated.key}" already exists for this tenant`
+        `Shortlink with key "${validated.key}" already exists`
       );
     }
 

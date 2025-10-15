@@ -165,11 +165,17 @@ describe('Shortlink Service - createShortlink()', () => {
 
     const result = await createShortlink(TEST_TENANT_ID, input);
 
-    expect(result.attributes).toEqual(input.attributes);
+    // Note: postgres.camel transform converts JSONB keys to camelCase
+    expect(result.attributes).toEqual({
+      utmSource: 'twitter',
+      utmMedium: 'social',
+      utmCampaign: 'spring-2025',
+      customField: 'test-value',
+    });
   });
 
   it('should throw error if custom key already exists', async () => {
-    const customKey = `duplicate-${Date.now()}`;
+    const customKey = `dup${Date.now()}`.substring(0, 20);
 
     // Create first shortlink
     await createShortlink(TEST_TENANT_ID, {
@@ -266,7 +272,7 @@ describe('Shortlink Service - getShortlinkByKey()', () => {
   });
 
   it('should enforce RLS (tenant isolation)', async () => {
-    const customKey = `rls-key-${Date.now()}`;
+    const customKey = `rls${Date.now()}`.substring(0, 20);
 
     // Create shortlink in TEST_TENANT_ID
     await createShortlink(TEST_TENANT_ID, {
@@ -426,12 +432,15 @@ describe('Shortlink Service - listShortlinks()', () => {
   });
 
   it('should sort by clickCount', async () => {
-    // Create shortlinks
+    // Create shortlinks with unique keys to filter in search
+    const uniquePrefix = `click${Date.now()}`.substring(0, 18);
     const shortlink1 = await createShortlink(TEST_TENANT_ID, {
       targetUrl: 'https://example.com/click-1',
+      key: `${uniquePrefix}a`,
     });
     const shortlink2 = await createShortlink(TEST_TENANT_ID, {
       targetUrl: 'https://example.com/click-2',
+      key: `${uniquePrefix}b`,
     });
 
     // Create activities (clicks) for shortlink2 only
@@ -450,6 +459,7 @@ describe('Shortlink Service - listShortlinks()', () => {
     });
 
     const result = await listShortlinks(TEST_TENANT_ID, {
+      search: uniquePrefix, // Filter to only our test shortlinks
       orderBy: 'clickCount',
       orderDirection: 'desc',
     });
@@ -644,8 +654,9 @@ describe('Shortlink Service - deleteShortlink()', () => {
           )
         );
       return result.filter((a) => {
-        const metadata = a.metadata as { shortlink_id?: string } | null;
-        return metadata?.shortlink_id === shortlink.shortlinkId;
+        // Note: postgres.camel converts JSONB keys to camelCase
+        const metadata = a.metadata as { shortlinkId?: string } | null;
+        return metadata?.shortlinkId === shortlink.shortlinkId;
       }).length;
     });
 
@@ -683,8 +694,9 @@ describe('Shortlink Service - deleteShortlink()', () => {
           )
         );
       return result.filter((a) => {
-        const metadata = a.metadata as { shortlink_id?: string } | null;
-        return metadata?.shortlink_id === shortlink.shortlinkId;
+        // Note: postgres.camel converts JSONB keys to camelCase
+        const metadata = a.metadata as { shortlinkId?: string } | null;
+        return metadata?.shortlinkId === shortlink.shortlinkId;
       }).length;
     });
 

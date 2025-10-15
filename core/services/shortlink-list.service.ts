@@ -98,6 +98,7 @@ export async function listShortlinks(
 
     // 3. Query shortlinks with click count
     // Use subquery to count activities for each shortlink
+    // Note: postgres.camel converts SELECT results to camelCase, but JSONB data is stored with original keys
     const clickCountSubquery = tx
       .select({
         shortlinkId: sql`(${schema.activities.metadata}->>'shortlink_id')::uuid`.as('shortlink_id'),
@@ -119,12 +120,12 @@ export async function listShortlinks(
     const shortlinksQuery = tx
       .select({
         shortlink: schema.shortlinks,
-        clickCount: sql<number>`COALESCE(${clickCountSubquery.count}, 0)::int`.as('click_count'),
+        clickCount: sql<number>`COALESCE(click_counts.count, 0)::int`.as('click_count'),
       })
       .from(schema.shortlinks)
       .leftJoin(
         clickCountSubquery,
-        sql`${schema.shortlinks.shortlinkId} = ${clickCountSubquery.shortlinkId}`
+        sql`${schema.shortlinks.shortlinkId} = click_counts.shortlink_id`
       )
       .where(and(...conditions));
 
