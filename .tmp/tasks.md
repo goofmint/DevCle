@@ -437,10 +437,15 @@
 - [ ] `app/routes/api/campaigns.ts`作成（Resource Route）
 - [ ] `GET /api/campaigns`（一覧取得）
 - [ ] `POST /api/campaigns`（新規作成）
+- [ ] `app/routes/api/campaigns.$id.ts`作成（Resource Route）
+- [ ] `GET /api/campaigns/:id`（詳細取得）
+- [ ] `PUT /api/campaigns/:id`（更新）
+- [ ] `DELETE /api/campaigns/:id`（削除）
+- [ ] `app/routes/api/campaigns.$id.roi.ts`作成（Resource Route）
 - [ ] `GET /api/campaigns/:id/roi`（ROI取得）
-- **完了条件**: APIが統合テストでパスする
+- **完了条件**: CRUD完全対応のAPIが統合テストでパスする
 - **依存**: Task 5.2, Task 5.3
-- **推定時間**: 3時間
+- **推定時間**: 4時間
 - **ドキュメント**: [.tmp/tasks/task-5.4-campaign-api.md](.tmp/tasks/task-5.4-campaign-api.md)
 
 ---

@@ -12,10 +12,13 @@
 
 このタスクでは、**Campaign（施策）管理API**と**ROI取得API**を実装します。Remix Resource Routeを使用して、RESTful APIエンドポイントを提供します。
 
-**実装するエンドポイント**:
+**実装するエンドポイント（CRUD完全対応）**:
 1. **GET /api/campaigns** - キャンペーン一覧取得（ページネーション、フィルタ、ソート対応）
 2. **POST /api/campaigns** - 新規キャンペーン作成
-3. **GET /api/campaigns/:id/roi** - キャンペーンのROI計算結果取得
+3. **GET /api/campaigns/:id** - キャンペーン詳細取得
+4. **PUT /api/campaigns/:id** - キャンペーン更新（部分更新対応）
+5. **DELETE /api/campaigns/:id** - キャンペーン削除
+6. **GET /api/campaigns/:id/roi** - キャンペーンのROI計算結果取得
 
 ### 対象サービス
 
@@ -57,8 +60,9 @@ PostgreSQL (campaigns, budgets, activities with RLS)
 ## ファイル構成
 
 ```
-core/routes/api/
-  ├── campaigns.ts           // GET /api/campaigns, POST /api/campaigns
+app/routes/api/
+  ├── campaigns.ts           // GET /api/campaigns (list), POST /api/campaigns (create)
+  ├── campaigns.$id.ts       // GET /api/campaigns/:id (get), PUT /api/campaigns/:id (update), DELETE /api/campaigns/:id (delete)
   └── campaigns.$id.roi.ts   // GET /api/campaigns/:id/roi
 ```
 
@@ -287,7 +291,294 @@ Content-Type: application/json
 
 ---
 
-### 3. GET /api/campaigns/:id/roi - ROI取得
+### 3. GET /api/campaigns/:id - 詳細取得
+
+キャンペーンIDからキャンペーン詳細を取得します。
+
+#### インターフェース
+
+```typescript
+/**
+ * GET /api/campaigns/:id - Get campaign by ID
+ *
+ * Path Parameters:
+ * - id: Campaign ID (UUID)
+ *
+ * Response:
+ * 200 OK
+ * {
+ *   campaignId: "...",
+ *   tenantId: "...",
+ *   name: "...",
+ *   channel: "...",
+ *   startDate: "...",
+ *   endDate: "...",
+ *   budgetTotal: "...",
+ *   attributes: {...},
+ *   createdAt: "...",
+ *   updatedAt: "..."
+ * }
+ *
+ * Error Responses:
+ * - 400 Bad Request: Invalid campaign ID format
+ * - 401 Unauthorized: Missing or invalid authentication
+ * - 404 Not Found: Campaign not found
+ * - 500 Internal Server Error: Database error
+ */
+export async function loader({ params, request }: LoaderFunctionArgs) {
+  // Implementation will be added in coding phase
+  // 1. Authentication check using requireAuth()
+  //    const user = await requireAuth(request);
+  //    const tenantId = user.tenantId;
+  // 2. Validate campaign ID: const campaignId = params.id
+  // 3. Call service: const result = await getCampaign(tenantId, campaignId)
+  // 4. If null, return 404
+  // 5. Return: return json(result)
+  throw new Error('Not implemented');
+}
+```
+
+#### リクエスト例
+
+```bash
+GET /api/campaigns/30000000-0000-4000-8000-000000000001
+```
+
+#### レスポンス例（200 OK）
+
+```json
+{
+  "campaignId": "30000000-0000-4000-8000-000000000001",
+  "tenantId": "default",
+  "name": "DevRel Conference 2025",
+  "channel": "event",
+  "startDate": "2025-03-01",
+  "endDate": "2025-03-03",
+  "budgetTotal": "50000.00",
+  "attributes": {
+    "location": "Tokyo",
+    "utm_source": "conference"
+  },
+  "createdAt": "2025-10-14T00:00:00.000Z",
+  "updatedAt": "2025-10-14T00:00:00.000Z"
+}
+```
+
+#### エラーレスポンス例
+
+```json
+// 404 Not Found
+{
+  "error": "Campaign not found"
+}
+
+// 400 Bad Request
+{
+  "error": "Invalid campaign ID format"
+}
+```
+
+---
+
+### 4. PUT /api/campaigns/:id - 更新
+
+既存キャンペーンを更新します。部分更新（Partial Update）をサポートします。
+
+#### インターフェース
+
+```typescript
+/**
+ * PUT /api/campaigns/:id - Update campaign
+ *
+ * Path Parameters:
+ * - id: Campaign ID (UUID)
+ *
+ * Request Body (all fields optional):
+ * {
+ *   name?: string,
+ *   channel?: string | null,
+ *   startDate?: string (ISO 8601 date) | null,
+ *   endDate?: string (ISO 8601 date) | null,
+ *   budgetTotal?: string (decimal) | null,
+ *   attributes?: { [key: string]: any }
+ * }
+ *
+ * Response:
+ * 200 OK
+ * {
+ *   campaignId: "...",
+ *   tenantId: "...",
+ *   name: "...",
+ *   ...
+ * }
+ *
+ * Error Responses:
+ * - 400 Bad Request: Invalid request body or campaign ID
+ * - 401 Unauthorized: Missing or invalid authentication
+ * - 404 Not Found: Campaign not found
+ * - 409 Conflict: Campaign with this name already exists
+ * - 500 Internal Server Error: Database error
+ */
+export async function action({ params, request }: ActionFunctionArgs) {
+  const method = request.method;
+
+  if (method === 'PUT') {
+    // Implementation will be added in coding phase
+    // 1. Authentication check using requireAuth()
+    //    const user = await requireAuth(request);
+    //    const tenantId = user.tenantId;
+    // 2. Validate campaign ID: const campaignId = params.id
+    // 3. Parse request body: const data = await request.json()
+    // 4. Call service: const result = await updateCampaign(tenantId, campaignId, data)
+    // 5. If null, return 404
+    // 6. Return: return json(result)
+    throw new Error('Not implemented');
+  }
+
+  // Method not allowed
+  return json({ error: 'Method not allowed' }, { status: 405 });
+}
+```
+
+#### リクエスト例
+
+```bash
+PUT /api/campaigns/30000000-0000-4000-8000-000000000001
+Content-Type: application/json
+
+{
+  "name": "DevRel Conference 2025 (Updated)",
+  "budgetTotal": "60000.00"
+}
+```
+
+#### レスポンス例（200 OK）
+
+```json
+{
+  "campaignId": "30000000-0000-4000-8000-000000000001",
+  "tenantId": "default",
+  "name": "DevRel Conference 2025 (Updated)",
+  "channel": "event",
+  "startDate": "2025-03-01",
+  "endDate": "2025-03-03",
+  "budgetTotal": "60000.00",
+  "attributes": {
+    "location": "Tokyo",
+    "utm_source": "conference"
+  },
+  "createdAt": "2025-10-14T00:00:00.000Z",
+  "updatedAt": "2025-10-15T12:00:00.000Z"
+}
+```
+
+#### エラーレスポンス例
+
+```json
+// 404 Not Found
+{
+  "error": "Campaign not found"
+}
+
+// 400 Bad Request
+{
+  "error": "Validation failed",
+  "details": {
+    "startDate": ["startDate must be on or before endDate"]
+  }
+}
+
+// 409 Conflict
+{
+  "error": "Campaign with this name already exists"
+}
+```
+
+---
+
+### 5. DELETE /api/campaigns/:id - 削除
+
+キャンペーンを削除します（ハードデリート）。
+
+#### インターフェース
+
+```typescript
+/**
+ * DELETE /api/campaigns/:id - Delete campaign
+ *
+ * Path Parameters:
+ * - id: Campaign ID (UUID)
+ *
+ * Response:
+ * 204 No Content (on success)
+ *
+ * Error Responses:
+ * - 400 Bad Request: Invalid campaign ID format
+ * - 401 Unauthorized: Missing or invalid authentication
+ * - 404 Not Found: Campaign not found
+ * - 500 Internal Server Error: Database error
+ *
+ * Note:
+ * - Related budgets are CASCADE deleted (FK constraint)
+ * - Related resources are orphaned (campaign_id = NULL)
+ */
+export async function action({ params, request }: ActionFunctionArgs) {
+  const method = request.method;
+
+  if (method === 'DELETE') {
+    // Implementation will be added in coding phase
+    // 1. Authentication check using requireAuth()
+    //    const user = await requireAuth(request);
+    //    const tenantId = user.tenantId;
+    // 2. Validate campaign ID: const campaignId = params.id
+    // 3. Call service: const result = await deleteCampaign(tenantId, campaignId)
+    // 4. If false (not found), return 404
+    // 5. Return: return new Response(null, { status: 204 })
+    throw new Error('Not implemented');
+  }
+
+  // Method not allowed (PUT or DELETE will be handled above)
+  return json({ error: 'Method not allowed' }, { status: 405 });
+}
+```
+
+#### リクエスト例
+
+```bash
+DELETE /api/campaigns/30000000-0000-4000-8000-000000000001
+```
+
+#### レスポンス例（204 No Content）
+
+```
+(レスポンスボディなし)
+```
+
+#### エラーレスポンス例
+
+```json
+// 404 Not Found
+{
+  "error": "Campaign not found"
+}
+
+// 400 Bad Request
+{
+  "error": "Invalid campaign ID format"
+}
+```
+
+**削除の影響範囲**:
+
+| テーブル | 動作 | 理由 |
+|---------|------|------|
+| `budgets` | CASCADE削除 | キャンペーン予算はキャンペーンに紐づくため |
+| `resources` | `campaign_id = NULL` | リソース自体は独立して存在可能 |
+| `activities` | 影響なし | アクティビティは独立（campaign_idを持たない） |
+
+---
+
+### 6. GET /api/campaigns/:id/roi - ROI取得
 
 キャンペーンのROI計算結果を取得します。
 
@@ -381,8 +672,9 @@ GET /api/campaigns/30000000-0000-4000-8000-000000000001/roi
 
 | ステータスコード | 意味 | 使用ケース |
 |---------------|------|----------|
-| 200 OK | 成功（GET） | キャンペーン一覧取得・ROI取得成功 |
+| 200 OK | 成功（GET, PUT） | キャンペーン一覧取得・詳細取得・更新・ROI取得成功 |
 | 201 Created | 作成成功（POST） | 新規キャンペーン作成成功 |
+| 204 No Content | 削除成功（DELETE） | キャンペーン削除成功 |
 | 400 Bad Request | 不正なリクエスト | バリデーションエラー、不正なパラメータ |
 | 401 Unauthorized | 認証エラー | 認証トークンがない、無効 |
 | 404 Not Found | リソースが見つからない | キャンペーンが存在しない |
@@ -659,7 +951,159 @@ describe('POST /api/campaigns', () => {
 });
 ```
 
-#### 3. GET /api/campaigns/:id/roi - ROI取得テスト
+#### 3. GET /api/campaigns/:id - 詳細取得テスト
+
+```typescript
+describe('GET /api/campaigns/:id', () => {
+  it('should return campaign by ID', async () => {
+    // Arrange: Use known campaign ID
+    const campaignId = '30000000-0000-4000-8000-000000000001';
+    const request = new Request(`http://localhost/api/campaigns/${campaignId}`);
+
+    // Act: Call loader
+    const response = await loader({ request, params: { id: campaignId }, context: {} });
+    const data = await response.json();
+
+    // Assert: Verify returned campaign
+    expect(response.status).toBe(200);
+    expect(data.campaignId).toBe(campaignId);
+    expect(data.name).toBeDefined();
+  });
+
+  it('should return 404 for non-existent ID', async () => {
+    // Arrange: Use non-existent UUID
+    const campaignId = '99999999-9999-4999-8999-999999999999';
+    const request = new Request(`http://localhost/api/campaigns/${campaignId}`);
+
+    // Act & Assert: Expect 404
+    const response = await loader({ request, params: { id: campaignId }, context: {} });
+    expect(response.status).toBe(404);
+  });
+
+  it('should return 400 for invalid UUID format', async () => {
+    // Test invalid UUID format
+    const campaignId = 'invalid-uuid';
+    const request = new Request(`http://localhost/api/campaigns/${campaignId}`);
+
+    const response = await loader({ request, params: { id: campaignId }, context: {} });
+    expect(response.status).toBe(400);
+  });
+});
+```
+
+#### 4. PUT /api/campaigns/:id - 更新テスト
+
+```typescript
+describe('PUT /api/campaigns/:id', () => {
+  it('should update campaign', async () => {
+    // Arrange: Prepare update data
+    const campaignId = '30000000-0000-4000-8000-000000000001';
+    const updateData = {
+      name: 'Updated Campaign',
+      budgetTotal: '60000.00',
+    };
+
+    const request = new Request(`http://localhost/api/campaigns/${campaignId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updateData),
+    });
+
+    // Act: Call action
+    const response = await action({ request, params: { id: campaignId }, context: {} });
+    const data = await response.json();
+
+    // Assert: Verify updated data
+    expect(response.status).toBe(200);
+    expect(data.name).toBe('Updated Campaign');
+    expect(data.budgetTotal).toBe('60000.00');
+  });
+
+  it('should return 404 for non-existent campaign', async () => {
+    // Test update on non-existent campaign
+    const campaignId = '99999999-9999-4999-8999-999999999999';
+    const updateData = { name: 'Test' };
+
+    const request = new Request(`http://localhost/api/campaigns/${campaignId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updateData),
+    });
+
+    const response = await action({ request, params: { id: campaignId }, context: {} });
+    expect(response.status).toBe(404);
+  });
+
+  it('should support partial updates', async () => {
+    // Test updating only specific fields
+    const campaignId = '30000000-0000-4000-8000-000000000001';
+    const updateData = { budgetTotal: '70000.00' };
+
+    const request = new Request(`http://localhost/api/campaigns/${campaignId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updateData),
+    });
+
+    const response = await action({ request, params: { id: campaignId }, context: {} });
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.budgetTotal).toBe('70000.00');
+    // Other fields should remain unchanged
+  });
+});
+```
+
+#### 5. DELETE /api/campaigns/:id - 削除テスト
+
+```typescript
+describe('DELETE /api/campaigns/:id', () => {
+  it('should delete campaign', async () => {
+    // Arrange: Create a campaign to delete
+    const created = await createCampaign('default', {
+      name: 'To Delete ' + Date.now(),
+      channel: 'test',
+      startDate: null,
+      endDate: null,
+      budgetTotal: null,
+      attributes: {},
+    });
+
+    const request = new Request(`http://localhost/api/campaigns/${created.campaignId}`, {
+      method: 'DELETE',
+    });
+
+    // Act: Call action
+    const response = await action({ request, params: { id: created.campaignId }, context: {} });
+
+    // Assert: Verify deletion
+    expect(response.status).toBe(204);
+
+    // Verify campaign no longer exists
+    const getResponse = await getCampaign('default', created.campaignId);
+    expect(getResponse).toBeNull();
+  });
+
+  it('should return 404 for non-existent campaign', async () => {
+    // Test deletion of non-existent campaign
+    const campaignId = '99999999-9999-4999-8999-999999999999';
+    const request = new Request(`http://localhost/api/campaigns/${campaignId}`, {
+      method: 'DELETE',
+    });
+
+    const response = await action({ request, params: { id: campaignId }, context: {} });
+    expect(response.status).toBe(404);
+  });
+
+  it('should CASCADE delete related budgets', async () => {
+    // Test that related budgets are deleted when campaign is deleted
+    // (Implementation depends on budget service)
+  });
+});
+```
+
+#### 6. GET /api/campaigns/:id/roi - ROI取得テスト
 
 ```typescript
 describe('GET /api/campaigns/:id/roi', () => {
@@ -768,12 +1212,19 @@ catch (error) {
 - [ ] `app/routes/api/campaigns.ts`ファイル作成
 - [ ] GET /api/campaigns 実装（一覧取得）
 - [ ] POST /api/campaigns 実装（新規作成）
+- [ ] `app/routes/api/campaigns.$id.ts`ファイル作成
+- [ ] GET /api/campaigns/:id 実装（詳細取得）
+- [ ] PUT /api/campaigns/:id 実装（更新）
+- [ ] DELETE /api/campaigns/:id 実装（削除）
 - [ ] `app/routes/api/campaigns.$id.roi.ts`ファイル作成
 - [ ] GET /api/campaigns/:id/roi 実装（ROI取得）
 - [ ] エラーハンドリング実装（400, 401, 404, 409, 500）
-- [ ] 統合テストファイル作成（`app/routes/api/campaigns.test.ts`）
+- [ ] 統合テストファイル作成（`app/routes/api/campaigns.test.ts`, `app/routes/api/campaigns.$id.test.ts`）
 - [ ] GET一覧取得のテスト（ページネーション、フィルタ、ソート）
 - [ ] POST作成のテスト（正常系・異常系）
+- [ ] GET詳細取得のテスト（正常系・異常系）
+- [ ] PUT更新のテスト（正常系・異常系・部分更新）
+- [ ] DELETE削除のテスト（正常系・異常系・CASCADE削除）
 - [ ] GET ROI取得のテスト（正常系・異常系）
 - [ ] 認証・認可のテスト（401）
 - [ ] 全テストが成功（`pnpm test`）
