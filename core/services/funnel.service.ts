@@ -83,6 +83,46 @@ export interface FunnelStats {
 }
 
 /**
+ * Drop rate statistics for a single stage
+ *
+ * Contains drop rate calculation for a funnel stage.
+ * Drop rate represents the percentage of developers who did not progress
+ * from the previous stage to the current stage.
+ */
+export interface DropRateStats {
+  stageKey: FunnelStageKey;
+  title: string;
+  orderNo: number;
+  uniqueDevelopers: number;
+  previousStageCount: number;
+  dropRate: number | null; // Percentage (0-100), null for awareness stage or when calculation is not possible
+}
+
+/**
+ * Complete funnel drop rate statistics
+ *
+ * Contains drop rate statistics for all funnel stages plus overall conversion rate.
+ */
+export interface FunnelDropRates {
+  stages: DropRateStats[];
+  overallConversionRate: number; // Percentage from awareness to advocacy
+}
+
+/**
+ * Time series funnel data point
+ *
+ * Represents funnel statistics for a specific time period.
+ */
+export interface TimeSeriesFunnelData {
+  date: Date; // Start date of the period
+  stages: {
+    stageKey: FunnelStageKey;
+    uniqueDevelopers: number;
+    dropRate: number | null;
+  }[];
+}
+
+/**
  * Classify an activity into a funnel stage
  *
  * @param tenantId - Tenant ID for multi-tenant isolation (required for RLS)
@@ -304,3 +344,9 @@ export async function getFunnelStats(
     throw new Error(`Failed to get funnel statistics: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
+
+// Export drop rate calculation functions
+export { calculateDropRate, getFunnelDropRates } from './funnel-droprate.service';
+
+// Export time series aggregation functions
+export { getFunnelTimeSeries } from './funnel-timeseries.service';
