@@ -453,15 +453,16 @@
 
 ## Phase 6: ファネル分析機能実装（MVP）
 
-### Task 6.1: Funnelサービス基盤実装
+### Task 6.1: Funnelサービス基盤実装 ✅
 
-- [ ] `core/services/funnel.service.ts`作成
-- [ ] `classifyStage(activity)`実装（Awareness/Engagement/Adoption/Advocacy判定）
-- [ ] `getFunnelStats()`実装（各ステージの人数集計）
-- **完了条件**: サービス関数が単体テストでパスする
+- [x] `core/services/funnel.service.ts`作成
+- [x] `classifyStage(activity)`実装（Awareness/Engagement/Adoption/Advocacy判定）
+- [x] `getFunnelStats()`実装（各ステージの人数集計）
+- **完了条件**: サービス関数が単体テストでパスする ✓
 - **依存**: Task 4.3
 - **推定時間**: 3時間
 - **ドキュメント**: [.tmp/tasks/task-6.1-funnel-service.md](.tmp/tasks/task-6.1-funnel-service.md)
+- **完了日**: 2025-10-16
 
 ### Task 6.2: ドロップ率計算実装
 
