@@ -432,21 +432,22 @@
 - **ドキュメント**: [.tmp/tasks/task-5.3-shorturl.md](.tmp/tasks/task-5.3-shorturl.md)
 - **完了日**: 2025-10-15
 
-### Task 5.4: Campaign API実装
+### Task 5.4: Campaign API実装 ✅
 
-- [ ] `app/routes/api/campaigns.ts`作成（Resource Route）
-- [ ] `GET /api/campaigns`（一覧取得）
-- [ ] `POST /api/campaigns`（新規作成）
-- [ ] `app/routes/api/campaigns.$id.ts`作成（Resource Route）
-- [ ] `GET /api/campaigns/:id`（詳細取得）
-- [ ] `PUT /api/campaigns/:id`（更新）
-- [ ] `DELETE /api/campaigns/:id`（削除）
-- [ ] `app/routes/api/campaigns.$id.roi.ts`作成（Resource Route）
-- [ ] `GET /api/campaigns/:id/roi`（ROI取得）
-- **完了条件**: CRUD完全対応のAPIが統合テストでパスする
+- [x] `app/routes/api/campaigns.ts`作成（Resource Route）
+- [x] `GET /api/campaigns`（一覧取得）
+- [x] `POST /api/campaigns`（新規作成）
+- [x] `app/routes/api/campaigns.$id.ts`作成（Resource Route）
+- [x] `GET /api/campaigns/:id`（詳細取得）
+- [x] `PUT /api/campaigns/:id`（更新）
+- [x] `DELETE /api/campaigns/:id`（削除）
+- [x] `app/routes/api/campaigns.$id.roi.ts`作成（Resource Route）
+- [x] `GET /api/campaigns/:id/roi`（ROI取得）
+- **完了条件**: CRUD完全対応のAPIが統合テストでパスする ✓
 - **依存**: Task 5.2, Task 5.3
 - **推定時間**: 4時間
 - **ドキュメント**: [.tmp/tasks/task-5.4-campaign-api.md](.tmp/tasks/task-5.4-campaign-api.md)
+- **完了日**: 2025-10-16
 
 ---
 
@@ -460,6 +461,7 @@
 - **完了条件**: サービス関数が単体テストでパスする
 - **依存**: Task 4.3
 - **推定時間**: 3時間
+- **ドキュメント**: [.tmp/tasks/task-6.1-funnel-service.md](.tmp/tasks/task-6.1-funnel-service.md)
 
 ### Task 6.2: ドロップ率計算実装
 
