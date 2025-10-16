@@ -455,7 +455,6 @@ describe('Funnel Drop Rate Service', () => {
     expect(timeSeries.length).toBe(2);
   });
 
-  // Test 15: getFunnelTimeSeries - validate date range (fromDate > toDate)
   it('should validate date range (fromDate > toDate)', async () => {
     await expect(
       getFunnelTimeSeries(
@@ -465,6 +464,18 @@ describe('Funnel Drop Rate Service', () => {
         'day'
       )
     ).rejects.toThrow('Invalid date range: fromDate must be on or before toDate');
+  });
+
+  it('should reject invalid granularity values (SQL injection prevention)', async () => {
+    // Test with a malicious SQL injection attempt
+    await expect(
+      getFunnelTimeSeries(
+        'default',
+        new Date('2025-10-10T00:00:00Z'),
+        new Date('2025-10-11T00:00:00Z'),
+        "day'; DROP TABLE activities; --" as any
+      )
+    ).rejects.toThrow('Invalid granularity');
   });
 
   // Test 16: getFunnelTimeSeries - respect tenant isolation

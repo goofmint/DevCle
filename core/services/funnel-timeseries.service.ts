@@ -27,11 +27,12 @@ import type { FunnelStageKey, TimeSeriesFunnelData } from './funnel.service';
  *
  * Implementation:
  * 1. Validate date range (fromDate <= toDate)
- * 2. Get all funnel stages
- * 3. For each time period, aggregate activities by occurred_at
- * 4. Calculate unique developers per stage per time period
- * 5. Calculate drop rates per time period
- * 6. Return time series data sorted by date
+ * 2. Validate and sanitize granularity (prevent SQL injection)
+ * 3. Get all funnel stages
+ * 4. For each time period, aggregate activities by occurred_at
+ * 5. Calculate unique developers per stage per time period
+ * 6. Calculate drop rates per time period
+ * 7. Return time series data sorted by date
  *
  * Example SQL (day granularity):
  * - Use DATE_TRUNC('day', occurred_at) for grouping
@@ -68,9 +69,18 @@ export async function getFunnelTimeSeries(
       throw new Error('Invalid date range: fromDate must be on or before toDate');
     }
 
+    // 2. Validate and sanitize granularity to prevent SQL injection
+    // Only allow whitelisted values for DATE_TRUNC
+    const ALLOWED_GRANULARITIES = ['day', 'week', 'month'] as const;
+    if (!ALLOWED_GRANULARITIES.includes(granularity)) {
+      throw new Error(`Invalid granularity: ${granularity}. Must be one of: ${ALLOWED_GRANULARITIES.join(', ')}`);
+    }
+    // Use validated granularity value (TypeScript ensures it's one of the allowed values at runtime)
+    const safeGranularity = granularity;
+
     // Execute within transaction with tenant context (production-safe with connection pooling)
     return await withTenantContext(tenantId, async (tx) => {
-      // 2. Get all funnel stages ordered by order_no
+      // 3. Get all funnel stages ordered by order_no
       const stages = await tx
         .select({
           stageKey: schema.funnelStages.stageKey,
@@ -79,9 +89,9 @@ export async function getFunnelTimeSeries(
         .from(schema.funnelStages)
         .orderBy(asc(schema.funnelStages.orderNo));
 
-      // 3. Aggregate activities by time period and stage
-      // Use DATE_TRUNC to bucket dates by granularity
-      const truncFunction = `DATE_TRUNC('${granularity}', ${schema.activities.occurredAt.name})`;
+      // 4. Aggregate activities by time period and stage
+      // Use DATE_TRUNC to bucket dates by granularity (using validated/sanitized value)
+      const truncFunction = `DATE_TRUNC('${safeGranularity}', ${schema.activities.occurredAt.name})`;
 
       // Query all time periods with stage counts
       // This query groups activities by time period and stage, then counts unique developers
@@ -112,7 +122,7 @@ export async function getFunnelTimeSeries(
         .groupBy(sql`${sql.raw(truncFunction)}`, schema.activityFunnelMap.stageKey)
         .orderBy(sql`${sql.raw(truncFunction)}`);
 
-      // 4. Group data by time period and calculate drop rates
+      // 5. Group data by time period and calculate drop rates
       // Map: timeBucket -> Map<stageKey, uniqueDevelopers>
       const timePeriodsMap = new Map<string, Map<string, number>>();
 
@@ -129,7 +139,7 @@ export async function getFunnelTimeSeries(
         }
       }
 
-      // 5. Convert to TimeSeriesFunnelData format with drop rates
+      // 6. Convert to TimeSeriesFunnelData format with drop rates
       const result: TimeSeriesFunnelData[] = [];
 
       for (const [timeKey, stageMap] of Array.from(timePeriodsMap.entries())) {
@@ -171,7 +181,7 @@ export async function getFunnelTimeSeries(
         });
       }
 
-      // 6. Return time series data sorted by date (already sorted by query ORDER BY)
+      // 7. Return time series data sorted by date (already sorted by query ORDER BY)
       return result;
     });
   } catch (error) {
