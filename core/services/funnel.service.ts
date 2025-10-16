@@ -16,8 +16,8 @@
  * 4. Advocacy: Evangelism, content creation (e.g., blog_post, talk)
  */
 
-import { withTenantContext } from '../db/connection.js';
-import * as schema from '../db/schema/index.js';
+import { withTenantContext } from '../db/connection';
+import * as schema from '../db/schema/index';
 import { eq, and, count, asc, sql } from 'drizzle-orm';
 
 /**

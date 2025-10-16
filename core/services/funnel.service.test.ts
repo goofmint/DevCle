@@ -7,11 +7,11 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import { setTenantContext, clearTenantContext, closeDb, getDb } from '../db/connection.js';
-import * as schema from '../db/schema/index.js';
+import { setTenantContext, clearTenantContext, closeDb, getDb } from '../db/connection';
+import * as schema from '../db/schema/index';
 import { eq, and } from 'drizzle-orm';
-import { classifyStage, getFunnelStats } from './funnel.service.js';
-import { createActivity } from './activity.service.js';
+import { classifyStage, getFunnelStats } from './funnel.service';
+import { createActivity } from './activity.service';
 
 /**
  * Test Setup
