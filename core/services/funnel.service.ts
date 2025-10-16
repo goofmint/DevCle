@@ -94,7 +94,7 @@ export interface DropRateStats {
   title: string;
   orderNo: number;
   uniqueDevelopers: number;
-  previousStageCount: number;
+  previousStageCount: number | null; // null for awareness stage (no previous stage)
   dropRate: number | null; // Percentage (0-100), null for awareness stage or when calculation is not possible
 }
 
