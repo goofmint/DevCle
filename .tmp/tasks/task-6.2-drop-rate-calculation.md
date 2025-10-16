@@ -28,16 +28,17 @@
  * Drop rate = (Previous stage count - Current stage count) / Previous stage count * 100
  *
  * @param tenantId - Tenant ID for multi-tenant isolation
- * @param stageKey - Funnel stage key (engagement, adoption, advocacy)
- * @returns Drop rate statistics, or null if stage not found or no previous stage
- * @throws {Error} If database error occurs or stageKey is 'awareness' (first stage)
+ * @param stageKey - Funnel stage key (engagement, adoption, advocacy only)
+ * @returns Drop rate statistics, or null if stage not found or previous stage has 0 developers
+ * @throws {Error} If stageKey is 'awareness' (first stage has no drop rate) or database error occurs
  *
  * Example:
  * - Awareness: 100 developers
  * - Engagement: 30 developers
  * - Engagement drop rate = (100 - 30) / 100 * 100 = 70%
  *
- * Note: Awareness stage has no drop rate (it's the first stage)
+ * Note: This function throws an Error if called with 'awareness' stage
+ * Use getFunnelDropRates() to get drop rates for all stages (awareness will have null)
  */
 export async function calculateDropRate(
   tenantId: string,
@@ -48,8 +49,9 @@ export async function calculateDropRate(
 **実装内容**:
 - 指定されたステージと1つ前のステージのユニーク開発者数を取得
 - ドロップ率を計算: `(前ステージ人数 - 現ステージ人数) / 前ステージ人数 * 100`
-- Awarenessステージの場合はエラーをthrow（前のステージが存在しないため）
-- 前ステージの人数が0の場合はnullを返す
+- **Awarenessステージの場合はErrorをthrow**（前のステージが存在しないため、この関数の使い方が間違っている）
+- 存在しないステージの場合はnullを返す
+- 前ステージの人数が0の場合はnullを返す（計算不可能）
 
 #### `getFunnelDropRates()`
 
@@ -74,9 +76,11 @@ export async function getFunnelDropRates(
 
 **実装内容**:
 - 全ステージの開発者数を取得（`getFunnelStats()`を再利用）
-- 各ステージ（Engagement, Adoption, Advocacy）のドロップ率を計算
+- 各ステージのドロップ率を計算:
+  - **Awarenessステージ**: `dropRate: null`（最初のステージのためドロップ率は存在しない）
+  - **Engagement, Adoption, Advocacy**: ドロップ率を計算
 - 全体のコンバージョン率を計算: `最終ステージ人数 / 最初のステージ人数 * 100`
-- 各ステージのドロップ率と全体のコンバージョン率を返す
+- 全ステージのドロップ率統計と全体のコンバージョン率を返す
 
 ### 2. 時系列データ集計関数
 
@@ -132,7 +136,7 @@ export interface DropRateStats {
   orderNo: number;
   uniqueDevelopers: number;
   previousStageCount: number;
-  dropRate: number; // Percentage (0-100), null for awareness stage
+  dropRate: number | null; // Percentage (0-100), null for awareness stage or when calculation is not possible
 }
 
 /**
@@ -168,19 +172,24 @@ export interface TimeSeriesFunnelData {
 
 | ステージ | 開発者数 | ドロップ率 | 計算式 |
 |---------|---------|----------|--------|
-| Awareness | 100 | - | （最初のステージのため計算なし） |
-| Engagement | 30 | 70% | (100 - 30) / 100 * 100 |
-| Adoption | 15 | 50% | (30 - 15) / 30 * 100 |
-| Advocacy | 5 | 66.7% | (15 - 5) / 15 * 100 |
+| Awareness | 100 | null | 最初のステージのため`dropRate: null` |
+| Engagement | 30 | 70% | (100 - 30) / 100 * 100 = 70 |
+| Adoption | 15 | 50% | (30 - 15) / 30 * 100 = 50 |
+| Advocacy | 5 | 66.7% | (15 - 5) / 15 * 100 = 66.7 |
 
 **全体のコンバージョン率**: 5 / 100 * 100 = 5%
 
+**注意**: `dropRate`は`number | null`型です。Awarenessステージやゼロ除算が発生する場合は`null`になります。
+
 ### エッジケース
 
-1. **Awarenessステージ**: ドロップ率は存在しない（最初のステージ）
-2. **前ステージが0人**: ドロップ率はnull（計算不可能）
-3. **現ステージ > 前ステージ**: 理論上は発生しない（データ不整合の可能性）
-4. **現ステージ = 前ステージ**: ドロップ率は0%（全員が遷移）
+1. **Awarenessステージ**:
+   - `calculateDropRate()`: Errorをthrow（この関数で扱うべきではない）
+   - `getFunnelDropRates()`: `dropRate: null`を返す（最初のステージのためドロップ率は存在しない）
+2. **前ステージが0人**: `dropRate: null`（計算不可能、ゼロ除算を避ける）
+3. **存在しないステージ**: `calculateDropRate()`はnullを返す
+4. **現ステージ > 前ステージ**: 理論上は発生しない（データ不整合の可能性、負のドロップ率になる）
+5. **現ステージ = 前ステージ**: ドロップ率は0%（全員が遷移）
 
 ## テスト要件
 
