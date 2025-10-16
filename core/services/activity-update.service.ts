@@ -105,6 +105,9 @@ export async function updateActivity(
       if (validated.confidence !== undefined) {
         updateData.confidence = validated.confidence.toString();
       }
+      if (validated.value !== undefined) {
+        updateData.value = validated.value !== null ? validated.value.toString() : null;
+      }
 
       // 5. Guard against empty update
       if (Object.keys(updateData).length === 0) {

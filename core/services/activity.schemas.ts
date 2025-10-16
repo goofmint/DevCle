@@ -24,6 +24,7 @@ export const CreateActivitySchema = z.object({
   groupKey: z.string().nullable().optional(),
   metadata: z.record(z.string(), z.any()).nullable().optional(),
   confidence: z.number().min(0).max(1).optional(),
+  value: z.number().nullable().optional(),
   dedupKey: z.string().nullable().optional(),
 });
 
@@ -83,6 +84,7 @@ export const UpdateActivitySchema = z.object({
   groupKey: z.string().nullable().optional(),
   metadata: z.record(z.string(), z.any()).nullable().optional(),
   confidence: z.number().min(0).max(1).optional(),
+  value: z.number().nullable().optional(),
 });
 
 export type UpdateActivityInput = z.infer<typeof UpdateActivitySchema>;
