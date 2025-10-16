@@ -51,25 +51,33 @@ export async function createActivity(
   return await withTenantContext(tenantId, async (tx) => {
     try {
       // 4. Insert activity record
+      // Build insert values, conditionally including optional fields
+      const insertValues: typeof schema.activities.$inferInsert = {
+        activityId: crypto.randomUUID(),
+        tenantId,
+        developerId: validated.developerId ?? null,
+        accountId: validated.accountId ?? null,
+        anonId: validated.anonId ?? null,
+        resourceId: validated.resourceId ?? null,
+        action: validated.action,
+        occurredAt: validated.occurredAt,
+        source: validated.source,
+        sourceRef: validated.sourceRef ?? null,
+        category: validated.category ?? null,
+        groupKey: validated.groupKey ?? null,
+        metadata: validated.metadata ?? null,
+        confidence: (validated.confidence ?? 1.0).toString(),
+        dedupKey: validated.dedupKey ?? null,
+      };
+
+      // Only include value if explicitly provided
+      if (validated.value !== undefined) {
+        insertValues.value = validated.value !== null ? validated.value.toString() : null;
+      }
+
       const [created] = await tx
         .insert(schema.activities)
-        .values({
-          activityId: crypto.randomUUID(),
-          tenantId,
-          developerId: validated.developerId ?? null,
-          accountId: validated.accountId ?? null,
-          anonId: validated.anonId ?? null,
-          resourceId: validated.resourceId ?? null,
-          action: validated.action,
-          occurredAt: validated.occurredAt,
-          source: validated.source,
-          sourceRef: validated.sourceRef ?? null,
-          category: validated.category ?? null,
-          groupKey: validated.groupKey ?? null,
-          metadata: validated.metadata ?? null,
-          confidence: (validated.confidence ?? 1.0).toString(),
-          dedupKey: validated.dedupKey ?? null,
-        })
+        .values(insertValues)
         .returning();
 
       if (!created) {

@@ -67,6 +67,13 @@ export default defineConfig(({ mode }): UserConfig => {
       include: ['**/*.test.{ts,tsx}'],
       // Note: Environment variable loading is handled in vitest.setup.ts
       // (vitest 2.0+ removed test.envDir option)
+      // Run tests sequentially to avoid database conflicts
+      pool: 'forks',
+      poolOptions: {
+        forks: {
+          singleFork: true,
+        },
+      },
       coverage: {
         reporter: ['text', 'json', 'html'],
         exclude: [
