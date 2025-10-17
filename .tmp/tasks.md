@@ -505,28 +505,31 @@
 - **ドキュメント**: [.tmp/tasks/task-7.1-dashboard-layout.md](.tmp/tasks/task-7.1-dashboard-layout.md)
 - **完了日**: 2025-10-17
 
-### Task 7.2: Overviewページ実装
+### Task 7.2: Overviewページ実装 ✅
 
-- [ ] `app/routes/dashboard._index.tsx`作成
-- [ ] Swapyでウィジェットをドラッグ＆ドロップ可能に（[Swapy](https://swapy.tahazsh.com/)）
-- [ ] 総アクティビティ数・開発者数・施策件数の表示
-- [ ] ROI平均値の表示
-- [ ] 簡易グラフ（Recharts）
-- [ ] E2Eテスト作成
-- **完了条件**: Overviewページが表示され、データが取得される
+- [x] `app/routes/dashboard._index.tsx`作成
+- [x] Swapyでウィジェットをドラッグ＆ドロップ可能に（[Swapy](https://swapy.tahazsh.com/)）
+- [x] 総アクティビティ数・開発者数・施策件数の表示
+- [x] ROI平均値の表示
+- [x] 簡易グラフ（Recharts）
+- [x] E2Eテスト作成
+- **完了条件**: Overviewページが表示され、データが取得される ✓
 - **依存**: Task 7.1, Task 4.5, Task 5.4
 - **推定時間**: 4時間
 - **ドキュメント**: [.tmp/tasks/task-7.2-overview-page.md](.tmp/tasks/task-7.2-overview-page.md)
+- **完了日**: 2025-10-17
 
 ### Task 7.3: Developersページ実装
 
 - [ ] `app/routes/dashboard/developers.tsx`作成
 - [ ] 開発者リスト表示（ページネーション付き）
+  - 一覧機能はプラグインでも使うので、共通コンポーネント化する
 - [ ] 検索・フィルタ機能
 - [ ] 開発者詳細ページ（`/dashboard/developers/:id`）
 - **完了条件**: 開発者リストが表示され、詳細ページへ遷移できる
-- **依存**: Task 7.1, Task 4.4
+- **依存**: Task 7.1, Task 4.2, Task 4.3
 - **推定時間**: 4時間
+- **ドキュメント**: [.tmp/tasks/task-7.3-developers-page.md](.tmp/tasks/task-7.3-developers-page.md)
 
 ### Task 7.4: Campaignsページ実装
 
