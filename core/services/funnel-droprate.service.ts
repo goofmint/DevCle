@@ -221,7 +221,7 @@ export async function getFunnelDropRates(
             title: stage.title,
             orderNo: stage.orderNo,
             uniqueDevelopers: currentCount,
-            previousStageCount: 0, // No previous stage
+            previousStageCount: null, // No previous stage for awareness
             dropRate: null, // First stage has no drop rate
           };
         }

@@ -464,14 +464,16 @@
 - **ドキュメント**: [.tmp/tasks/task-6.1-funnel-service.md](.tmp/tasks/task-6.1-funnel-service.md)
 - **完了日**: 2025-10-16
 
-### Task 6.2: ドロップ率計算実装
+### Task 6.2: ドロップ率計算実装 ✅
 
-- [ ] `calculateDropRate(stage)`実装
-- [ ] 前ステージからの離脱率計算
-- [ ] 時系列データの集計
-- **完了条件**: 計算ロジックが単体テストでパスする
+- [x] `calculateDropRate(stage)`実装
+- [x] 前ステージからの離脱率計算
+- [x] 時系列データの集計
+- **完了条件**: 計算ロジックが単体テストでパスする ✓
 - **依存**: Task 6.1
 - **推定時間**: 2時間
+- **ドキュメント**: [.tmp/tasks/task-6.2-drop-rate-calculation.md](.tmp/tasks/task-6.2-drop-rate-calculation.md)
+- **完了日**: 2025-10-16
 
 ### Task 6.3: Funnel API実装
 
@@ -481,6 +483,7 @@
 - **完了条件**: APIが統合テストでパスする
 - **依存**: Task 6.2
 - **推定時間**: 2時間
+- **ドキュメント**: [.tmp/tasks/task-6.3-funnel-api.md](.tmp/tasks/task-6.3-funnel-api.md)
 
 ---
 
