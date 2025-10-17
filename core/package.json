@@ -11,7 +11,7 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "vitest run",
+    "test": "pnpm db:seed && vitest run",
     "test:watch": "vitest",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
@@ -21,6 +21,8 @@
     "db:seed": "tsx db/seed.ts"
   },
   "dependencies": {
+    "@headlessui/react": "^2.2.9",
+    "@heroicons/react": "^2.2.0",
     "@iconify/react": "^6.0.2",
     "@mdx-js/rollup": "^3.1.1",
     "@remix-run/node": "^2.14.0",

@@ -164,11 +164,13 @@ describe('Funnel API - /api/funnel', () => {
   });
 
   beforeEach(async () => {
-    // Clean up activities before each test
+    // Clean up ALL activities before each test
+    // This is necessary because getFunnelStats() counts ALL developers in the tenant,
+    // not just testDeveloperId. Seed data activities would interfere with drop rate calculations.
     const db = getDb();
     await db
       .delete(schema.activities)
-      .where(eq(schema.activities.developerId, testDeveloperId));
+      .where(eq(schema.activities.tenantId, 'default'));
   });
 
   describe('GET /api/funnel', () => {

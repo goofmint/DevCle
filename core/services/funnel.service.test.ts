@@ -51,6 +51,14 @@ describe('Funnel Service', () => {
       eq(schema.developers.tenantId, 'default')
     );
 
+    // Ensure 'other-tenant' tenant exists (required for foreign key constraint)
+    // Use onConflictDoNothing() to make this idempotent
+    await db.insert(schema.tenants).values({
+      tenantId: 'other-tenant',
+      name: 'Other Tenant',
+      plan: 'OSS',
+    }).onConflictDoNothing();
+
     // Clean up for 'other-tenant' tenant (must be in correct tenant context due to RLS)
     await setTenantContext('other-tenant');
     await db.delete(schema.activities).where(

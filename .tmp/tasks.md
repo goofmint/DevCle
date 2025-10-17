@@ -475,15 +475,16 @@
 - **ドキュメント**: [.tmp/tasks/task-6.2-drop-rate-calculation.md](.tmp/tasks/task-6.2-drop-rate-calculation.md)
 - **完了日**: 2025-10-16
 
-### Task 6.3: Funnel API実装
+### Task 6.3: Funnel API実装 ✅
 
-- [ ] `app/routes/api/funnel.ts`作成（Resource Route）
-- [ ] `GET /api/funnel`（全体ファネル取得）
-- [ ] `GET /api/funnel/timeline`（時系列データ取得）
-- **完了条件**: APIが統合テストでパスする
+- [x] `app/routes/api/funnel.ts`作成（Resource Route）
+- [x] `GET /api/funnel`（全体ファネル取得）
+- [x] `GET /api/funnel/timeline`（時系列データ取得）
+- **完了条件**: APIが統合テストでパスする ✓
 - **依存**: Task 6.2
 - **推定時間**: 2時間
 - **ドキュメント**: [.tmp/tasks/task-6.3-funnel-api.md](.tmp/tasks/task-6.3-funnel-api.md)
+- **完了日**: 2025-10-16
 
 ---
 
@@ -492,9 +493,9 @@
 ### Task 7.1: ダッシュボードレイアウト実装
 
 - [ ] `app/routes/dashboard.tsx`作成
-- [ ] サイドバーナビゲーション（Overview, Developers, Campaigns, Funnel）
+- [ ] サイドバーナビゲーション（Overview, Developers, Campaigns, Funnel）。一番下に System Settings へのアイコン
 - [ ] ヘッダー（ロゴ、ユーザー情報）
-- [ ] TailwindCSSでレスポンシブデザイン
+- [ ] サイドバーの項目、ウィジェットはプラグイン次第で増減することを想定
 - **完了条件**: ダッシュボードが表示され、ナビゲーションが機能する
 - **依存**: Task 2.1
 - **推定時間**: 3時間
@@ -502,6 +503,7 @@
 ### Task 7.2: Overviewページ実装
 
 - [ ] `app/routes/dashboard/overview.tsx`作成
+- [ ] Swapyでウィジェットをドラッグ＆ドロップ可能に（[Swapy](https://swapy.tahazsh.com/)）
 - [ ] 総アクティビティ数・開発者数・施策件数の表示
 - [ ] ROI平均値の表示
 - [ ] 簡易グラフ（Recharts）
