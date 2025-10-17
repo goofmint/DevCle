@@ -159,17 +159,41 @@ export function useSwapy(options: UseSwapyOptions): UseSwapyReturn {
           (itemId) => itemId === null || currentItemIds.has(itemId)
         );
 
-        if (savedSlotCount === currentItemCount && allItemsExist) {
+        // Check for duplicate itemIds (each item should appear exactly once)
+        const itemIdCounts = new Map<string, number>();
+        Object.values(parsed).forEach((itemId) => {
+          if (itemId !== null) {
+            itemIdCounts.set(itemId, (itemIdCounts.get(itemId) || 0) + 1);
+          }
+        });
+        const hasDuplicates = Array.from(itemIdCounts.values()).some((count) => count > 1);
+
+        // Check if all current items are present in saved layout
+        const savedItemIds = new Set(Object.values(parsed).filter((id): id is string => id !== null));
+        const allItemsPresent = items.every((item) => savedItemIds.has(item.id));
+
+        if (
+          savedSlotCount === currentItemCount &&
+          allItemsExist &&
+          !hasDuplicates &&
+          allItemsPresent
+        ) {
           console.debug('[useSwapy] Restored layout from localStorage:', parsed);
           return parsed;
         } else {
           console.warn(
-            '[useSwapy] Saved layout incompatible (slots:', savedSlotCount,
+            '[useSwapy] Saved layout invalid:',
+            'slots:', savedSlotCount,
             'items:', currentItemCount,
             'allItemsExist:', allItemsExist,
-            ') - resetting to initial layout'
+            'hasDuplicates:', hasDuplicates,
+            'allItemsPresent:', allItemsPresent,
+            '- clearing localStorage and reloading'
           );
           localStorage.removeItem(storageKey);
+          // Reload page to start fresh with initial layout
+          window.location.reload();
+          // Return temporary value (page will reload before this is used)
           return initSlotItemMap(items);
         }
       } catch (error) {

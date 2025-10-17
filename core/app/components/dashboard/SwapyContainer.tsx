@@ -95,6 +95,7 @@ export function SwapyContainer({
 
       {/* Swapy Container */}
       {/* Must have data-swapy-container attribute for Swapy to recognize it */}
+      {/* Activity chart dynamically spans 2 columns wherever it's positioned */}
       <div
         ref={containerRef}
         data-swapy-container
@@ -105,7 +106,7 @@ export function SwapyContainer({
             key={slottedItem.slotId}
             data-swapy-slot={slottedItem.slotId}
             className={
-              // Activity chart spans 2 columns on desktop
+              // Activity chart spans 2 columns on desktop, dynamically applied
               slottedItem.itemId === 'activity-chart'
                 ? 'lg:col-span-2'
                 : ''

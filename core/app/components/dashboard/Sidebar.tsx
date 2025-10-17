@@ -91,7 +91,7 @@ export function DashboardSidebar({
     <aside
       data-testid="sidebar"
       className={`
-        flex flex-col h-full w-60
+        flex flex-col w-60 h-screen
         bg-white dark:bg-gray-900
         border-r border-gray-200 dark:border-gray-700
         transition-transform duration-300
@@ -109,11 +109,11 @@ export function DashboardSidebar({
       </nav>
 
       {/* Bottom Navigation Items (e.g., System Settings) */}
-      {/* Always at the bottom of the viewport */}
+      {/* Sticky at the bottom of the window, not just the list */}
       {bottomItems.length > 0 && (
         <nav
           aria-label="Settings navigation"
-          className="px-3 py-4 space-y-1 border-t border-gray-200 dark:border-gray-700 mt-auto"
+          className="px-3 py-4 space-y-1 border-t border-gray-200 dark:border-gray-700 shrink-0"
         >
           {bottomItems.map((item) => (
             <NavigationItemComponent key={item.key} item={item} />
