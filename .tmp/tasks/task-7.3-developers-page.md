@@ -224,6 +224,8 @@ interface UseDeveloperFiltersOptions {
   initialQuery?: string;
   /** 初期組織ID */
   initialOrganizationId?: string;
+  /** 初期分析同意フィルタ */
+  initialConsentAnalytics?: boolean | null;
   /** 初期ソート設定 */
   initialSortBy?: 'name' | 'email' | 'createdAt' | 'activityCount';
   /** 初期ソート順序 */
@@ -235,6 +237,8 @@ interface UseDeveloperFiltersReturn {
   query: string;
   /** 組織ID */
   organizationId: string | null;
+  /** 分析同意フィルタ（null=全て, true=同意のみ, false=非同意のみ） */
+  consentAnalytics: boolean | null;
   /** ソート項目 */
   sortBy: 'name' | 'email' | 'createdAt' | 'activityCount';
   /** ソート順序 */
@@ -243,11 +247,13 @@ interface UseDeveloperFiltersReturn {
   setQuery: (query: string) => void;
   /** 組織ID更新関数 */
   setOrganizationId: (id: string | null) => void;
+  /** 分析同意フィルタ更新関数 */
+  setConsentAnalytics: (consentAnalytics: boolean | null) => void;
   /** ソート設定更新関数 */
   setSortBy: (sortBy: 'name' | 'email' | 'createdAt' | 'activityCount') => void;
   /** ソート順序更新関数 */
   setSortOrder: (order: 'asc' | 'desc') => void;
-  /** フィルタリセット関数 */
+  /** フィルタリセット関数（consentAnalyticsもnullにリセット） */
   resetFilters: () => void;
   /** URLSearchParams生成関数 */
   toSearchParams: () => URLSearchParams;
@@ -259,16 +265,26 @@ interface UseDeveloperFiltersReturn {
  * 開発者リストのフィルタ状態を管理し、URLパラメータと同期。
  *
  * 機能:
- * - フィルタ状態の管理（検索クエリ、組織ID、ソート設定）
+ * - フィルタ状態の管理（検索クエリ、組織ID、分析同意フィルタ、ソート設定）
  * - URLパラメータとの双方向同期
- * - フィルタリセット
+ * - フィルタリセット（consentAnalyticsもnullにリセット）
  *
  * 使用例:
  * ```typescript
  * function DevelopersPage() {
- *   const { query, setQuery, organizationId, setOrganizationId, toSearchParams } = useDeveloperFilters({
+ *   const {
+ *     query,
+ *     setQuery,
+ *     organizationId,
+ *     setOrganizationId,
+ *     consentAnalytics,
+ *     setConsentAnalytics,
+ *     resetFilters,
+ *     toSearchParams
+ *   } = useDeveloperFilters({
  *     initialQuery: searchParams.get('query') || '',
- *     initialOrganizationId: searchParams.get('organizationId') || null
+ *     initialOrganizationId: searchParams.get('organizationId') || null,
+ *     initialConsentAnalytics: searchParams.get('consentAnalytics') === 'true' ? true : searchParams.get('consentAnalytics') === 'false' ? false : null
  *   });
  *
  *   return (
@@ -277,6 +293,15 @@ interface UseDeveloperFiltersReturn {
  *       <select value={organizationId || ''} onChange={(e) => setOrganizationId(e.target.value || null)}>
  *         <option value="">All Organizations</option>
  *       </select>
+ *       <select
+ *         value={consentAnalytics === null ? '' : String(consentAnalytics)}
+ *         onChange={(e) => setConsentAnalytics(e.target.value === '' ? null : e.target.value === 'true')}
+ *       >
+ *         <option value="">All Consent Status</option>
+ *         <option value="true">Consented</option>
+ *         <option value="false">Not Consented</option>
+ *       </select>
+ *       <button type="button" onClick={resetFilters}>Reset</button>
  *       <button type="submit">Search</button>
  *     </Form>
  *   );
@@ -284,9 +309,9 @@ interface UseDeveloperFiltersReturn {
  * ```
  */
 export function useDeveloperFilters(options?: UseDeveloperFiltersOptions): UseDeveloperFiltersReturn {
-  // フィルタ状態の管理
+  // フィルタ状態の管理（query, organizationId, consentAnalytics, sortBy, sortOrder）
   // URLパラメータとの同期
-  // フィルタリセット処理
+  // フィルタリセット処理（全フィルタを初期状態に戻す、consentAnalyticsもnullにする）
 }
 ```
 
@@ -482,9 +507,11 @@ export function DeveloperCard({ developer }: DeveloperCardProps): JSX.Element {
 interface DeveloperFiltersProps {
   query: string;
   organizationId: string | null;
+  consentAnalytics: boolean | null;
   organizations: Pick<Organization, 'organizationId' | 'name'>[];
   onQueryChange: (query: string) => void;
   onOrganizationChange: (organizationId: string | null) => void;
+  onConsentAnalyticsChange: (consentAnalytics: boolean | null) => void;
   onReset: () => void;
 }
 
@@ -492,19 +519,22 @@ interface DeveloperFiltersProps {
  * DeveloperFilters Component
  *
  * 検索・フィルタUIを提供。
- * 検索ボックス、組織フィルタ、リセットボタンを表示。
+ * 検索ボックス、組織フィルタ、分析同意フィルタ、リセットボタンを表示。
  */
 export function DeveloperFilters({
   query,
   organizationId,
+  consentAnalytics,
   organizations,
   onQueryChange,
   onOrganizationChange,
+  onConsentAnalyticsChange,
   onReset
 }: DeveloperFiltersProps): JSX.Element {
   // 検索ボックス（デバウンス付き）
   // 組織フィルタドロップダウン
-  // リセットボタン
+  // 分析同意フィルタ（3状態トグル: null=全て, true=同意のみ, false=非同意のみ）
+  // リセットボタン（全フィルタをリセット、onConsentAnalyticsChange(null)を呼び出す）
 }
 ```
 
@@ -596,15 +626,28 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const url = new URL(request.url);
   const query = url.searchParams.get('query') || '';
   const organizationId = url.searchParams.get('organizationId') || null;
+  const consentAnalyticsParam = url.searchParams.get('consentAnalytics');
+  const consentAnalytics = consentAnalyticsParam === 'true' ? true : consentAnalyticsParam === 'false' ? false : null;
   const sortBy = url.searchParams.get('sortBy') || 'name';
   const sortOrder = url.searchParams.get('sortOrder') || 'asc';
   const page = parseInt(url.searchParams.get('page') || '1', 10);
   const limit = parseInt(url.searchParams.get('limit') || '20', 10);
 
   try {
+    // URLパラメータ構築
+    const params = new URLSearchParams({
+      query,
+      sortBy,
+      sortOrder,
+      page: String(page),
+      limit: String(limit)
+    });
+    if (organizationId) params.set('organizationId', organizationId);
+    if (consentAnalytics !== null) params.set('consentAnalytics', String(consentAnalytics));
+
     // 開発者リストと組織リストを並列取得
     const [developersResponse, organizationsResponse] = await Promise.all([
-      fetch(`/api/developers?query=${query}&organizationId=${organizationId || ''}&sortBy=${sortBy}&sortOrder=${sortOrder}&page=${page}&limit=${limit}`, {
+      fetch(`/api/developers?${params.toString()}`, {
         headers: { Cookie: request.headers.get('Cookie') || '' }
       }),
       fetch('/api/organizations', {
