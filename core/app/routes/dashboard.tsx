@@ -29,13 +29,23 @@
  */
 
 import { useState } from 'react';
-import { type LoaderFunctionArgs, json } from '@remix-run/node';
+import { type LoaderFunctionArgs, json, type MetaFunction } from '@remix-run/node';
 import { Outlet, useLoaderData } from '@remix-run/react';
 import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline';
 import { requireAuth } from '~/auth.middleware';
 import { DashboardSidebar } from '~/components/dashboard/Sidebar';
 import { DashboardHeader } from '~/components/dashboard/Header';
 import type { DashboardLayoutData, NavigationItem, User } from '~/types/dashboard';
+
+/**
+ * Meta function - Sets the page title
+ */
+export const meta: MetaFunction = () => {
+  return [
+    { title: 'Dashboard - DevCle' },
+    { name: 'description', content: 'Developer Relationship Management Dashboard' },
+  ];
+};
 
 /**
  * Core navigation items
@@ -196,9 +206,11 @@ export default function DashboardLayout() {
           )}
 
           {/* Sidebar Container */}
+          {/* Mobile: Fixed position with top-16 (below header) */}
+          {/* Desktop: Static position within flex container */}
           <div
             className={`
-              fixed md:static inset-y-0 left-0 z-20
+              fixed md:static top-16 md:top-0 bottom-0 left-0 z-20
               transform md:transform-none transition-transform duration-300
               ${isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
               md:translate-x-0

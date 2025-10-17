@@ -51,11 +51,24 @@ export function DarkModeProvider({ children }: DarkModeProviderProps): JSX.Eleme
     const savedMode = localStorage.getItem('darkMode');
     if (savedMode !== null) {
       // User has explicitly set a preference - use it
-      setIsDark(savedMode === 'true');
+      const isDarkMode = savedMode === 'true';
+      setIsDark(isDarkMode);
+      // Apply dark class to HTML element for Tailwind
+      if (isDarkMode) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
     } else {
       // No saved preference - use system preference
       const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
       setIsDark(prefersDark);
+      // Apply dark class to HTML element for Tailwind
+      if (prefersDark) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
     }
   }, []);
 
@@ -64,6 +77,13 @@ export function DarkModeProvider({ children }: DarkModeProviderProps): JSX.Eleme
     const newMode = !isDark;
     setIsDark(newMode);
     localStorage.setItem('darkMode', String(newMode));
+
+    // Apply or remove dark class from HTML element for Tailwind
+    if (newMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
   };
 
   // Always provide context, even before mounted

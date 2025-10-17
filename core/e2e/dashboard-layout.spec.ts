@@ -90,13 +90,15 @@ test('header displays correctly with user info', async ({ page }) => {
   // Open user menu
   await userMenuButton.click();
 
-  // Wait for menu to open
-  await page.waitForTimeout(300);
+  // Wait for menu animation to complete
+  await page.waitForTimeout(500);
 
-  // Verify menu items
-  await expect(page.getByRole('link', { name: /Profile/i })).toBeVisible();
-  await expect(page.getByRole('link', { name: /Settings/i })).toBeVisible();
-  await expect(page.getByRole('button', { name: /Logout/i })).toBeVisible();
+  // Verify menu items (Headless UI MenuItem children have role="menuitem")
+  await expect(page.getByRole('menuitem', { name: 'Profile' })).toBeVisible();
+  await expect(page.getByRole('menuitem', { name: 'Settings' })).toBeVisible();
+
+  // Logout button is inside a form, so it has role="button"
+  await expect(page.getByRole('button', { name: 'Logout' })).toBeVisible();
 });
 
 /**
