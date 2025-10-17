@@ -23,8 +23,11 @@ import {
   UserCircleIcon,
   Cog6ToothIcon,
   ArrowRightOnRectangleIcon,
+  SunIcon,
+  MoonIcon,
 } from '@heroicons/react/24/outline';
 import type { User } from '~/types/dashboard';
+import { useDarkMode } from '~/contexts/dark-mode-context';
 
 /**
  * Props for DashboardHeader component
@@ -40,10 +43,12 @@ interface DashboardHeaderProps {
 /**
  * DashboardHeader component
  *
- * Renders the header with logo and user menu.
+ * Renders the header with logo, dark mode toggle, and user menu.
  * The header spans the full width of the page.
  */
 export function DashboardHeader({ user }: DashboardHeaderProps) {
+  const { isDark, toggleDark } = useDarkMode();
+
   return (
     <header
       className="
@@ -61,8 +66,31 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
         DevCle
       </Link>
 
-      {/* User Menu */}
-      <UserMenu user={user} />
+      {/* Right side: Dark mode toggle + User menu */}
+      <div className="flex items-center space-x-4">
+        {/* Dark Mode Toggle */}
+        <button
+          type="button"
+          onClick={toggleDark}
+          className="
+            p-2 rounded-lg
+            text-gray-600 dark:text-gray-300
+            hover:bg-gray-100 dark:hover:bg-gray-800
+            transition-colors duration-150
+            focus:outline-none focus:ring-2 focus:ring-indigo-500
+          "
+          aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+        >
+          {isDark ? (
+            <SunIcon className="w-5 h-5" aria-hidden="true" />
+          ) : (
+            <MoonIcon className="w-5 h-5" aria-hidden="true" />
+          )}
+        </button>
+
+        {/* User Menu */}
+        <UserMenu user={user} />
+      </div>
     </header>
   );
 }

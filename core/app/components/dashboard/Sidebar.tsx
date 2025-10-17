@@ -98,20 +98,10 @@ export function DashboardSidebar({
         ${isCollapsed ? '-translate-x-full md:translate-x-0' : 'translate-x-0'}
       `}
     >
-      {/* Logo Section */}
-      <div className="flex items-center h-16 px-6 border-b border-gray-200 dark:border-gray-700">
-        <NavLink
-          to="/dashboard"
-          className="text-xl font-bold text-gray-900 dark:text-white"
-        >
-          DevCle
-        </NavLink>
-      </div>
-
       {/* Main Navigation Items */}
       <nav
         aria-label="Main navigation"
-        className="flex-1 px-3 py-4 space-y-1 overflow-y-auto"
+        className="flex-1 px-3 pt-4 pb-0 space-y-1 overflow-y-auto"
       >
         {mainItems.map((item) => (
           <NavigationItemComponent key={item.key} item={item} />
@@ -119,10 +109,11 @@ export function DashboardSidebar({
       </nav>
 
       {/* Bottom Navigation Items (e.g., System Settings) */}
+      {/* Always at the bottom of the viewport */}
       {bottomItems.length > 0 && (
         <nav
           aria-label="Settings navigation"
-          className="px-3 py-4 space-y-1 border-t border-gray-200 dark:border-gray-700"
+          className="px-3 py-4 space-y-1 border-t border-gray-200 dark:border-gray-700 mt-auto"
         >
           {bottomItems.map((item) => (
             <NavigationItemComponent key={item.key} item={item} />

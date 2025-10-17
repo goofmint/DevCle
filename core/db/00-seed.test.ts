@@ -21,6 +21,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { execSync } from 'child_process';
 import {
   getDb,
   closeDb,
@@ -36,6 +37,16 @@ import { eq } from 'drizzle-orm';
 
 describe('Database Seeding', () => {
   beforeAll(async () => {
+    // Run seed script to ensure fresh data
+    // This is necessary because other tests may have modified the database
+    // before this test suite runs (vitest execution order is not guaranteed)
+    console.log('🌱 Running seed script before seed tests...');
+    execSync('tsx db/seed.ts', {
+      cwd: '/app',
+      stdio: 'inherit',
+      env: process.env,
+    });
+
     // Ensure database connection is available
     const db = getDb();
     expect(db).toBeDefined();
