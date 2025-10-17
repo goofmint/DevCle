@@ -127,6 +127,9 @@ function UserMenu({ user }: { user: User }) {
     initials = 'UN';
   }
 
+  // Compute accessible label for avatar (fallback: displayName → email → 'User avatar')
+  const avatarLabel = user.displayName || user.email || 'User avatar';
+
   return (
     <Menu as="div" className="relative">
       {/* Menu Button */}
@@ -144,7 +147,7 @@ function UserMenu({ user }: { user: User }) {
         {user.avatarUrl ? (
           <img
             src={user.avatarUrl}
-            alt={user.displayName}
+            alt={avatarLabel}
             className="w-8 h-8 rounded-full"
           />
         ) : (
@@ -155,7 +158,7 @@ function UserMenu({ user }: { user: User }) {
               flex items-center justify-center
               text-white text-sm font-medium
             "
-            aria-label={`${user.displayName} avatar`}
+            aria-label={avatarLabel}
           >
             {initials}
           </div>
