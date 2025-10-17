@@ -16,10 +16,6 @@
 
 import { json, type LoaderFunctionArgs } from '@remix-run/node';
 import { requireAuth } from '~/auth.middleware.js';
-import {
-  setTenantContext,
-  clearTenantContext,
-} from '../../db/connection.js';
 import { getOverviewTimeline } from '../../services/overview.service.js';
 import { z } from 'zod';
 
@@ -76,28 +72,16 @@ export async function loader({ request }: LoaderFunctionArgs) {
     // Validate using Zod schema
     const params = TimelineQuerySchema.parse(rawParams);
 
-    // 3. Set tenant context for RLS (Row Level Security)
-    // This ensures all database queries are filtered by tenant_id
-    await setTenantContext(tenantId);
+    // 3. Call service layer to get timeline data
+    // Service layer uses withTenantContext() to ensure RLS works correctly
+    // This prevents data leakage between tenants when using connection pooling
+    const timeline = await getOverviewTimeline(tenantId, params.days);
 
-    try {
-      // 4. Call service layer to get timeline data
-      // Service layer will aggregate data by date
-      const timeline = await getOverviewTimeline(tenantId, params.days);
-
-      // 5. Clear tenant context after successful operation
-      await clearTenantContext();
-
-      // 6. Return success response with timeline data
-      // Wrapped in { timeline } object to match API spec
-      return json({ timeline }, { status: 200 });
-    } catch (serviceError) {
-      // Ensure tenant context is cleared even if service call fails
-      await clearTenantContext();
-      throw serviceError; // Re-throw to outer catch block
-    }
+    // 4. Return success response with timeline data
+    // Wrapped in { timeline } object to match API spec
+    return json({ timeline }, { status: 200 });
   } catch (error) {
-    // 7. Handle errors and return appropriate HTTP status codes
+    // 5. Handle errors and return appropriate HTTP status codes
 
     // Handle requireAuth() redirect (API should return 401 instead of redirect)
     // requireAuth() throws a Response with status 302 when user is not authenticated

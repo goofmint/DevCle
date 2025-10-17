@@ -9,7 +9,7 @@
  * - getOverviewTimeline(): Get time-series data for charts
  */
 
-import { getDb, withTenantContext } from '../db/connection.js';
+import { withTenantContext } from '../db/connection.js';
 import * as schema from '../db/schema/index.js';
 import { sql, and, eq, gte, count, countDistinct } from 'drizzle-orm';
 import { calculateROI } from './roi-calculate.service.js';
@@ -58,8 +58,6 @@ export interface TimelineDataPoint {
 export async function getOverviewStats(
   tenantId: string
 ): Promise<OverviewStats> {
-  console.log('[getOverviewStats] Called with tenantId:', tenantId);
-
   // Use withTenantContext() to ensure RLS works correctly with connection pooling
   // All database queries inside this callback will use the tenant context
   return await withTenantContext(tenantId, async (tx) => {
@@ -70,8 +68,6 @@ export async function getOverviewStats(
       .from(schema.developers)
       .where(eq(schema.developers.tenantId, tenantId));
 
-    console.log('[getOverviewStats] Developer count result:', developerCount);
-
     // Query 2: Count total activities
     // Uses count() aggregate function with tenant filter
     const [activityCount] = await tx
@@ -79,16 +75,12 @@ export async function getOverviewStats(
       .from(schema.activities)
       .where(eq(schema.activities.tenantId, tenantId));
 
-    console.log('[getOverviewStats] Activity count result:', activityCount);
-
     // Query 3: Count total campaigns
     // Uses count() aggregate function with tenant filter
     const [campaignCount] = await tx
       .select({ count: count() })
       .from(schema.campaigns)
       .where(eq(schema.campaigns.tenantId, tenantId));
-
-    console.log('[getOverviewStats] Campaign count result:', campaignCount);
 
     // Query 4: Calculate average ROI across all campaigns
     // Fetch all campaigns, calculate ROI for each, then compute average
@@ -112,13 +104,10 @@ export async function getOverviewStats(
           if (roi && roi.roi !== null) {
             roiValues.push(roi.roi);
           }
-        } catch (error) {
+        } catch {
           // Skip campaigns that fail ROI calculation
           // This can happen if campaign has no associated data
-          console.warn(
-            `Failed to calculate ROI for campaign ${campaign.campaignId}:`,
-            error
-          );
+          // Silently continue to next campaign
         }
       }
 
@@ -129,16 +118,12 @@ export async function getOverviewStats(
       }
     }
 
-    const result = {
+    return {
       totalDevelopers: developerCount?.count ?? 0,
       totalActivities: activityCount?.count ?? 0,
       totalCampaigns: campaignCount?.count ?? 0,
       averageROI,
     };
-
-    console.log('[getOverviewStats] Returning result:', result);
-
-    return result;
   });
 }
 
@@ -164,62 +149,64 @@ export async function getOverviewTimeline(
   tenantId: string,
   days = 30
 ): Promise<TimelineDataPoint[]> {
-  const db = getDb();
+  // Use withTenantContext() to ensure RLS works correctly with connection pooling
+  // All database queries inside this callback will use the tenant context
+  return await withTenantContext(tenantId, async (tx) => {
+    // Calculate date range: today minus N days
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
 
-  // Calculate date range: today minus N days
-  const endDate = new Date();
-  const startDate = new Date();
-  startDate.setDate(startDate.getDate() - days);
-
-  // Query: Aggregate activities and developers per day
-  // Uses DATE_TRUNC to group by day, COUNT for activities, COUNT DISTINCT for unique developers
-  const timeline = await db
-    .select({
-      date: sql<string>`DATE(${schema.activities.occurredAt})`,
-      activities: count(),
-      developers: countDistinct(schema.activities.developerId),
-    })
-    .from(schema.activities)
-    .where(
-      and(
-        eq(schema.activities.tenantId, tenantId),
-        gte(schema.activities.occurredAt, startDate)
+    // Query: Aggregate activities and developers per day
+    // Uses DATE_TRUNC to group by day, COUNT for activities, COUNT DISTINCT for unique developers
+    const timeline = await tx
+      .select({
+        date: sql<string>`DATE(${schema.activities.occurredAt})`,
+        activities: count(),
+        developers: countDistinct(schema.activities.developerId),
+      })
+      .from(schema.activities)
+      .where(
+        and(
+          eq(schema.activities.tenantId, tenantId),
+          gte(schema.activities.occurredAt, startDate)
+        )
       )
-    )
-    .groupBy(sql`DATE(${schema.activities.occurredAt})`)
-    .orderBy(sql`DATE(${schema.activities.occurredAt})`);
+      .groupBy(sql`DATE(${schema.activities.occurredAt})`)
+      .orderBy(sql`DATE(${schema.activities.occurredAt})`);
 
-  // Fill in missing dates with zero counts
-  // This ensures charts have continuous data without gaps
-  const dateMap = new Map<string, TimelineDataPoint>();
+    // Fill in missing dates with zero counts
+    // This ensures charts have continuous data without gaps
+    const dateMap = new Map<string, TimelineDataPoint>();
 
-  // Populate map with actual data
-  for (const row of timeline) {
-    dateMap.set(row.date, {
-      date: row.date,
-      activities: row.activities,
-      developers: row.developers,
-    });
-  }
+    // Populate map with actual data
+    for (const row of timeline) {
+      dateMap.set(row.date, {
+        date: row.date,
+        activities: row.activities,
+        developers: row.developers,
+      });
+    }
 
-  // Generate all dates in range and fill gaps
-  const result: TimelineDataPoint[] = [];
-  const currentDate = new Date(startDate);
+    // Generate all dates in range and fill gaps
+    const result: TimelineDataPoint[] = [];
+    const currentDate = new Date(startDate);
 
-  while (currentDate <= endDate) {
-    const dateStr = currentDate.toISOString().split('T')[0] ?? '';
-    const existing = dateMap.get(dateStr);
+    while (currentDate <= endDate) {
+      const dateStr = currentDate.toISOString().split('T')[0] ?? '';
+      const existing = dateMap.get(dateStr);
 
-    result.push(
-      existing ?? {
-        date: dateStr,
-        activities: 0,
-        developers: 0,
-      }
-    );
+      result.push(
+        existing ?? {
+          date: dateStr,
+          activities: 0,
+          developers: 0,
+        }
+      );
 
-    currentDate.setDate(currentDate.getDate() + 1);
-  }
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
 
-  return result;
+    return result;
+  });
 }
