@@ -405,27 +405,143 @@ test('design alignment check - no偏り', async ({ page }) => {
 /**
  * Test: GridStack drag-and-drop functionality
  *
- * Note: GridStack drag-and-drop tests are skipped because:
- * - GridStack uses complex internal DOM manipulation
- * - Drag-and-drop behavior is library-specific and well-tested by GridStack
- * - Manual testing is more reliable for this feature
- *
- * TODO: Implement visual regression tests or manual test checklist
+ * Verifies that:
+ * 1. Widgets can be dragged and dropped
+ * 2. Widget positions change after drag-and-drop
+ * 3. Layout is saved to localStorage
  */
-test.skip('gridstack drag-and-drop works', async () => {
-  // Skipped - requires GridStack-specific test implementation
+test('gridstack drag-and-drop works', async ({ page }) => {
+  await login(page);
+
+  // Wait for widgets to be visible
+  const developerCard = page.getByTestId('total-developers');
+  const activitiesCard = page.getByTestId('total-activities');
+  await expect(developerCard).toBeVisible({ timeout: 10000 });
+  await expect(activitiesCard).toBeVisible({ timeout: 10000 });
+
+  // Get initial layout from localStorage (should be empty or have default positions)
+  const initialLayout = await page.evaluate(() => {
+    const saved = localStorage.getItem('overview-layout');
+    return saved ? JSON.parse(saved) : null;
+  });
+
+  console.log('Initial layout:', JSON.stringify(initialLayout));
+
+  // Get initial bounding boxes
+  const initialDevBox = await developerCard.boundingBox();
+  const initialActBox = await activitiesCard.boundingBox();
+
+  expect(initialDevBox).not.toBeNull();
+  expect(initialActBox).not.toBeNull();
+
+  console.log('Initial developer position:', initialDevBox);
+  console.log('Initial activities position:', initialActBox);
+
+  // Perform drag: drag developer card to the right
+  await developerCard.hover();
+  await page.mouse.down();
+
+  // Move to the right by approximately one card width (250px)
+  await page.mouse.move(
+    initialDevBox!.x + initialDevBox!.width + 50,
+    initialDevBox!.y + initialDevBox!.height / 2,
+    { steps: 10 }
+  );
+  await page.mouse.up();
+
+  // Wait for drag animation and layout update
+  await page.waitForTimeout(1500);
+
+  // Get new bounding boxes
+  const newDevBox = await developerCard.boundingBox();
+  const newActBox = await activitiesCard.boundingBox();
+
+  expect(newDevBox).not.toBeNull();
+  expect(newActBox).not.toBeNull();
+
+  console.log('After drag developer position:', newDevBox);
+  console.log('After drag activities position:', newActBox);
+
+  // Position should have changed (x coordinate should be different)
+  const positionChanged = Math.abs(newDevBox!.x - initialDevBox!.x) > 50;
+  expect(positionChanged).toBe(true);
+
+  // Verify localStorage was updated
+  const savedLayout = await page.evaluate(() => {
+    const saved = localStorage.getItem('overview-layout');
+    return saved ? JSON.parse(saved) : null;
+  });
+
+  console.log('Saved layout after drag:', JSON.stringify(savedLayout));
+
+  expect(savedLayout).not.toBeNull();
+  expect(savedLayout).toHaveProperty('total-developers');
+
+  // Verify the saved position is different from initial
+  if (initialLayout && initialLayout['total-developers']) {
+    expect(savedLayout['total-developers'].x).not.toBe(initialLayout['total-developers'].x);
+  }
 });
 
 /**
  * Test: GridStack layout persists after reload
  *
- * Note: Layout persistence tests are skipped because:
- * - GridStack layout structure differs from Swapy
- * - localStorage structure needs to be verified manually
- * - Manual testing is more reliable for this feature
- *
- * TODO: Implement layout persistence tests for GridStack
+ * Verifies that:
+ * 1. Layout is saved to localStorage
+ * 2. Layout is restored after page reload
+ * 3. Widget positions match saved layout
  */
-test.skip('gridstack layout persists after reload', async () => {
-  // Skipped - requires GridStack-specific test implementation
+test('gridstack layout persists after reload', async ({ page }) => {
+  await login(page);
+
+  // Wait for widgets to be visible
+  const developerCard = page.getByTestId('total-developers');
+  await expect(developerCard).toBeVisible({ timeout: 10000 });
+
+  // Get initial position
+  const initialBox = await developerCard.boundingBox();
+  expect(initialBox).not.toBeNull();
+
+  console.log('Before drag position:', initialBox);
+
+  // Drag the developer card to the right
+  await developerCard.hover();
+  await page.mouse.down();
+  await page.mouse.move(
+    initialBox!.x + initialBox!.width + 50,
+    initialBox!.y + initialBox!.height / 2,
+    { steps: 10 }
+  );
+  await page.mouse.up();
+
+  await page.waitForTimeout(1500);
+
+  // Get position after drag
+  const draggedBox = await developerCard.boundingBox();
+  expect(draggedBox).not.toBeNull();
+
+  console.log('After drag position:', draggedBox);
+
+  // Verify position changed
+  const positionChanged = Math.abs(draggedBox!.x - initialBox!.x) > 50;
+  expect(positionChanged).toBe(true);
+
+  // Reload page
+  await page.reload();
+
+  // Wait for widgets to be visible again
+  await expect(developerCard).toBeVisible({ timeout: 10000 });
+
+  // Get position after reload
+  const reloadedBox = await developerCard.boundingBox();
+  expect(reloadedBox).not.toBeNull();
+
+  console.log('After reload position:', reloadedBox);
+
+  // Position should match the dragged position (within 10px tolerance)
+  const xMatches = Math.abs(reloadedBox!.x - draggedBox!.x) < 10;
+  const yMatches = Math.abs(reloadedBox!.y - draggedBox!.y) < 10;
+
+  expect(xMatches).toBe(true);
+  expect(yMatches).toBe(true);
 });
