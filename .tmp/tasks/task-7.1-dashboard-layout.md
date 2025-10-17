@@ -208,7 +208,7 @@ interface DashboardHeaderProps {
  * Header component
  *
  * Implementation:
- * 1. Render logo with link to /dashboard/overview
+ * 1. Render logo with link to /dashboard
  * 2. Render user avatar or initials
  * 3. Render user name and role
  * 4. Render dropdown menu with Profile, Settings, Logout
@@ -227,33 +227,34 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
 
 ### 4. `app/routes/dashboard._index.tsx`
 
-ダッシュボードのインデックスルート。`/dashboard`にアクセスした場合、`/dashboard/overview`にリダイレクトします。
+ダッシュボードのインデックスルート。`/dashboard`でOverviewページを直接表示します。
 
 ```typescript
 /**
- * Dashboard Index Route
+ * Dashboard Index Route (Overview Page)
  *
- * Redirects to /dashboard/overview
+ * Displays the dashboard overview directly at /dashboard
  *
  * Purpose:
- * - /dashboard is the default dashboard route
- * - Automatically redirect to /dashboard/overview
- * - This ensures a consistent user experience
- */
-
-import { redirect } from '@remix-run/node';
-import type { LoaderFunctionArgs } from '@remix-run/node';
-
-/**
- * Loader function
+ * - /dashboard is the main dashboard page (Overview)
+ * - No redirect needed - simpler and faster
+ * - Overview content is implemented in Task 7.2
  *
- * Implementation:
- * 1. Redirect to /dashboard/overview
+ * Note:
+ * - Task 7.2 will add the actual Overview content (widgets, stats, graphs) to this file
+ * - For now, this is a placeholder that shows "Overview" text
  */
-export async function loader({ request }: LoaderFunctionArgs) {
+
+export default function DashboardIndex() {
   // Implementation:
-  // 1. Return redirect to /dashboard/overview
-  throw new Error('Not implemented');
+  // 1. Render Overview page content
+  // 2. Task 7.2 will implement the actual widgets and stats here
+  return (
+    <div>
+      <h1>Overview</h1>
+      {/* Task 7.2: Add widgets, stats, graphs here */}
+    </div>
+  );
 }
 ```
 
@@ -502,7 +503,7 @@ const CORE_NAVIGATION_ITEMS: NavigationItem[] = [
   {
     key: 'overview',
     label: 'Overview',
-    path: '/dashboard/overview',
+    path: '/dashboard',
     icon: 'home',
     order: 10,
   },
@@ -645,7 +646,7 @@ test.describe('Dashboard Layout', () => {
     await page.goto('/dashboard');
 
     // Assert: Should display dashboard
-    await expect(page).toHaveURL('/dashboard/overview');
+    await expect(page).toHaveURL('/dashboard');
     await expect(page.locator('text=Overview')).toBeVisible();
   });
 
@@ -676,7 +677,7 @@ test.describe('Dashboard Layout', () => {
     await expect(page).toHaveURL('/dashboard/funnel');
 
     await page.click('text=Overview');
-    await expect(page).toHaveURL('/dashboard/overview');
+    await expect(page).toHaveURL('/dashboard');
   });
 
   test('should highlight active navigation item', async ({ page }) => {
@@ -736,7 +737,7 @@ async function loginAndNavigateToDashboard(page: Page) {
   await page.fill('input[name="email"]', 'test@example.com');
   await page.fill('input[name="password"]', 'password123');
   await page.click('button[type="submit"]');
-  await page.waitForURL('/dashboard/overview');
+  await page.waitForURL('/dashboard');
 }
 ```
 
@@ -751,7 +752,7 @@ async function loginAndNavigateToDashboard(page: Page) {
  * Accessibility attributes
  */
 <nav aria-label="Main navigation">
-  <NavLink to="/dashboard/overview" aria-current={isActive ? 'page' : undefined}>
+  <NavLink to="/dashboard" aria-current={isActive ? 'page' : undefined}>
     Overview
   </NavLink>
 </nav>
@@ -773,7 +774,7 @@ async function loginAndNavigateToDashboard(page: Page) {
 ## 完了チェックリスト
 
 - [ ] `app/routes/dashboard.tsx`ファイル作成
-- [ ] `app/routes/dashboard._index.tsx`ファイル作成（/dashboard → /dashboard/overviewリダイレクト）
+- [ ] `app/routes/dashboard._index.tsx`ファイル作成（/dashboard でOverview表示）
 - [ ] `app/components/dashboard/Sidebar.tsx`コンポーネント作成
 - [ ] `app/components/dashboard/Header.tsx`コンポーネント作成
 - [ ] `app/types/dashboard.ts`型定義ファイル作成
@@ -795,7 +796,7 @@ async function loginAndNavigateToDashboard(page: Page) {
 
 Task 7.1完了後、以下のタスクに進みます：
 
-- **Task 7.2**: Overviewページ実装（総アクティビティ数・開発者数・施策件数・ROI平均値、簡易グラフ）
+- **Task 7.2**: Overviewページ実装（`/dashboard` に総アクティビティ数・開発者数・施策件数・ROI平均値、簡易グラフを追加）
 - **Task 7.3**: Developersページ実装（開発者リスト、検索・フィルタ機能、開発者詳細ページ）
 - **Task 7.4**: Campaignsページ実装（施策リスト、ROI表示、施策詳細ページ）
 - **Task 7.5**: Funnelページ実装（ファネルチャート表示、ドロップ率表示、時系列グラフ）
