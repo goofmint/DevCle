@@ -185,11 +185,11 @@ test('overview page displays stats cards', async ({ page }) => {
   // Wait for data to load (not in loading state)
   await expect(page.getByText('Loading...')).not.toBeVisible({ timeout: 10000 });
 
-  // Verify all 4 stat cards exist (using current testId naming)
-  await expect(page.getByTestId('total-developers')).toBeVisible();
-  await expect(page.getByTestId('total-activities')).toBeVisible();
-  await expect(page.getByTestId('total-campaigns')).toBeVisible();
-  await expect(page.getByTestId('average-roi')).toBeVisible();
+  // Verify all 4 stat cards exist (using current testId naming) (with longer timeout for GridStack rendering)
+  await expect(page.getByTestId('total-developers')).toBeVisible({ timeout: 10000 });
+  await expect(page.getByTestId('total-activities')).toBeVisible({ timeout: 10000 });
+  await expect(page.getByTestId('total-campaigns')).toBeVisible({ timeout: 10000 });
+  await expect(page.getByTestId('average-roi')).toBeVisible({ timeout: 10000 });
 
   // Verify each card has content
   const developersCard = page.getByTestId('total-developers');
@@ -436,6 +436,9 @@ test('dark mode - content area colors', async ({ page }) => {
   // We're just checking that it exists and is not an error
   expect(mainBgColor).toBeTruthy();
 
+  // Wait for stat cards to be visible (with longer timeout for GridStack rendering)
+  await expect(page.getByTestId('total-developers')).toBeVisible({ timeout: 10000 });
+
   // Check stat card background (should be gray-800, dark color)
   const statCard = page.getByTestId('total-developers');
   const cardBgColor = await statCard.evaluate((el) => {
@@ -487,6 +490,9 @@ test('light mode - content area colors', async ({ page }) => {
 
   // Wait for data to load (not in loading state)
   await expect(page.getByText('Loading...')).not.toBeVisible({ timeout: 10000 });
+
+  // Wait for stat cards to be visible (with longer timeout for GridStack rendering)
+  await expect(page.getByTestId('total-developers')).toBeVisible({ timeout: 10000 });
 
   // Check stat card background (should be white)
   const statCard = page.getByTestId('total-developers');

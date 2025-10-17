@@ -70,16 +70,16 @@ test('overview page displays correctly', async ({ page }) => {
 test('four stat cards are displayed', async ({ page }) => {
   await login(page);
 
-  // Verify all 4 stat cards exist
+  // Verify all 4 stat cards exist (with longer timeout for GridStack rendering)
   const developerCard = page.getByTestId('total-developers');
   const activityCard = page.getByTestId('total-activities');
   const campaignCard = page.getByTestId('total-campaigns');
   const roiCard = page.getByTestId('average-roi');
 
-  await expect(developerCard).toBeVisible();
-  await expect(activityCard).toBeVisible();
-  await expect(campaignCard).toBeVisible();
-  await expect(roiCard).toBeVisible();
+  await expect(developerCard).toBeVisible({ timeout: 10000 });
+  await expect(activityCard).toBeVisible({ timeout: 10000 });
+  await expect(campaignCard).toBeVisible({ timeout: 10000 });
+  await expect(roiCard).toBeVisible({ timeout: 10000 });
 
   // Verify each card has labels
   await expect(developerCard.getByText(/Total Developers/i)).toBeVisible();
@@ -125,6 +125,9 @@ test('activity chart is displayed', async ({ page }) => {
 test('dark mode - stat card colors', async ({ page }) => {
   await login(page);
 
+  // Wait for stat cards to be visible (with longer timeout for GridStack rendering)
+  await expect(page.getByTestId('total-developers')).toBeVisible({ timeout: 10000 });
+
   // Enable dark mode
   await page.evaluate(() => {
     document.documentElement.classList.add('dark');
@@ -134,8 +137,12 @@ test('dark mode - stat card colors', async ({ page }) => {
     document.documentElement.classList.contains('dark')
   );
 
+  // Wait for dark mode styles to be applied
+  await page.waitForTimeout(500);
+
   // Check stat card background (should be dark)
   const statCard = page.getByTestId('total-developers');
+  await expect(statCard).toBeVisible();
   const cardBgColor = await statCard.evaluate((el) => {
     return window.getComputedStyle(el).backgroundColor;
   });
@@ -225,6 +232,9 @@ test('light mode - stat card colors', async ({ page }) => {
 test('dark mode - chart colors', async ({ page }) => {
   await login(page);
 
+  // Wait for chart to be visible (with longer timeout for GridStack rendering)
+  await expect(page.getByTestId('activity-chart')).toBeVisible({ timeout: 10000 });
+
   // Enable dark mode
   await page.evaluate(() => {
     document.documentElement.classList.add('dark');
@@ -234,8 +244,12 @@ test('dark mode - chart colors', async ({ page }) => {
     document.documentElement.classList.contains('dark')
   );
 
+  // Wait for dark mode styles to be applied
+  await page.waitForTimeout(500);
+
   // Check chart container background
   const chart = page.getByTestId('activity-chart');
+  await expect(chart).toBeVisible();
   const chartBgColor = await chart.evaluate((el) => {
     return window.getComputedStyle(el).backgroundColor;
   });
@@ -259,6 +273,9 @@ test('dark mode - chart colors', async ({ page }) => {
  */
 test('light mode - chart colors', async ({ page }) => {
   await login(page);
+
+  // Wait for chart to be visible first (with longer timeout for GridStack rendering)
+  await expect(page.getByTestId('activity-chart')).toBeVisible({ timeout: 10000 });
 
   // Remove dark mode class
   await page.evaluate(() => {
@@ -338,6 +355,12 @@ test('responsive design - mobile layout', async ({ page }) => {
  */
 test('design alignment check - no偏り', async ({ page }) => {
   await login(page);
+
+  // Wait for stat cards to be visible (with longer timeout for GridStack rendering)
+  await expect(page.getByTestId('total-developers')).toBeVisible({ timeout: 10000 });
+  await expect(page.getByTestId('total-activities')).toBeVisible({ timeout: 10000 });
+  await expect(page.getByTestId('total-campaigns')).toBeVisible({ timeout: 10000 });
+  await expect(page.getByTestId('average-roi')).toBeVisible({ timeout: 10000 });
 
   // Get all stat cards
   const cards = [

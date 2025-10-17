@@ -46,12 +46,22 @@ export function GridStackRender(props: { componentMap: ComponentMap }) {
   // Force re-render when grid is initialized
   useEffect(() => {
     if (_gridStack.value) {
-      // Give GridStack time to create widget containers
-      setTimeout(() => {
-        forceUpdate(prev => prev + 1);
-      }, 100);
+      // Poll until all widget containers are ready
+      const checkReady = () => {
+        const allReady = Array.from(_rawWidgetMetaMap.value.keys()).every((id) =>
+          getWidgetContainer(id) !== null
+        );
+
+        if (allReady) {
+          forceUpdate((prev) => prev + 1);
+        } else {
+          setTimeout(checkReady, 50);
+        }
+      };
+
+      checkReady();
     }
-  }, [_gridStack.value]);
+  }, [_gridStack.value, _rawWidgetMetaMap, getWidgetContainer]);
 
   // Don't render until GridStack is initialized
   if (!_gridStack.value) {
