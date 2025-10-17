@@ -956,39 +956,35 @@ async function seed(): Promise<void> {
 
     console.log('    ✅ RLS disabled on all tables\n');
 
-    // NOTE: TRUNCATE disabled for test runs to preserve existing data
-    // Each seed function uses .onConflictDoNothing() for idempotency
-    // This allows running tests without destroying development data
-    //
-    // If you need to clear all data (e.g., fresh start), run:
-    // docker compose exec postgres psql -U devcle -d devcle -c "TRUNCATE TABLE tenants CASCADE"
-    //
-    // console.log('  🗑️  Clearing existing data...\n');
-    // await sql.unsafe('TRUNCATE TABLE activity_funnel_map CASCADE');
-    // await sql.unsafe('TRUNCATE TABLE funnel_stages CASCADE');
-    // await sql.unsafe('TRUNCATE TABLE activities CASCADE');
-    // await sql.unsafe('TRUNCATE TABLE activity_campaigns CASCADE');
-    // await sql.unsafe('TRUNCATE TABLE resources CASCADE');
-    // await sql.unsafe('TRUNCATE TABLE campaigns CASCADE');
-    // await sql.unsafe('TRUNCATE TABLE budgets CASCADE');
-    // await sql.unsafe('TRUNCATE TABLE accounts CASCADE');
-    // await sql.unsafe('TRUNCATE TABLE developer_identifiers CASCADE');
-    // await sql.unsafe('TRUNCATE TABLE developer_merge_logs CASCADE');
-    // await sql.unsafe('TRUNCATE TABLE developers CASCADE');
-    // await sql.unsafe('TRUNCATE TABLE organizations CASCADE');
-    // await sql.unsafe('TRUNCATE TABLE users CASCADE');
-    // await sql.unsafe('TRUNCATE TABLE api_keys CASCADE');
-    // await sql.unsafe('TRUNCATE TABLE system_settings CASCADE');
-    // await sql.unsafe('TRUNCATE TABLE notifications CASCADE');
-    // await sql.unsafe('TRUNCATE TABLE plugins CASCADE');
-    // await sql.unsafe('TRUNCATE TABLE plugin_runs CASCADE');
-    // await sql.unsafe('TRUNCATE TABLE plugin_events_raw CASCADE');
-    // await sql.unsafe('TRUNCATE TABLE import_jobs CASCADE');
-    // await sql.unsafe('TRUNCATE TABLE shortlinks CASCADE');
-    // await sql.unsafe('TRUNCATE TABLE developer_stats CASCADE');
-    // await sql.unsafe('TRUNCATE TABLE campaign_stats CASCADE');
-    // await sql.unsafe('TRUNCATE TABLE tenants CASCADE');
-    // console.log('    ✅ All data cleared\n');
+    // TRUNCATE all tables BEFORE seeding to ensure clean state
+    // This prevents conflicts with test data that may have been created
+    // Each test should clean up its own data, but seed runs with fresh slate
+    console.log('  🗑️  Clearing existing data...\n');
+    await sql.unsafe('TRUNCATE TABLE activity_funnel_map CASCADE');
+    await sql.unsafe('TRUNCATE TABLE funnel_stages CASCADE');
+    await sql.unsafe('TRUNCATE TABLE activities CASCADE');
+    await sql.unsafe('TRUNCATE TABLE activity_campaigns CASCADE');
+    await sql.unsafe('TRUNCATE TABLE resources CASCADE');
+    await sql.unsafe('TRUNCATE TABLE campaigns CASCADE');
+    await sql.unsafe('TRUNCATE TABLE budgets CASCADE');
+    await sql.unsafe('TRUNCATE TABLE accounts CASCADE');
+    await sql.unsafe('TRUNCATE TABLE developer_identifiers CASCADE');
+    await sql.unsafe('TRUNCATE TABLE developer_merge_logs CASCADE');
+    await sql.unsafe('TRUNCATE TABLE developers CASCADE');
+    await sql.unsafe('TRUNCATE TABLE organizations CASCADE');
+    await sql.unsafe('TRUNCATE TABLE users CASCADE');
+    await sql.unsafe('TRUNCATE TABLE api_keys CASCADE');
+    await sql.unsafe('TRUNCATE TABLE system_settings CASCADE');
+    await sql.unsafe('TRUNCATE TABLE notifications CASCADE');
+    await sql.unsafe('TRUNCATE TABLE plugins CASCADE');
+    await sql.unsafe('TRUNCATE TABLE plugin_runs CASCADE');
+    await sql.unsafe('TRUNCATE TABLE plugin_events_raw CASCADE');
+    await sql.unsafe('TRUNCATE TABLE import_jobs CASCADE');
+    await sql.unsafe('TRUNCATE TABLE shortlinks CASCADE');
+    await sql.unsafe('TRUNCATE TABLE developer_stats CASCADE');
+    await sql.unsafe('TRUNCATE TABLE campaign_stats CASCADE');
+    await sql.unsafe('TRUNCATE TABLE tenants CASCADE');
+    console.log('    ✅ All data cleared\n');
 
     // Seed in dependency order
     // Each function is idempotent (can be run multiple times safely)
