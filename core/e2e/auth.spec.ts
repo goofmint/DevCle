@@ -41,7 +41,7 @@ test('user can login and logout', async ({ page }) => {
 
   // Verify we're on the login page
   await expect(page).toHaveURL(`${BASE_URL}/login`);
-  await expect(page.locator('h1')).toHaveText('Login');
+  await expect(page.locator('h1')).toHaveText('Log In');
 
   // 2. Fill login form with test user credentials
   await page.fill('input[name="email"]', 'test@example.com');

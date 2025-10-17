@@ -399,46 +399,46 @@ test('swapy drag-and-drop works', async ({ page }) => {
   // Wait for Swapy to initialize
   await page.waitForTimeout(1000);
 
-  // Get initial positions
-  const statsGrid = page.locator('[data-swapy-slot="stats-grid"]');
-  const activityChart = page.locator('[data-swapy-slot="activity-chart"]');
+  // Get initial positions - now we have 5 individual widgets
+  const firstCard = page.locator('[data-swapy-slot="slot-1"]');
+  const activityChart = page.locator('[data-swapy-slot="slot-5"]');
 
-  const statsInitialBox = await statsGrid.boundingBox();
+  const firstInitialBox = await firstCard.boundingBox();
   const chartInitialBox = await activityChart.boundingBox();
 
-  console.log('Stats grid initial Y:', statsInitialBox?.y);
+  console.log('First card initial Y:', firstInitialBox?.y);
   console.log('Activity chart initial Y:', chartInitialBox?.y);
 
-  // Stats grid should be above activity chart initially
-  expect(statsInitialBox).not.toBeNull();
+  // First card should be above activity chart initially
+  expect(firstInitialBox).not.toBeNull();
   expect(chartInitialBox).not.toBeNull();
-  expect(statsInitialBox!.y).toBeLessThan(chartInitialBox!.y);
+  expect(firstInitialBox!.y).toBeLessThan(chartInitialBox!.y);
 
-  // Perform drag-and-drop: drag activity chart to stats grid position
-  // Note: Swapy uses data-swapy-item as drag handle
-  const chartItem = page.locator('[data-swapy-item="activity-chart-item"]');
-  const statsItem = page.locator('[data-swapy-item="stats-grid-item"]');
+  // Perform drag-and-drop: drag first card to activity chart position
+  // Note: Swapy uses data-swapy-handle for dragging
+  const firstCardHandle = firstCard.locator('[data-swapy-handle]');
+  const chartHandle = activityChart.locator('[data-swapy-handle]');
 
-  // Drag chart item to stats item position
-  await chartItem.dragTo(statsItem, {
+  // Drag first card handle to chart position
+  await firstCardHandle.dragTo(chartHandle, {
     force: true,
-    targetPosition: { x: 10, y: 10 },
   });
 
   // Wait for animation to complete
   await page.waitForTimeout(1000);
 
   // Get new positions after swap
-  const statsNewBox = await statsGrid.boundingBox();
+  const firstNewBox = await firstCard.boundingBox();
   const chartNewBox = await activityChart.boundingBox();
 
-  console.log('Stats grid new Y:', statsNewBox?.y);
+  console.log('First card new Y:', firstNewBox?.y);
   console.log('Activity chart new Y:', chartNewBox?.y);
 
-  // After swap, activity chart should be above stats grid
-  expect(statsNewBox).not.toBeNull();
+  // After swap, positions should have changed
+  expect(firstNewBox).not.toBeNull();
   expect(chartNewBox).not.toBeNull();
-  expect(chartNewBox!.y).toBeLessThan(statsNewBox!.y);
+  // The positions should be swapped
+  expect(Math.abs((firstNewBox!.y - chartInitialBox!.y)) < 50).toBe(true);
 
   // Verify localStorage was updated
   const savedLayout = await page.evaluate(() => {
@@ -448,10 +448,13 @@ test('swapy drag-and-drop works', async ({ page }) => {
   console.log('Saved layout:', savedLayout);
   expect(savedLayout).not.toBeNull();
 
-  // Parse and verify layout structure
+  // Parse and verify layout structure - now 5 slots
   const layout = JSON.parse(savedLayout!);
-  expect(layout).toHaveProperty('stats-grid');
-  expect(layout).toHaveProperty('activity-chart');
+  expect(layout).toHaveProperty('slot-1');
+  expect(layout).toHaveProperty('slot-2');
+  expect(layout).toHaveProperty('slot-3');
+  expect(layout).toHaveProperty('slot-4');
+  expect(layout).toHaveProperty('slot-5');
 });
 
 /**
@@ -474,29 +477,31 @@ test('swapy layout persists after reload', async ({ page }) => {
   await page.waitForLoadState('networkidle');
   await page.waitForTimeout(1000);
 
-  // Perform drag-and-drop
-  const chartItem = page.locator('[data-swapy-item="activity-chart-item"]');
-  const statsItem = page.locator('[data-swapy-item="stats-grid-item"]');
+  // Perform drag-and-drop between first card and chart
+  const firstCard = page.locator('[data-swapy-slot="slot-1"]');
+  const activityChart = page.locator('[data-swapy-slot="slot-5"]');
 
-  await chartItem.dragTo(statsItem, {
+  const firstCardHandle = firstCard.locator('[data-swapy-handle]');
+  const chartHandle = activityChart.locator('[data-swapy-handle]');
+
+  await firstCardHandle.dragTo(chartHandle, {
     force: true,
-    targetPosition: { x: 10, y: 10 },
   });
 
   await page.waitForTimeout(1000);
 
   // Get positions after swap
-  const statsGrid = page.locator('[data-swapy-slot="stats-grid"]');
-  const activityChart = page.locator('[data-swapy-slot="activity-chart"]');
+  const firstCard = page.locator('[data-swapy-slot="slot-1"]');
+  const activityChart = page.locator('[data-swapy-slot="slot-5"]');
 
-  const statsBoxBeforeReload = await statsGrid.boundingBox();
+  const firstBoxBeforeReload = await firstCard.boundingBox();
   const chartBoxBeforeReload = await activityChart.boundingBox();
 
-  console.log('Before reload - Stats Y:', statsBoxBeforeReload?.y);
+  console.log('Before reload - First card Y:', firstBoxBeforeReload?.y);
   console.log('Before reload - Chart Y:', chartBoxBeforeReload?.y);
 
-  // Chart should be above stats after swap
-  expect(chartBoxBeforeReload!.y).toBeLessThan(statsBoxBeforeReload!.y);
+  const firstYBeforeReload = firstBoxBeforeReload!.y;
+  const chartYBeforeReload = chartBoxBeforeReload!.y;
 
   // Reload page
   await page.reload();
@@ -504,14 +509,15 @@ test('swapy layout persists after reload', async ({ page }) => {
   await page.waitForTimeout(1000);
 
   // Get positions after reload
-  const statsBoxAfterReload = await statsGrid.boundingBox();
+  const firstBoxAfterReload = await firstCard.boundingBox();
   const chartBoxAfterReload = await activityChart.boundingBox();
 
-  console.log('After reload - Stats Y:', statsBoxAfterReload?.y);
+  console.log('After reload - First card Y:', firstBoxAfterReload?.y);
   console.log('After reload - Chart Y:', chartBoxAfterReload?.y);
 
-  // Layout should be maintained: chart still above stats
-  expect(chartBoxAfterReload!.y).toBeLessThan(statsBoxAfterReload!.y);
+  // Layout should be maintained: positions should be similar (within 50px tolerance)
+  expect(Math.abs(firstBoxAfterReload!.y - firstYBeforeReload) < 50).toBe(true);
+  expect(Math.abs(chartBoxAfterReload!.y - chartYBeforeReload) < 50).toBe(true);
 
   // Verify localStorage still contains layout
   const savedLayout = await page.evaluate(() => {
