@@ -1,63 +1,145 @@
 /**
  * Dashboard Overview Page
  *
- * Displays overview of key metrics and statistics.
+ * Displays dashboard overview with key metrics and activity timeline.
  * Accessible at: /dashboard
  *
- * Authentication:
- * - Authentication is handled by parent route (dashboard.tsx)
- * - No loader needed here
- *
  * Features:
- * - Key metrics cards (developers, activities, campaigns)
- * - Recent activity summary
+ * - Key metrics cards (developers, activities, campaigns, ROI)
+ * - Activity timeline chart (Recharts)
+ * - Drag-and-drop widget reordering (Swapy)
  * - Dark mode support
- * - Responsive design
+ * - Responsive design (mobile/tablet/desktop)
  *
- * Note:
- * - This is a placeholder implementation
- * - Task 7.2 will add real data from API
+ * Architecture:
+ * - Loader: Fetches stats and timeline from API
+ * - Components: StatCard, ActivityChart, SwapyContainer
+ * - Layout: 4-column grid for stats, full-width chart
  */
+
+import { json, type LoaderFunctionArgs, type MetaFunction } from '@remix-run/node';
+import { useLoaderData } from '@remix-run/react';
+import {
+  UsersIcon,
+  ChartBarIcon,
+  MegaphoneIcon,
+  CurrencyDollarIcon,
+} from '@heroicons/react/24/outline';
+import { requireAuth } from '~/auth.middleware.js';
+import { StatCard } from '~/components/dashboard/StatCard.js';
+import { ActivityChart } from '~/components/dashboard/ActivityChart.js';
+import { SwapyContainer } from '~/components/dashboard/SwapyContainer.js';
+
+/**
+ * Meta function - Sets page title
+ */
+export const meta: MetaFunction = () => {
+  return [
+    { title: 'Overview - Dashboard - DevCle' },
+    { name: 'description', content: 'Dashboard overview with key metrics' },
+  ];
+};
+
+/**
+ * Overview Data Type
+ *
+ * Data structure returned by loader.
+ */
+interface OverviewData {
+  stats: {
+    totalDevelopers: number;
+    totalActivities: number;
+    totalCampaigns: number;
+    averageROI: number | null;
+  };
+  timeSeriesData: Array<{
+    date: string;
+    activities: number;
+    developers: number;
+  }>;
+}
+
+/**
+ * Loader Function
+ *
+ * Fetches overview statistics and timeline data from API.
+ * Runs on server-side before rendering the page.
+ *
+ * Steps:
+ * 1. Authenticate user (requireAuth throws redirect if not authenticated)
+ * 2. Fetch stats from /api/overview/stats
+ * 3. Fetch timeline from /api/overview/timeline
+ * 4. Return data to component
+ *
+ * @param request - Remix loader request
+ * @returns JSON response with stats and timeline data
+ */
+export async function loader({ request }: LoaderFunctionArgs) {
+  // 1. Authenticate user (required by parent dashboard.tsx, but double-check here)
+  await requireAuth(request);
+
+  try {
+    // 2. Fetch stats and timeline data from API (parallel requests)
+    // Use internal API endpoints (server-to-server)
+    const [statsResponse, timelineResponse] = await Promise.all([
+      fetch(new URL('/api/overview/stats', request.url), {
+        headers: { Cookie: request.headers.get('Cookie') || '' },
+      }),
+      fetch(new URL('/api/overview/timeline?days=30', request.url), {
+        headers: { Cookie: request.headers.get('Cookie') || '' },
+      }),
+    ]);
+
+    // 3. Check response status
+    if (!statsResponse.ok) {
+      throw new Error(
+        `Failed to fetch stats: ${statsResponse.status} ${statsResponse.statusText}`
+      );
+    }
+    if (!timelineResponse.ok) {
+      throw new Error(
+        `Failed to fetch timeline: ${timelineResponse.status} ${timelineResponse.statusText}`
+      );
+    }
+
+    // 4. Parse JSON responses
+    const stats = await statsResponse.json();
+    const timeline = await timelineResponse.json();
+
+    // 5. Validate response structure
+    if (!stats?.stats) {
+      throw new Error('Invalid stats response structure');
+    }
+    if (!Array.isArray(timeline?.timeline)) {
+      throw new Error('Invalid timeline response structure');
+    }
+
+    // 6. Return data to component
+    return json<OverviewData>({
+      stats: stats.stats,
+      timeSeriesData: timeline.timeline,
+    });
+  } catch (error) {
+    // Log error for debugging
+    console.error('Overview loader error:', error);
+
+    // Re-throw as Response for Remix ErrorBoundary
+    throw new Response('Failed to load overview data', {
+      status: 500,
+      statusText: error instanceof Error ? error.message : 'Internal Server Error',
+    });
+  }
+}
 
 /**
  * Dashboard Overview Component
  *
- * Displays key metrics and recent activity.
- * This is a placeholder - real data will be fetched in Task 7.2.
+ * Renders overview page with statistics cards and activity chart.
+ * Uses Swapy for drag-and-drop widget reordering.
  */
 export default function DashboardOverview() {
-  // Placeholder data
-  // Task 7.2 will replace this with real data from API
-  const stats = [
-    {
-      key: 'developers',
-      label: 'Total Developers',
-      value: '1,234',
-      change: '+12.5%',
-      changeType: 'increase' as const,
-    },
-    {
-      key: 'activities',
-      label: 'Activities (30 days)',
-      value: '5,678',
-      change: '+8.2%',
-      changeType: 'increase' as const,
-    },
-    {
-      key: 'campaigns',
-      label: 'Active Campaigns',
-      value: '12',
-      change: '-2',
-      changeType: 'decrease' as const,
-    },
-    {
-      key: 'conversion',
-      label: 'Conversion Rate',
-      value: '23.4%',
-      change: '+3.1%',
-      changeType: 'increase' as const,
-    },
-  ];
+  // Get data from loader
+  const { stats, timeSeriesData } = useLoaderData<typeof loader>();
 
   return (
     <div className="space-y-6">
@@ -71,147 +153,70 @@ export default function DashboardOverview() {
         </p>
       </div>
 
-      {/* Stats Grid */}
-      <div
-        className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4"
-        data-testid="stats-grid"
-      >
-        {stats.map((stat) => (
-          <StatCard key={stat.key} stat={stat} />
-        ))}
-      </div>
+      {/* Stats Grid with Swapy Drag-and-Drop */}
+      <SwapyContainer storageKey="overview-stats-layout" animation="dynamic">
+        {/* Grid: 4 columns on desktop, 2 on tablet, 1 on mobile */}
+        <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+          {/* Stat Card 1: Total Developers */}
+          <div data-swapy-slot="slot-1">
+            <div data-swapy-item="item-1">
+              <StatCard
+                testId="total-developers"
+                label="Total Developers"
+                value={stats.totalDevelopers}
+                icon={UsersIcon}
+                description="Registered developers"
+              />
+            </div>
+          </div>
 
-      {/* Recent Activity Section (Placeholder) */}
-      <div
-        className="
-          bg-white dark:bg-gray-800
-          border border-gray-200 dark:border-gray-700
-          rounded-lg p-6
-        "
-      >
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-          Recent Activity
-        </h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400">
-          No recent activity. Activity data will be displayed here in Task 7.2.
-        </p>
-      </div>
+          {/* Stat Card 2: Total Activities */}
+          <div data-swapy-slot="slot-2">
+            <div data-swapy-item="item-2">
+              <StatCard
+                testId="total-activities"
+                label="Total Activities"
+                value={stats.totalActivities}
+                icon={ChartBarIcon}
+                description="All tracked activities"
+              />
+            </div>
+          </div>
 
-      {/* Quick Actions Section (Placeholder) */}
-      <div
-        className="
-          bg-white dark:bg-gray-800
-          border border-gray-200 dark:border-gray-700
-          rounded-lg p-6
-        "
-      >
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-          Quick Actions
-        </h2>
-        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-          <QuickActionButton
-            label="Add Developer"
-            description="Register a new developer"
-          />
-          <QuickActionButton
-            label="Create Campaign"
-            description="Launch a new campaign"
-          />
-          <QuickActionButton
-            label="View Funnel"
-            description="Analyze conversion funnel"
-          />
+          {/* Stat Card 3: Active Campaigns */}
+          <div data-swapy-slot="slot-3">
+            <div data-swapy-item="item-3">
+              <StatCard
+                testId="total-campaigns"
+                label="Active Campaigns"
+                value={stats.totalCampaigns}
+                icon={MegaphoneIcon}
+                description="Running campaigns"
+              />
+            </div>
+          </div>
+
+          {/* Stat Card 4: Average ROI */}
+          <div data-swapy-slot="slot-4">
+            <div data-swapy-item="item-4">
+              <StatCard
+                testId="average-roi"
+                label="Average ROI"
+                value={
+                  stats.averageROI !== null
+                    ? `${stats.averageROI.toFixed(1)}%`
+                    : 'N/A'
+                }
+                icon={CurrencyDollarIcon}
+                description="Campaign ROI average"
+              />
+            </div>
+          </div>
         </div>
-      </div>
+      </SwapyContainer>
+
+      {/* Activity Timeline Chart */}
+      <ActivityChart data={timeSeriesData} height={300} />
     </div>
-  );
-}
-
-/**
- * StatCard Component
- *
- * Displays a single metric card with value and change indicator.
- * Supports both increase and decrease change types with appropriate colors.
- */
-interface StatCardProps {
-  stat: {
-    key: string;
-    label: string;
-    value: string;
-    change: string;
-    changeType: 'increase' | 'decrease';
-  };
-}
-
-function StatCard({ stat }: StatCardProps) {
-  // Determine change color based on type
-  const changeColor =
-    stat.changeType === 'increase'
-      ? 'text-green-600 dark:text-green-400'
-      : 'text-red-600 dark:text-red-400';
-
-  return (
-    <div
-      className="
-        bg-white dark:bg-gray-800
-        border border-gray-200 dark:border-gray-700
-        rounded-lg p-6
-        transition-shadow duration-150
-        hover:shadow-md
-      "
-      data-testid={`stat-card-${stat.key}`}
-    >
-      {/* Label */}
-      <div className="text-sm font-medium text-gray-500 dark:text-gray-400">
-        {stat.label}
-      </div>
-
-      {/* Value */}
-      <div className="mt-2 flex items-baseline justify-between">
-        <div className="text-2xl font-semibold text-gray-900 dark:text-white">
-          {stat.value}
-        </div>
-
-        {/* Change Indicator */}
-        <div className={`text-sm font-medium ${changeColor}`}>
-          {stat.change}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/**
- * QuickActionButton Component
- *
- * Displays a quick action button with label and description.
- * This is a placeholder - real actions will be implemented later.
- */
-interface QuickActionButtonProps {
-  label: string;
-  description: string;
-}
-
-function QuickActionButton({ label, description }: QuickActionButtonProps) {
-  return (
-    <button
-      type="button"
-      className="
-        text-left p-4
-        bg-gray-50 dark:bg-gray-700
-        border border-gray-200 dark:border-gray-600
-        rounded-lg
-        transition-colors duration-150
-        hover:bg-gray-100 dark:hover:bg-gray-600
-        focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2
-      "
-    >
-      <div className="text-sm font-medium text-gray-900 dark:text-white">
-        {label}
-      </div>
-      <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-        {description}
-      </div>
-    </button>
   );
 }
