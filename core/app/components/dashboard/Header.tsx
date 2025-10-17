@@ -112,13 +112,14 @@ function UserMenu({ user }: { user: User }) {
     // Generate initials from display name
     initials = trimmedName
       .split(' ')
-      .map((name) => name[0])
+      .map((name) => name.charAt(0))
       .join('')
       .toUpperCase()
       .slice(0, 2);
   } else {
     // Fallback: use first letter of email, or "UN" if email is also empty
-    initials = user.email.trim() ? user.email[0].toUpperCase() : 'UN';
+    const trimmedEmail = user.email.trim();
+    initials = trimmedEmail ? trimmedEmail.charAt(0).toUpperCase() : 'UN';
   }
 
   // Ensure we always have at least one character

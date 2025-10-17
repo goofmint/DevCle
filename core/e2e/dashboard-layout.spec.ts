@@ -92,10 +92,7 @@ test('header displays correctly with user info', async ({ page }) => {
   // Open user menu
   await userMenuButton.click();
 
-  // Wait for menu animation to complete
-  await page.waitForTimeout(500);
-
-  // Verify menu items (Headless UI MenuItem children have role="menuitem")
+  // Wait for menu items to appear (Headless UI MenuItem children have role="menuitem")
   await expect(page.getByRole('menuitem', { name: 'Profile' })).toBeVisible();
   await expect(page.getByRole('menuitem', { name: 'Settings' })).toBeVisible();
 
@@ -181,8 +178,8 @@ test('dark mode - header colors', async ({ page }) => {
     document.documentElement.classList.add('dark');
   });
 
-  // Wait for transition
-  await page.waitForTimeout(500);
+  // Wait for dark class to be applied
+  await page.waitForFunction(() => document.documentElement.classList.contains('dark'));
 
   // Get header element
   const header = page.locator('header');
@@ -235,8 +232,8 @@ test('light mode - header colors', async ({ page }) => {
     document.documentElement.classList.remove('dark');
   });
 
-  // Wait for transition
-  await page.waitForTimeout(500);
+  // Wait for dark class to be removed
+  await page.waitForFunction(() => !document.documentElement.classList.contains('dark'));
 
   // Get header element
   const header = page.locator('header');
@@ -287,7 +284,8 @@ test('dark mode - sidebar colors', async ({ page }) => {
     document.documentElement.classList.add('dark');
   });
 
-  await page.waitForTimeout(500);
+  // Wait for dark class to be applied
+  await page.waitForFunction(() => document.documentElement.classList.contains('dark'));
 
   // Get sidebar element
   const sidebar = page.getByTestId('sidebar');
@@ -333,7 +331,8 @@ test('light mode - sidebar colors', async ({ page }) => {
     document.documentElement.classList.remove('dark');
   });
 
-  await page.waitForTimeout(500);
+  // Wait for dark class to be removed
+  await page.waitForFunction(() => !document.documentElement.classList.contains('dark'));
 
   // Get sidebar element
   const sidebar = page.getByTestId('sidebar');
@@ -382,7 +381,8 @@ test('dark mode - content area colors', async ({ page }) => {
     document.documentElement.classList.add('dark');
   });
 
-  await page.waitForTimeout(500);
+  // Wait for dark class to be applied
+  await page.waitForFunction(() => document.documentElement.classList.contains('dark'));
 
   // Check main content area background
   const main = page.locator('main');
@@ -442,7 +442,8 @@ test('light mode - content area colors', async ({ page }) => {
     document.documentElement.classList.remove('dark');
   });
 
-  await page.waitForTimeout(500);
+  // Wait for dark class to be removed
+  await page.waitForFunction(() => !document.documentElement.classList.contains('dark'));
 
   // Check stat card background (should be white)
   const statCard = page.getByTestId('stat-card-developers');
@@ -495,10 +496,9 @@ test('mobile sidebar toggle works', async ({ page }) => {
   // Click toggle to open sidebar
   await toggleButton.click();
 
-  // Wait for transition
-  await page.waitForTimeout(300);
+  // Wait for overlay to appear (indicates sidebar is open)
+  await page.waitForSelector('.md\\:hidden.fixed.inset-0.bg-black.bg-opacity-50', { state: 'visible' });
 
-  // Verify sidebar is visible (overlay should be visible)
   const sidebar = page.getByTestId('sidebar');
   const sidebarTransform = await sidebar.evaluate((el) => {
     return window.getComputedStyle(el).transform;
@@ -509,8 +509,8 @@ test('mobile sidebar toggle works', async ({ page }) => {
   // Click toggle again to close
   await toggleButton.click();
 
-  // Wait for transition
-  await page.waitForTimeout(300);
+  // Wait for overlay to disappear (indicates sidebar is closed)
+  await page.waitForSelector('.md\\:hidden.fixed.inset-0.bg-black.bg-opacity-50', { state: 'hidden' });
 });
 
 /**

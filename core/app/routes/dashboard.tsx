@@ -219,7 +219,6 @@ export default function DashboardLayout() {
             <DashboardSidebar
               items={navigationItems}
               isCollapsed={false}
-              onToggle={toggleMobileSidebar}
             />
           </div>
         </div>
