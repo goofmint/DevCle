@@ -419,20 +419,29 @@ export function useDeveloperFilters(options?: UseDeveloperFiltersOptions): UseDe
 }
 ```
 
-### GET /api/activities?developerId={id}
+### GET /api/developers/:id/activities
 
-開発者のアクティビティを取得するAPI（既存のGET /api/activitiesを使用）。
-
-**注意**: `/api/developers/:id/activities` というエンドポイントは存在しません。
-既存の `/api/activities` エンドポイントに `developerId` クエリパラメータを指定して使用します。
+開発者のアクティビティを取得するAPI（新規実装が必要）。
 
 **クエリパラメータ**:
-- `developerId`: 開発者ID（必須）
 - `limit`: 取得件数（デフォルト: 10）
 - `sortBy`: ソート項目（デフォルト: occurredAt）
 - `sortOrder`: ソート順序（デフォルト: desc）
 
-**例**: `/api/activities?developerId=uuid&limit=10&sortOrder=desc`
+**レスポンス**:
+```typescript
+{
+  "activities": [
+    {
+      "activityId": "uuid",
+      "action": "star",
+      "source": "github",
+      "occurredAt": "2025-01-01T00:00:00Z",
+      "metadata": {}
+    }
+  ]
+}
+```
 
 ### GET /api/developers/:id/stats
 
@@ -701,72 +710,116 @@ export async function loader({ request }: LoaderFunctionArgs) {
 }
 ```
 
-### 開発者詳細ページ
+### 開発者詳細ページ（SPAベース実装）
 
-1. ページロード時に`loader`が実行される
-2. URLパラメータから開発者IDを取得
-3. 以下のAPIを並列呼び出し：
+開発者詳細ページは認証後のページであるため、loaderを使わずにSPAベースで実装します。
+
+1. コンポーネントのマウント時にURLパラメータから開発者IDを取得
+2. `useEffect`で以下のAPIを並列呼び出し：
    - `GET /api/developers/:id`
    - `GET /api/developers/:id/identifiers`
-   - `GET /api/developers/:id/activities?limit=10`
+   - `GET /api/developers/:id/activities?limit=10&sortOrder=desc`
    - `GET /api/developers/:id/stats`
-4. データを取得してコンポーネントに渡す
-5. DeveloperDetailが詳細情報を表示
-6. ActivityTimelineがアクティビティ履歴を表示
+3. ローディング状態を表示
+4. データ取得後、DeveloperDetailとActivityTimelineにデータを渡す
+5. エラー時はエラーメッセージを表示
 
 ```typescript
-// Loader実装例（エラーハンドリング付き）
-export async function loader({ params, request }: LoaderFunctionArgs) {
-  // 認証チェック
-  const user = await requireAuth(request);
+// SPA実装例（useEffectでデータ取得）
+export default function DeveloperDetailPage() {
+  const { id } = useParams<{ id: string }>();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [data, setData] = useState<DeveloperDetail | null>(null);
 
-  const { id } = params;
-  if (!id) {
-    throw new Response('Developer ID is required', { status: 400 });
-  }
-
-  try {
-    // 開発者詳細、識別子、アクティビティ、統計を並列取得
-    const [detailResponse, identifiersResponse, activitiesResponse, statsResponse] = await Promise.all([
-      fetch(`/api/developers/${id}`, {
-        headers: { Cookie: request.headers.get('Cookie') || '' }
-      }),
-      fetch(`/api/developers/${id}/identifiers`, {
-        headers: { Cookie: request.headers.get('Cookie') || '' }
-      }),
-      // CORRECTED: Use /api/activities with developerId query param
-      fetch(`/api/activities?developerId=${encodeURIComponent(id)}&limit=10&sortOrder=desc`, {
-        headers: { Cookie: request.headers.get('Cookie') || '' }
-      }),
-      fetch(`/api/developers/${id}/stats`, {
-        headers: { Cookie: request.headers.get('Cookie') || '' }
-      })
-    ]);
-
-    // レスポンスステータスチェック
-    if (!detailResponse.ok) {
-      if (detailResponse.status === 404) {
-        throw new Response('Developer not found', { status: 404 });
-      }
-      throw new Error(`Failed to fetch developer: ${detailResponse.status}`);
+  useEffect(() => {
+    if (!id) {
+      setError('Developer ID is required');
+      setLoading(false);
+      return;
     }
 
-    // JSONパース
-    const detail = await detailResponse.json();
-    const identifiers = await identifiersResponse.json();
-    const activities = await activitiesResponse.json();
-    const stats = await statsResponse.json();
+    // データ取得関数
+    async function fetchDeveloperDetail() {
+      try {
+        setLoading(true);
+        setError(null);
 
-    return json<DeveloperDetail>({
-      ...detail.developer,
-      identifiers: identifiers.identifiers,
-      recentActivities: activities.activities,
-      stats: stats.stats
-    });
-  } catch (error) {
-    console.error('Developer detail loader error:', error);
-    throw new Response('Failed to load developer details', { status: 500 });
+        // 開発者詳細、識別子、アクティビティ、統計を並列取得
+        const [detailResponse, identifiersResponse, activitiesResponse, statsResponse] = await Promise.all([
+          fetch(`/api/developers/${id}`),
+          fetch(`/api/developers/${id}/identifiers`),
+          fetch(`/api/developers/${id}/activities?limit=10&sortOrder=desc`),
+          fetch(`/api/developers/${id}/stats`)
+        ]);
+
+        // レスポンスステータスチェック
+        if (!detailResponse.ok) {
+          if (detailResponse.status === 404) {
+            throw new Error('Developer not found');
+          }
+          throw new Error(`Failed to fetch developer: ${detailResponse.status}`);
+        }
+        if (!identifiersResponse.ok) {
+          throw new Error(`Failed to fetch identifiers: ${identifiersResponse.status}`);
+        }
+        if (!activitiesResponse.ok) {
+          throw new Error(`Failed to fetch activities: ${activitiesResponse.status}`);
+        }
+        if (!statsResponse.ok) {
+          throw new Error(`Failed to fetch stats: ${statsResponse.status}`);
+        }
+
+        // JSONパース
+        const detail = await detailResponse.json();
+        const identifiers = await identifiersResponse.json();
+        const activities = await activitiesResponse.json();
+        const stats = await statsResponse.json();
+
+        setData({
+          ...detail.developer,
+          identifiers: identifiers.identifiers,
+          recentActivities: activities.activities,
+          stats: stats.stats
+        });
+      } catch (err) {
+        console.error('Failed to fetch developer details:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load developer details');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchDeveloperDetail();
+  }, [id]);
+
+  // ローディング表示
+  if (loading) {
+    return <div>Loading...</div>;
   }
+
+  // エラー表示
+  if (error) {
+    return <div>Error: {error}</div>;
+  }
+
+  // データなし
+  if (!data) {
+    return <div>No data</div>;
+  }
+
+  // 詳細表示
+  return (
+    <div>
+      <DeveloperDetail
+        developer={data}
+        organization={data.organization}
+        identifiers={data.identifiers}
+        stats={data.stats}
+      />
+      <ActivityTimeline activities={data.recentActivities} />
+    </div>
+  );
 }
 ```
 
@@ -844,7 +897,18 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
      - `createdAt`の降順でソート
      - エラーハンドリング（開発者が見つからない場合は空配列を返す）
 
-2. **GET /api/developers/:id/stats**: 開発者のアクティビティ統計を取得
+2. **GET /api/developers/:id/activities**: 開発者のアクティビティリストを取得
+   - `core/app/routes/api/developers.$id.activities.ts`を作成
+   - **実装要件**:
+     - `activities`テーブルから`developerId`でフィルタ
+     - クエリパラメータ:
+       - `limit`: 取得件数（デフォルト: 10）
+       - `sortBy`: ソート項目（デフォルト: occurredAt）
+       - `sortOrder`: ソート順序（デフォルト: desc）
+     - `withTenantContext()`を使用してRLS対応
+     - エラーハンドリング（開発者が見つからない場合は空配列を返す）
+
+3. **GET /api/developers/:id/stats**: 開発者のアクティビティ統計を取得
    - `core/app/routes/api/developers.$id.stats.ts`を作成
    - ファネルステージ別のアクティビティ件数を集計
    - **実装要件**:
@@ -857,7 +921,7 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
      - 各ステージの件数をカウント
      - `withTenantContext()`を使用してRLS対応
 
-3. **GET /api/organizations**: 組織リストを取得（フィルタドロップダウン用）
+4. **GET /api/organizations**: 組織リストを取得（フィルタドロップダウン用）
    - `core/app/routes/api/organizations.ts`を作成
    - `core/services/organization.service.ts`が必要（**未実装**）
    - **サービスファイル**: `core/services/organization.service.ts`
