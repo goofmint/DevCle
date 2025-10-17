@@ -18,7 +18,7 @@
  */
 
 import { type MetaFunction } from '@remix-run/node';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   UsersIcon,
   ChartBarIcon,
@@ -110,6 +110,9 @@ export default function DashboardOverview() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Use ref to store gridOptions and only generate once after data loads
+  const gridOptionsRef = useRef<GridStackOptions | null>(null);
+
   // Fetch data on mount (SPA pattern)
   useEffect(() => {
     async function fetchData() {
@@ -156,41 +159,25 @@ export default function DashboardOverview() {
     );
   }
 
-  // Load saved layout from localStorage
-  const loadLayout = () => {
-    if (typeof window === 'undefined') return null;
-    try {
-      const saved = localStorage.getItem('overview-layout');
-      return saved ? JSON.parse(saved) : null;
-    } catch (e) {
-      console.error('Failed to load layout:', e);
-      return null;
-    }
-  };
-
-  const savedLayout = loadLayout();
-
-  // Apply saved layout if available
-  const applyLayout = (children: GridStackOptions['children']): GridStackOptions['children'] => {
-    if (!savedLayout || !children) return children;
-
-    return children.map((child) => {
-      const saved = savedLayout[child.id || ''];
-      if (saved) {
-        return {
-          ...child,
-          x: saved.x,
-          y: saved.y,
-          w: saved.w,
-          h: saved.h,
-        } as typeof child;
+  // Generate gridOptions only once after data loads
+  // Store in ref to prevent re-initialization on subsequent renders
+  if (!gridOptionsRef.current && stats) {
+    // Load saved layout from localStorage
+    const loadLayout = () => {
+      if (typeof window === 'undefined') return null;
+      try {
+        const saved = localStorage.getItem('overview-layout');
+        return saved ? JSON.parse(saved) : null;
+      } catch (e) {
+        console.error('Failed to load layout:', e);
+        return null;
       }
-      return child;
-    });
-  };
+    };
 
-  // Define base children
-  const baseChildren = [
+    const savedLayout = loadLayout();
+
+    // Define base children
+    const baseChildren = [
       {
         id: 'total-developers',
         w: 3,
@@ -267,13 +254,38 @@ export default function DashboardOverview() {
       },
     ];
 
-  // GridStack options with children
-  const gridOptions: GridStackOptions = {
+    // Apply saved layout if available
+    const children = savedLayout
+      ? baseChildren.map((child) => {
+          const saved = savedLayout[child.id || ''];
+          if (saved) {
+            return {
+              ...child,
+              x: saved.x,
+              y: saved.y,
+              w: saved.w,
+              h: saved.h,
+            };
+          }
+          return child;
+        })
+      : baseChildren;
+
+    gridOptionsRef.current = {
+      column: 12,
+      cellHeight: 80,
+      animate: true,
+      float: false,
+      children,
+    };
+  }
+
+  const gridOptions = gridOptionsRef.current || {
     column: 12,
     cellHeight: 80,
     animate: true,
-    float: false, // Auto-compact widgets upward when space is available
-    children: applyLayout(baseChildren) || baseChildren,
+    float: false,
+    children: [],
   };
 
   return (
