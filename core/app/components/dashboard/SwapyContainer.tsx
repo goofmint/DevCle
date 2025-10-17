@@ -101,7 +101,16 @@ export function SwapyContainer({
         className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4"
       >
         {slottedItems.map((slottedItem) => (
-          <div key={slottedItem.slotId} data-swapy-slot={slottedItem.slotId}>
+          <div
+            key={slottedItem.slotId}
+            data-swapy-slot={slottedItem.slotId}
+            className={
+              // Activity chart spans 2 columns on desktop
+              slottedItem.itemId === 'activity-chart'
+                ? 'lg:col-span-2'
+                : ''
+            }
+          >
             {slottedItem.itemId && slottedItem.content && (
               <div data-swapy-item={slottedItem.itemId} className="relative">
                 {/* Drag Handle - Top left corner */}
