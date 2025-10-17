@@ -104,6 +104,9 @@ export function useSwapy(options: UseSwapyOptions = {}): UseSwapyReturn {
     // Store instance in state
     setSwapyInstance(swapy);
 
+    // Enable Swapy drag-and-drop
+    swapy.enable(true);
+
     // Restore layout from localStorage
     if (typeof window !== 'undefined') {
       const savedLayout = localStorage.getItem(storageKey);

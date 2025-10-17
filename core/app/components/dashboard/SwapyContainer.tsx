@@ -27,7 +27,7 @@
  * ```
  */
 
-import React from 'react';
+import React, { useCallback } from 'react';
 import { useSwapy } from '~/hooks/useSwapy.js';
 
 /**
@@ -65,13 +65,16 @@ export function SwapyContainer({
   animation = 'dynamic',
   showResetButton = false,
 }: SwapyContainerProps): JSX.Element {
+  // Memoize layout change handler to prevent useEffect re-runs
+  const handleLayoutChange = useCallback((layout: Record<string, string>) => {
+    console.debug('Layout changed:', layout);
+  }, []);
+
   // Initialize Swapy with useSwapy hook
   const { containerRef, resetLayout } = useSwapy({
     storageKey,
     animation,
-    onLayoutChange: (layout) => {
-      console.debug('Layout changed:', layout);
-    },
+    onLayoutChange: handleLayoutChange,
   });
 
   return (

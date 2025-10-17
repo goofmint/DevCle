@@ -17,15 +17,14 @@
  * - Layout: 4-column grid for stats, full-width chart
  */
 
-import { json, type LoaderFunctionArgs, type MetaFunction } from '@remix-run/node';
-import { useLoaderData } from '@remix-run/react';
+import { type MetaFunction } from '@remix-run/node';
+import { useState, useEffect } from 'react';
 import {
   UsersIcon,
   ChartBarIcon,
   MegaphoneIcon,
   CurrencyDollarIcon,
 } from '@heroicons/react/24/outline';
-import { requireAuth } from '~/auth.middleware.js';
 import { StatCard } from '~/components/dashboard/StatCard.js';
 import { ActivityChart } from '~/components/dashboard/ActivityChart.js';
 import { SwapyContainer } from '~/components/dashboard/SwapyContainer.js';
@@ -59,87 +58,66 @@ interface OverviewData {
   }>;
 }
 
-/**
- * Loader Function
- *
- * Fetches overview statistics and timeline data from API.
- * Runs on server-side before rendering the page.
- *
- * Steps:
- * 1. Authenticate user (requireAuth throws redirect if not authenticated)
- * 2. Fetch stats from /api/overview/stats
- * 3. Fetch timeline from /api/overview/timeline
- * 4. Return data to component
- *
- * @param request - Remix loader request
- * @returns JSON response with stats and timeline data
- */
-export async function loader({ request }: LoaderFunctionArgs) {
-  // 1. Authenticate user (required by parent dashboard.tsx, but double-check here)
-  await requireAuth(request);
-
-  try {
-    // 2. Fetch stats and timeline data from API (parallel requests)
-    // Use internal API endpoints (server-to-server)
-    const [statsResponse, timelineResponse] = await Promise.all([
-      fetch(new URL('/api/overview/stats', request.url), {
-        headers: { Cookie: request.headers.get('Cookie') || '' },
-      }),
-      fetch(new URL('/api/overview/timeline?days=30', request.url), {
-        headers: { Cookie: request.headers.get('Cookie') || '' },
-      }),
-    ]);
-
-    // 3. Check response status
-    if (!statsResponse.ok) {
-      throw new Error(
-        `Failed to fetch stats: ${statsResponse.status} ${statsResponse.statusText}`
-      );
-    }
-    if (!timelineResponse.ok) {
-      throw new Error(
-        `Failed to fetch timeline: ${timelineResponse.status} ${timelineResponse.statusText}`
-      );
-    }
-
-    // 4. Parse JSON responses
-    const stats = await statsResponse.json();
-    const timeline = await timelineResponse.json();
-
-    // 5. Validate response structure
-    if (!stats?.stats) {
-      throw new Error('Invalid stats response structure');
-    }
-    if (!Array.isArray(timeline?.timeline)) {
-      throw new Error('Invalid timeline response structure');
-    }
-
-    // 6. Return data to component
-    return json<OverviewData>({
-      stats: stats.stats,
-      timeSeriesData: timeline.timeline,
-    });
-  } catch (error) {
-    // Log error for debugging
-    console.error('Overview loader error:', error);
-
-    // Re-throw as Response for Remix ErrorBoundary
-    throw new Response('Failed to load overview data', {
-      status: 500,
-      statusText: error instanceof Error ? error.message : 'Internal Server Error',
-    });
-  }
-}
 
 /**
  * Dashboard Overview Component
  *
  * Renders overview page with statistics cards and activity chart.
  * Uses Swapy for drag-and-drop widget reordering.
+ * Fetches data client-side via SPA pattern.
  */
 export default function DashboardOverview() {
-  // Get data from loader
-  const { stats, timeSeriesData } = useLoaderData<typeof loader>();
+  // State management
+  const [stats, setStats] = useState<OverviewData['stats'] | null>(null);
+  const [timeSeriesData, setTimeSeriesData] = useState<OverviewData['timeSeriesData']>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch data on mount (SPA pattern)
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const [statsResponse, timelineResponse] = await Promise.all([
+          fetch('/api/overview/stats'),
+          fetch('/api/overview/timeline?days=30'),
+        ]);
+
+        if (!statsResponse.ok || !timelineResponse.ok) {
+          throw new Error('Failed to fetch dashboard data');
+        }
+
+        const statsData = await statsResponse.json();
+        const timelineData = await timelineResponse.json();
+
+        setStats(statsData.stats);
+        setTimeSeriesData(timelineData.timeline);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Unknown error');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchData();
+  }, []);
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-gray-500 dark:text-gray-400">Loading...</div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error || !stats) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-red-500">Error: {error || 'Failed to load data'}</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
