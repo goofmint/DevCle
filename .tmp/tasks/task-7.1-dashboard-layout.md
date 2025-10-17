@@ -39,17 +39,18 @@ Task 7.1はPhase 7の最初のタスクで、ダッシュボードUIの基盤と
  * - Sidebar items can be dynamically added by plugins
  * - Widget slots can be registered by plugins
  *
- * Layout Structure:
- * +------------------+-----------------------------+
- * | Sidebar          | Header                      |
- * |                  |-----------------------------|
- * | - Overview       | Main Content Area           |
- * | - Developers     |                             |
- * | - Campaigns      |                             |
- * | - Funnel         |                             |
- * |                  |                             |
- * | [System Settings]|                             |
- * +------------------+-----------------------------+
+ * Layout Structure (3-pane):
+ * +----------------------------------------------+
+ * | Header                                       |
+ * +------------------+---------------------------+
+ * | Sidebar          | Main Content Area         |
+ * | - Overview       |                           |
+ * | - Developers     |                           |
+ * | - Campaigns      |                           |
+ * | - Funnel         |                           |
+ * |                  |                           |
+ * | [System Settings]|                           |
+ * +------------------+---------------------------+
  */
 
 import { type LoaderFunctionArgs, json, redirect } from '@remix-run/node';
@@ -80,16 +81,26 @@ export async function loader({ request }: LoaderFunctionArgs) {
 /**
  * Dashboard layout component
  *
+ * 3-Pane Layout Structure:
+ * 1. Header (top, full width) - HIGHEST PRIORITY
+ * 2. Sidebar (left)
+ * 3. Content Area (right)
+ *
  * Implementation:
- * 1. Render sidebar with navigation items
- * 2. Render header with logo and user info
- * 3. Render <Outlet /> for nested routes
- * 4. Apply responsive design (mobile/desktop)
+ * 1. Get loader data (user, navigation items)
+ * 2. Render Header first (full width at top)
+ * 3. Render container split into Sidebar (left) and Content (right)
+ * 4. Pass navigation items to DashboardSidebar
+ * 5. Pass user info to DashboardHeader
+ * 6. Apply responsive design (mobile/desktop)
  */
 export default function DashboardLayout() {
   // Implementation:
   // 1. Get loader data (user, navigation items)
-  // 2. Render layout with sidebar, header, and main content
+  // 2. Render 3-pane layout:
+  //    - Header at top (full width)
+  //    - Sidebar on left
+  //    - <Outlet /> on right
   // 3. Pass navigation items to DashboardSidebar
   // 4. Pass user info to DashboardHeader
   throw new Error('Not implemented');
@@ -369,20 +380,20 @@ export interface User {
 
 ## レイアウト構造
 
-### デスクトップレイアウト
+### デスクトップレイアウト（3ペイン構成）
 
 ```text
++------------------------------------------------+
+| Header (64px, full width)                      |
+| [Logo]                          [User ▼]       |
 +------------------+-----------------------------+
-| Sidebar (240px)  | Main Area                   |
+| Sidebar (240px)  | Content Area                |
+| [Logo]           |                             |
 |                  |                             |
-| [Logo]           | Header (64px)               |
-|                  | +-------------------------+ |
-| Overview         | | [Logo]      [User ▼]  | |
-| Developers       | +-------------------------+ |
+| Overview         | (Outlet)                    |
+| Developers       |                             |
 | Campaigns        |                             |
-| Funnel           | Content Area                |
-|                  | (Outlet)                    |
-|                  |                             |
+| Funnel           |                             |
 |                  |                             |
 |                  |                             |
 | [System Settings]|                             |
