@@ -35,13 +35,15 @@ const BASE_URL = process.env['BASE_URL'] || 'http://localhost:3000';
  *
  * Authenticates a test user by filling the login form and submitting.
  * Waits for redirect to dashboard to confirm successful login.
+ * Accepts any path under /dashboard (e.g., /dashboard or /dashboard/overview).
  */
 async function login(page: any) {
   await page.goto(`${BASE_URL}/login`);
   await page.fill('input[name="email"]', 'test@example.com');
   await page.fill('input[name="password"]', 'password123');
   await page.click('button[type="submit"]');
-  await page.waitForURL(`${BASE_URL}/dashboard`, { timeout: 10000 });
+  // Wait for any dashboard path (/dashboard, /dashboard/overview, etc.)
+  await page.waitForURL((url: URL) => url.pathname.startsWith('/dashboard'), { timeout: 10000 });
 }
 
 /**

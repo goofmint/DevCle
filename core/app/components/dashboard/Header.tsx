@@ -104,12 +104,27 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
 function UserMenu({ user }: { user: User }) {
   // Get user initials from display name
   // Example: "John Doe" -> "JD"
-  const initials = user.displayName
-    .split(' ')
-    .map((name) => name[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
+  // Fallback to email first letter if displayName is empty/whitespace
+  const trimmedName = user.displayName.trim();
+  let initials: string;
+
+  if (trimmedName) {
+    // Generate initials from display name
+    initials = trimmedName
+      .split(' ')
+      .map((name) => name[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  } else {
+    // Fallback: use first letter of email, or "UN" if email is also empty
+    initials = user.email.trim() ? user.email[0].toUpperCase() : 'UN';
+  }
+
+  // Ensure we always have at least one character
+  if (!initials) {
+    initials = 'UN';
+  }
 
   return (
     <Menu as="div" className="relative">
@@ -201,12 +216,12 @@ function UserMenu({ user }: { user: User }) {
         {/* Menu Items */}
         <div className="py-1">
           <MenuItem>
-            {({ focus }: { focus: boolean }) => (
+            {({ active }: { active: boolean }) => (
               <Link
                 to="/dashboard/profile"
                 className={`
                   flex items-center px-4 py-2 text-sm
-                  ${focus ? 'bg-gray-100 dark:bg-gray-700' : ''}
+                  ${active ? 'bg-gray-100 dark:bg-gray-700' : ''}
                   text-gray-700 dark:text-gray-300
                 `}
               >
@@ -217,12 +232,12 @@ function UserMenu({ user }: { user: User }) {
           </MenuItem>
 
           <MenuItem>
-            {({ focus }: { focus: boolean }) => (
+            {({ active }: { active: boolean }) => (
               <Link
                 to="/dashboard/settings"
                 className={`
                   flex items-center px-4 py-2 text-sm
-                  ${focus ? 'bg-gray-100 dark:bg-gray-700' : ''}
+                  ${active ? 'bg-gray-100 dark:bg-gray-700' : ''}
                   text-gray-700 dark:text-gray-300
                 `}
               >
@@ -236,13 +251,13 @@ function UserMenu({ user }: { user: User }) {
         {/* Logout Section */}
         <div className="py-1">
           <MenuItem>
-            {({ focus }: { focus: boolean }) => (
+            {({ active }: { active: boolean }) => (
               <Form method="post" action="/logout">
                 <button
                   type="submit"
                   className={`
                     flex items-center w-full px-4 py-2 text-sm text-left
-                    ${focus ? 'bg-gray-100 dark:bg-gray-700' : ''}
+                    ${active ? 'bg-gray-100 dark:bg-gray-700' : ''}
                     text-red-600 dark:text-red-400
                   `}
                 >
