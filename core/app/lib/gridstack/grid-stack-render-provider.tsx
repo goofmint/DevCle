@@ -25,6 +25,7 @@ export function GridStackRenderProvider({ children }: PropsWithChildren) {
 
   const renderCBFn = useCallback(
     (element: HTMLElement, widget: GridStackWidget & { grid?: GridStack }) => {
+      console.log('[GridStack] renderCBFn called for widget:', widget.id);
       if (widget.id && widget.grid) {
         // Get or create the widget container map for this grid instance
         let containers = gridWidgetContainersMap.get(widget.grid);
@@ -36,6 +37,7 @@ export function GridStackRenderProvider({ children }: PropsWithChildren) {
 
         // Also update the local ref for backward compatibility
         widgetContainersRef.current.set(widget.id, element);
+        console.log('[GridStack] Widget container registered:', widget.id);
       }
     },
     []
