@@ -71,10 +71,12 @@ export function StatCard({
   return (
     <div
       className="
+        h-full
         bg-white dark:bg-gray-800
         p-6 rounded-lg shadow
         border border-gray-200 dark:border-gray-700
         transition-colors duration-200
+        flex flex-col
       "
       data-testid={testId}
     >

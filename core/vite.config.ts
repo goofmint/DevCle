@@ -52,6 +52,16 @@ export default defineConfig(({ mode }): UserConfig => {
       ],
     },
 
+    // Dependency optimization for ESM modules
+    optimizeDeps: {
+      include: ['gridstack'],
+    },
+
+    // SSR configuration for external dependencies
+    ssr: {
+      noExternal: ['gridstack'],
+    },
+
     // Path resolution for imports
     resolve: {
       alias: {

@@ -7,14 +7,14 @@
  * Features:
  * - Key metrics cards (developers, activities, campaigns, ROI)
  * - Activity timeline chart (Recharts)
- * - Drag-and-drop widget reordering (Swapy)
+ * - Drag-and-drop widget reordering (GridStack)
  * - Dark mode support
  * - Responsive design (mobile/tablet/desktop)
  *
  * Architecture:
  * - Loader: Fetches stats and timeline from API
- * - Components: StatCard, ActivityChart, SwapyContainer
- * - Layout: 4-column grid for stats, full-width chart
+ * - Components: StatCard, ActivityChart, GridStackContainer
+ * - Layout: 12-column grid with responsive widgets
  */
 
 import { type MetaFunction } from '@remix-run/node';
@@ -25,9 +25,16 @@ import {
   MegaphoneIcon,
   CurrencyDollarIcon,
 } from '@heroicons/react/24/outline';
-import { StatCard } from '~/components/dashboard/StatCard.js';
-import { ActivityChart } from '~/components/dashboard/ActivityChart.js';
-import { SwapyContainer } from '~/components/dashboard/SwapyContainer.js';
+import { GridStackOptions } from 'gridstack';
+import {
+  GridStackProvider,
+  GridStackRenderProvider,
+  GridStackRender,
+  type ComponentMap,
+} from '~/lib/gridstack';
+import { StatCard } from '~/components/dashboard/StatCard';
+import { ActivityChart } from '~/components/dashboard/ActivityChart';
+import 'gridstack/dist/gridstack.css';
 
 /**
  * Meta function - Sets page title
@@ -58,12 +65,42 @@ interface OverviewData {
   }>;
 }
 
+/**
+ * Icon Map
+ *
+ * Maps icon names to actual icon components.
+ */
+const ICON_MAP = {
+  UsersIcon,
+  ChartBarIcon,
+  MegaphoneIcon,
+  CurrencyDollarIcon,
+};
+
+/**
+ * Wrapper components that handle icon conversion
+ */
+function StatCardWrapper(props: Parameters<typeof StatCard>[0] & { icon: string }) {
+  const IconComponent = ICON_MAP[props.icon as keyof typeof ICON_MAP];
+  return <StatCard {...props} icon={IconComponent} />;
+}
+
+/**
+ * Component Map
+ *
+ * Maps component names to actual components for GridStack rendering.
+ */
+const COMPONENT_MAP: ComponentMap = {
+  StatCard: StatCardWrapper,
+  ActivityChart,
+};
+
 
 /**
  * Dashboard Overview Component
  *
  * Renders overview page with statistics cards and activity chart.
- * Uses Swapy for drag-and-drop widget reordering.
+ * Uses GridStack for drag-and-drop widget reordering.
  * Fetches data client-side via SPA pattern.
  */
 export default function DashboardOverview() {
@@ -119,65 +156,125 @@ export default function DashboardOverview() {
     );
   }
 
-  // Define widget items for Swapy - each card is a separate widget
-  const widgetItems = [
-    {
-      id: 'total-developers',
-      content: (
-        <StatCard
-          testId="total-developers"
-          label="Total Developers"
-          value={stats.totalDevelopers}
-          icon={UsersIcon}
-          description="Registered developers"
-        />
-      ),
-    },
-    {
-      id: 'total-activities',
-      content: (
-        <StatCard
-          testId="total-activities"
-          label="Total Activities"
-          value={stats.totalActivities}
-          icon={ChartBarIcon}
-          description="All tracked activities"
-        />
-      ),
-    },
-    {
-      id: 'total-campaigns',
-      content: (
-        <StatCard
-          testId="total-campaigns"
-          label="Active Campaigns"
-          value={stats.totalCampaigns}
-          icon={MegaphoneIcon}
-          description="Running campaigns"
-        />
-      ),
-    },
-    {
-      id: 'average-roi',
-      content: (
-        <StatCard
-          testId="average-roi"
-          label="Average ROI"
-          value={
-            stats.averageROI !== null
-              ? `${stats.averageROI.toFixed(1)}%`
-              : 'N/A'
-          }
-          icon={CurrencyDollarIcon}
-          description="Campaign ROI average"
-        />
-      ),
-    },
-    {
-      id: 'activity-chart',
-      content: <ActivityChart data={timeSeriesData} height={300} />,
-    },
-  ];
+  // Load saved layout from localStorage
+  const loadLayout = () => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const saved = localStorage.getItem('overview-layout');
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+      console.error('Failed to load layout:', e);
+      return null;
+    }
+  };
+
+  const savedLayout = loadLayout();
+
+  // Apply saved layout if available
+  const applyLayout = (children: GridStackOptions['children']): GridStackOptions['children'] => {
+    if (!savedLayout || !children) return children;
+
+    return children.map((child) => {
+      const saved = savedLayout[child.id || ''];
+      if (saved) {
+        return {
+          ...child,
+          x: saved.x,
+          y: saved.y,
+          w: saved.w,
+          h: saved.h,
+        } as typeof child;
+      }
+      return child;
+    });
+  };
+
+  // Define base children
+  const baseChildren = [
+      {
+        id: 'total-developers',
+        w: 3,
+        h: 3,
+        content: JSON.stringify({
+          name: 'StatCard',
+          props: {
+            testId: 'total-developers',
+            label: 'Total Developers',
+            value: stats.totalDevelopers,
+            icon: 'UsersIcon',
+            description: 'Registered developers',
+          },
+        }),
+      },
+      {
+        id: 'total-activities',
+        w: 3,
+        h: 3,
+        content: JSON.stringify({
+          name: 'StatCard',
+          props: {
+            testId: 'total-activities',
+            label: 'Total Activities',
+            value: stats.totalActivities,
+            icon: 'ChartBarIcon',
+            description: 'All tracked activities',
+          },
+        }),
+      },
+      {
+        id: 'total-campaigns',
+        w: 3,
+        h: 3,
+        content: JSON.stringify({
+          name: 'StatCard',
+          props: {
+            testId: 'total-campaigns',
+            label: 'Active Campaigns',
+            value: stats.totalCampaigns,
+            icon: 'MegaphoneIcon',
+            description: 'Running campaigns',
+          },
+        }),
+      },
+      {
+        id: 'average-roi',
+        w: 3,
+        h: 3,
+        content: JSON.stringify({
+          name: 'StatCard',
+          props: {
+            testId: 'average-roi',
+            label: 'Average ROI',
+            value:
+              stats.averageROI !== null
+                ? `${stats.averageROI.toFixed(1)}%`
+                : 'N/A',
+            icon: 'CurrencyDollarIcon',
+            description: 'Campaign ROI average',
+          },
+        }),
+      },
+      {
+        id: 'activity-chart',
+        w: 12,
+        h: 6,
+        content: JSON.stringify({
+          name: 'ActivityChart',
+          props: {
+            data: timeSeriesData,
+          },
+        }),
+      },
+    ];
+
+  // GridStack options with children
+  const gridOptions: GridStackOptions = {
+    column: 12,
+    cellHeight: 80,
+    animate: true,
+    float: false, // Auto-compact widgets upward when space is available
+    children: applyLayout(baseChildren) || baseChildren,
+  };
 
   return (
     <div className="space-y-6">
@@ -191,12 +288,12 @@ export default function DashboardOverview() {
         </p>
       </div>
 
-      {/* All widgets with Swapy Drag-and-Drop */}
-      <SwapyContainer
-        storageKey="overview-layout"
-        animation="dynamic"
-        items={widgetItems}
-      />
+      {/* GridStack Dashboard */}
+      <GridStackProvider initialOptions={gridOptions}>
+        <GridStackRenderProvider>
+          <GridStackRender componentMap={COMPONENT_MAP} />
+        </GridStackRenderProvider>
+      </GridStackProvider>
     </div>
   );
 }

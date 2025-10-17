@@ -1,0 +1,47 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e4]:
+      - link "DevCle" [ref=e5] [cursor=pointer]:
+        - /url: /dashboard
+      - generic [ref=e6]:
+        - button "Switch to dark mode" [ref=e7]:
+          - img [ref=e8]
+        - button "User menu" [ref=e11]:
+          - generic "Test User" [ref=e12]: TU
+          - img [ref=e13]
+    - button "Toggle sidebar" [ref=e15]:
+      - img [ref=e16]
+    - generic [ref=e18]:
+      - complementary [ref=e20]:
+        - generic [ref=e21]:
+          - navigation "Main navigation" [ref=e22]:
+            - link "Overview" [ref=e23] [cursor=pointer]:
+              - /url: /dashboard
+              - img [ref=e24]
+              - generic [ref=e26]: Overview
+            - link "Developers" [ref=e27] [cursor=pointer]:
+              - /url: /dashboard/developers
+              - img [ref=e28]
+              - generic [ref=e30]: Developers
+            - link "Campaigns" [ref=e31] [cursor=pointer]:
+              - /url: /dashboard/campaigns
+              - img [ref=e32]
+              - generic [ref=e34]: Campaigns
+            - link "Funnel" [ref=e35] [cursor=pointer]:
+              - /url: /dashboard/funnel
+              - img [ref=e36]
+              - generic [ref=e38]: Funnel
+          - navigation "Settings navigation" [ref=e39]:
+            - link "System Settings" [ref=e40] [cursor=pointer]:
+              - /url: /dashboard/settings
+              - img [ref=e41]
+              - generic [ref=e44]: System Settings
+      - main [ref=e45]:
+        - generic [ref=e47]:
+          - heading "Overview" [level=1] [ref=e48]
+          - paragraph [ref=e49]: Key metrics and insights for your DevRel activities
+  - generic [ref=e61]: "0"
+```

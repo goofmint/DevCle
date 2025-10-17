@@ -71,22 +71,45 @@ export interface ActivityChartProps {
  */
 export function ActivityChart({
   data,
-  height = 300,
 }: ActivityChartProps): JSX.Element {
   /**
    * Format date for display on X-axis
    *
    * Converts "YYYY-MM-DD" to "MM/DD" for compact display.
+   * Parses the date string component-by-component to avoid timezone shifts.
    *
    * @param dateStr - Date string in YYYY-MM-DD format
    * @returns Formatted date string (MM/DD)
    */
   const formatXAxis = (dateStr: string): string => {
     try {
-      const date = new Date(dateStr);
-      const month = date.getMonth() + 1; // 0-indexed, so +1
-      const day = date.getDate();
-      return `${month}/${day}`;
+      // Split "YYYY-MM-DD" into components to avoid timezone parsing issues
+      const parts = dateStr.split('-');
+      if (parts.length !== 3) {
+        return dateStr; // Invalid format, return original
+      }
+
+      const year = parseInt(parts[0] || '0', 10);
+      const month = parseInt(parts[1] || '0', 10);
+      const day = parseInt(parts[2] || '0', 10);
+
+      // Validate components
+      if (isNaN(year) || isNaN(month) || isNaN(day)) {
+        return dateStr; // Invalid numbers, return original
+      }
+
+      if (month < 1 || month > 12 || day < 1 || day > 31) {
+        return dateStr; // Out of range, return original
+      }
+
+      // Create date from components (month is 0-indexed in Date constructor)
+      const date = new Date(year, month - 1, day);
+
+      // Derive month and day from the constructed Date
+      const displayMonth = date.getMonth() + 1; // 0-indexed, so +1
+      const displayDay = date.getDate();
+
+      return `${displayMonth}/${displayDay}`;
     } catch {
       return dateStr;
     }
@@ -171,10 +194,12 @@ export function ActivityChart({
   return (
     <div
       className="
+        h-full
         bg-white dark:bg-gray-800
         p-6 rounded-lg shadow
         border border-gray-200 dark:border-gray-700
         transition-colors duration-200
+        flex flex-col
       "
       data-testid="activity-chart"
     >
@@ -190,7 +215,8 @@ export function ActivityChart({
       </h3>
 
       {/* Chart Container */}
-      <ResponsiveContainer width="100%" height={height}>
+      <div className="flex-1 min-h-0">
+        <ResponsiveContainer width="100%" height="100%">
         <LineChart
           data={data}
           margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
@@ -254,7 +280,8 @@ export function ActivityChart({
             name="Developers"
           />
         </LineChart>
-      </ResponsiveContainer>
+        </ResponsiveContainer>
+      </div>
     </div>
   );
 }

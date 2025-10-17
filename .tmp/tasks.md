@@ -268,7 +268,7 @@
   - パスワードはbcryptでハッシュ化（constant-time comparison）
   - セッションCookieは`httpOnly`, `secure`, `sameSite`設定
   - テスト用ユーザー: test@example.com / password123（member）、admin@example.com / admin123456（admin）
-  - 重要な修正: `/login` → `/login`、RLS設計の修正（users tableはRLS無効）
+  - 重要な修正: `/auth/login` → `/login`、RLS設計の修正（users tableはRLS無効）
 
 ---
 

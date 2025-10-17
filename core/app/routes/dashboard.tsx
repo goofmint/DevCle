@@ -211,6 +211,7 @@ export default function DashboardLayout() {
           <div
             className={`
               fixed md:static top-16 md:top-0 bottom-0 left-0 z-20
+              h-full
               transform md:transform-none transition-transform duration-300
               ${isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
               md:translate-x-0
