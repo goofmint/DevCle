@@ -57,6 +57,23 @@ interface DeveloperIdentifier {
   updatedAt: Date;
 }
 
+// Activity型（core/db/schema/activities.tsから参照）
+interface Activity {
+  activityId: string;
+  tenantId: string;
+  developerId: string;
+  accountId: string | null;
+  resourceId: string | null;
+  action: string; // 'click' | 'attend' | 'signup' | 'post' | 'star' | etc.
+  source: string; // 'slack' | 'github' | 'connpass' | etc.
+  occurredAt: Date;
+  metadata: Record<string, unknown>;
+  value: number | null;
+  dedupKey: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 // 開発者リストアイテム（Organization情報を含む）
 interface DeveloperListItem extends Developer {
   organization?: Pick<Organization, 'organizationId' | 'name'> | null;
@@ -402,15 +419,20 @@ export function useDeveloperFilters(options?: UseDeveloperFiltersOptions): UseDe
 }
 ```
 
-### GET /api/developers/:id/activities
+### GET /api/activities?developerId={id}
 
-開発者のアクティビティを取得するAPI（既存のGET /api/activities?developerId=xxxを使用）。
+開発者のアクティビティを取得するAPI（既存のGET /api/activitiesを使用）。
+
+**注意**: `/api/developers/:id/activities` というエンドポイントは存在しません。
+既存の `/api/activities` エンドポイントに `developerId` クエリパラメータを指定して使用します。
 
 **クエリパラメータ**:
-- `developerId`: 開発者ID
+- `developerId`: 開発者ID（必須）
 - `limit`: 取得件数（デフォルト: 10）
 - `sortBy`: ソート項目（デフォルト: occurredAt）
 - `sortOrder`: ソート順序（デフォルト: desc）
+
+**例**: `/api/activities?developerId=uuid&limit=10&sortOrder=desc`
 
 ### GET /api/developers/:id/stats
 
@@ -712,7 +734,8 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
       fetch(`/api/developers/${id}/identifiers`, {
         headers: { Cookie: request.headers.get('Cookie') || '' }
       }),
-      fetch(`/api/developers/${id}/activities?limit=10`, {
+      // CORRECTED: Use /api/activities with developerId query param
+      fetch(`/api/activities?developerId=${encodeURIComponent(id)}&limit=10&sortOrder=desc`, {
         headers: { Cookie: request.headers.get('Cookie') || '' }
       }),
       fetch(`/api/developers/${id}/stats`, {
@@ -813,14 +836,41 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
 1. **GET /api/developers/:id/identifiers**: 開発者の識別子リストを取得
    - `core/app/routes/api/developers.$id.identifiers.ts`を作成
    - `core/services/identity-identifiers.service.ts`の`listIdentifiers()`を使用
+   - **前提**: `identity-identifiers.service.ts`に`listIdentifiers()`関数を追加する必要がある
+   - **関数シグネチャ**: `async function listIdentifiers(tenantId: string, developerId: string): Promise<DeveloperIdentifier[]>`
+   - **実装要件**:
+     - `withTenantContext()`を使用してRLS対応
+     - `developerId`でフィルタ
+     - `createdAt`の降順でソート
+     - エラーハンドリング（開発者が見つからない場合は空配列を返す）
 
 2. **GET /api/developers/:id/stats**: 開発者のアクティビティ統計を取得
    - `core/app/routes/api/developers.$id.stats.ts`を作成
    - ファネルステージ別のアクティビティ件数を集計
+   - **実装要件**:
+     - `activities`テーブルから`developerId`でフィルタ
+     - `action`フィールドに基づいてファネルステージを判定:
+       - Awareness: `click`, `view`, `visit`
+       - Engagement: `attend`, `post`, `comment`, `star`, `follow`
+       - Adoption: `signup`, `login`, `api_call`
+       - Advocacy: `share`, `speak`, `blog`, `contribute`
+     - 各ステージの件数をカウント
+     - `withTenantContext()`を使用してRLS対応
 
 3. **GET /api/organizations**: 組織リストを取得（フィルタドロップダウン用）
    - `core/app/routes/api/organizations.ts`を作成
-   - `core/services/organization.service.ts`が必要（未実装）
+   - `core/services/organization.service.ts`が必要（**未実装**）
+   - **サービスファイル**: `core/services/organization.service.ts`
+   - **関数要件**:
+     - `async function getAllOrganizations(tenantId: string): Promise<Pick<Organization, 'organizationId' | 'name'>[]>`
+     - `withTenantContext()`を使用してRLS対応
+     - `organizations`テーブルから`organizationId`と`name`のみ取得
+     - `name`の昇順でソート
+     - エラーハンドリング（データベースエラー時は適切なエラーをスロー）
+   - **APIエンドポイント仕様**:
+     - **認証**: `requireAuth()`で認証チェック
+     - **レスポンス**: `{ organizations: Array<{ organizationId: string, name: string }> }`
+     - **エラー**: 401（未認証）、500（サーバーエラー）
 
 ## 備考
 
