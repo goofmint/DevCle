@@ -3,7 +3,7 @@ import { defineConfig, devices } from '@playwright/test';
 /**
  * Playwright configuration for E2E tests
  *
- * Tests run against the development server at http://localhost:3001
+ * Tests run against the development server at http://localhost:3000
  * Uses Chromium browser for testing
  */
 export default defineConfig({
@@ -14,7 +14,7 @@ export default defineConfig({
   workers: process.env['CI'] ? 1 : 1,
   reporter: [['html', { open: 'never' }], ['list']],
   use: {
-    baseURL: 'http://localhost:3001',
+    baseURL: 'http://localhost:3000',
     trace: 'on-first-retry',
   },
 

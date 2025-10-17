@@ -180,6 +180,50 @@ export async function addIdentifier(
 }
 
 /**
+ * List identifiers for a developer
+ *
+ * @param tenantId - Tenant ID for multi-tenant isolation
+ * @param developerId - Developer ID to list identifiers for
+ * @returns Array of identifier records sorted by createdAt descending
+ * @throws {Error} If database error occurs
+ *
+ * Implementation details:
+ * 1. Query developer_identifiers table by developer_id
+ * 2. RLS automatically filters by tenant_id
+ * 3. Sort by firstSeen descending (most recent first)
+ * 4. Return empty array if developer not found or has no identifiers
+ *
+ * RLS: Requires app.current_tenant_id to be set in session
+ */
+export async function listIdentifiers(
+  tenantId: string,
+  developerId: string
+): Promise<Array<typeof schema.developerIdentifiers.$inferSelect>> {
+  // Execute within transaction with tenant context (production-safe with connection pooling)
+  return await withTenantContext(tenantId, async (tx) => {
+    try {
+      // Query identifiers for the specified developer
+      // RLS policy will automatically filter by tenant_id
+      const identifiers = await tx
+        .select()
+        .from(schema.developerIdentifiers)
+        .where(
+          and(
+            eq(schema.developerIdentifiers.tenantId, tenantId),
+            eq(schema.developerIdentifiers.developerId, developerId)
+          )
+        )
+        .orderBy(sql`${schema.developerIdentifiers.firstSeen} DESC`);
+
+      return identifiers;
+    } catch (error) {
+      console.error('Failed to list identifiers:', error);
+      throw new Error('Failed to retrieve identifiers from database');
+    }
+  });
+}
+
+/**
  * Remove identifier from developer
  *
  * @param tenantId - Tenant ID for multi-tenant isolation

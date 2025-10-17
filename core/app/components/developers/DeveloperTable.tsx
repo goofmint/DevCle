@@ -1,0 +1,285 @@
+/**
+ * Developer Table Component
+ *
+ * Displays developers in table format (for desktop view).
+ * Includes sortable columns: name, email, organization, created date, activity count.
+ * Rows are clickable and navigate to developer detail page.
+ */
+
+import { Link } from '@remix-run/react';
+
+/**
+ * Developer type for table display
+ */
+interface DeveloperListItem {
+  developerId: string;
+  displayName: string;
+  primaryEmail: string;
+  avatarUrl: string | null;
+  organizationId: string | null;
+  organization?: {
+    organizationId: string;
+    name: string;
+  } | null;
+  activityCount?: number;
+  createdAt: Date;
+}
+
+/**
+ * Props for DeveloperTable component
+ */
+interface DeveloperTableProps {
+  /** List of developers to display */
+  developers: DeveloperListItem[];
+  /** Current sort field */
+  sortBy: 'name' | 'email' | 'createdAt' | 'activityCount';
+  /** Current sort order */
+  sortOrder: 'asc' | 'desc';
+  /** Callback when column header is clicked for sorting */
+  onSort: (column: 'name' | 'email' | 'createdAt' | 'activityCount') => void;
+}
+
+/**
+ * DeveloperTable Component
+ *
+ * Renders developer data in table format with sortable column headers.
+ */
+export function DeveloperTable({
+  developers,
+  sortBy,
+  sortOrder,
+  onSort,
+}: DeveloperTableProps) {
+  // Generate initials from display name for avatar fallback
+  const getInitials = (name: string) =>
+    name
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+
+  // Format date to human-readable string
+  const formatDate = (date: Date) => {
+    const d = new Date(date);
+    return d.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+  };
+
+  // Render sort icon for column header
+  const SortIcon = ({ column }: { column: string }) => {
+    if (sortBy !== column) {
+      return (
+        <svg
+          className="w-4 h-4 text-gray-400"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"
+          />
+        </svg>
+      );
+    }
+
+    return sortOrder === 'asc' ? (
+      <svg
+        className="w-4 h-4 text-blue-600 dark:text-blue-400"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M5 15l7-7 7 7"
+        />
+      </svg>
+    ) : (
+      <svg
+        className="w-4 h-4 text-blue-600 dark:text-blue-400"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M19 9l-7 7-7-7"
+        />
+      </svg>
+    );
+  };
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+        {/* Table header */}
+        <thead className="bg-gray-50 dark:bg-gray-900">
+          <tr>
+            {/* Developer column (with avatar) */}
+            <th
+              scope="col"
+              className="px-6 py-3 text-left cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
+              onClick={() => onSort('name')}
+            >
+              <div className="flex items-center gap-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                Developer
+                <SortIcon column="name" />
+              </div>
+            </th>
+
+            {/* Email column */}
+            <th
+              scope="col"
+              className="px-6 py-3 text-left cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
+              onClick={() => onSort('email')}
+            >
+              <div className="flex items-center gap-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                Email
+                <SortIcon column="email" />
+              </div>
+            </th>
+
+            {/* Organization column (not sortable) */}
+            <th
+              scope="col"
+              className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
+            >
+              Organization
+            </th>
+
+            {/* Activity count column */}
+            <th
+              scope="col"
+              className="px-6 py-3 text-left cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
+              onClick={() => onSort('activityCount')}
+            >
+              <div className="flex items-center gap-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                Activities
+                <SortIcon column="activityCount" />
+              </div>
+            </th>
+
+            {/* Created date column */}
+            <th
+              scope="col"
+              className="px-6 py-3 text-left cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
+              onClick={() => onSort('createdAt')}
+            >
+              <div className="flex items-center gap-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                Created
+                <SortIcon column="createdAt" />
+              </div>
+            </th>
+          </tr>
+        </thead>
+
+        {/* Table body */}
+        <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+          {developers.map((developer) => (
+            <tr
+              key={developer.developerId}
+              className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            >
+              {/* Developer cell (with avatar and name) */}
+              <td className="px-6 py-4 whitespace-nowrap">
+                <Link
+                  to={`/dashboard/developers/${developer.developerId}`}
+                  className="flex items-center gap-3"
+                >
+                  {developer.avatarUrl ? (
+                    <img
+                      src={developer.avatarUrl}
+                      alt={developer.displayName}
+                      className="w-10 h-10 rounded-full object-cover"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div
+                      className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900
+                                 flex items-center justify-center text-blue-600 dark:text-blue-300
+                                 font-semibold text-sm"
+                    >
+                      {getInitials(developer.displayName)}
+                    </div>
+                  )}
+                  <span className="text-sm font-medium text-gray-900 dark:text-white">
+                    {developer.displayName}
+                  </span>
+                </Link>
+              </td>
+
+              {/* Email cell */}
+              <td className="px-6 py-4 whitespace-nowrap">
+                <span className="text-sm text-gray-600 dark:text-gray-400">
+                  {developer.primaryEmail}
+                </span>
+              </td>
+
+              {/* Organization cell */}
+              <td className="px-6 py-4 whitespace-nowrap">
+                {developer.organization ? (
+                  <span className="text-sm text-gray-600 dark:text-gray-400">
+                    {developer.organization.name}
+                  </span>
+                ) : (
+                  <span className="text-sm text-gray-400 dark:text-gray-500 italic">
+                    N/A
+                  </span>
+                )}
+              </td>
+
+              {/* Activity count cell */}
+              <td className="px-6 py-4 whitespace-nowrap">
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                               bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">
+                  {developer.activityCount || 0}
+                </span>
+              </td>
+
+              {/* Created date cell */}
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
+                {formatDate(developer.createdAt)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {/* Empty state */}
+      {developers.length === 0 && (
+        <div className="text-center py-12 bg-white dark:bg-gray-800">
+          <svg
+            className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
+            />
+          </svg>
+          <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">
+            No developers found
+          </h3>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            Try adjusting your search or filter criteria.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
