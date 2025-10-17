@@ -503,7 +503,7 @@
 ### Task 7.2: Overviewページ実装
 
 - [ ] `app/routes/dashboard/overview.tsx`作成
-- [ ] Swapyでウィジェットをドラッグ＆ドロップ可能に（https://swapy.tahazsh.com/）
+- [ ] Swapyでウィジェットをドラッグ＆ドロップ可能に（[Swapy](https://swapy.tahazsh.com/)）
 - [ ] 総アクティビティ数・開発者数・施策件数の表示
 - [ ] ROI平均値の表示
 - [ ] 簡易グラフ（Recharts）

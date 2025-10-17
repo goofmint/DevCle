@@ -148,46 +148,6 @@ interface DashboardSidebarProps {
 }
 
 /**
- * Navigation item type
- */
-export interface NavigationItem {
-  /**
-   * Unique key for the navigation item
-   */
-  key: string;
-
-  /**
-   * Display label
-   */
-  label: string;
-
-  /**
-   * Route path
-   */
-  path: string;
-
-  /**
-   * Icon name (from icon library)
-   */
-  icon: string;
-
-  /**
-   * Badge text (optional, for notifications)
-   */
-  badge?: string;
-
-  /**
-   * Whether this item should be shown at the bottom
-   */
-  isBottomItem?: boolean;
-
-  /**
-   * Plugin ID (if registered by a plugin)
-   */
-  pluginId?: string;
-}
-
-/**
  * Sidebar component
  *
  * Implementation:
@@ -235,48 +195,13 @@ export function DashboardSidebar({
  */
 
 import { Link, Form } from '@remix-run/react';
-import type { User } from '~/types/auth';
+import type { User } from '~/types/dashboard';
 
 interface DashboardHeaderProps {
   /**
    * Current user information
    */
   user: User;
-}
-
-/**
- * User type
- */
-export interface User {
-  /**
-   * User ID
-   */
-  userId: string;
-
-  /**
-   * Email address
-   */
-  email: string;
-
-  /**
-   * Display name
-   */
-  displayName: string;
-
-  /**
-   * Role (admin, member)
-   */
-  role: 'admin' | 'member';
-
-  /**
-   * Tenant ID
-   */
-  tenantId: string;
-
-  /**
-   * Avatar URL (optional)
-   */
-  avatarUrl?: string;
 }
 
 /**
@@ -445,7 +370,7 @@ export interface User {
 
 ### デスクトップレイアウト
 
-```
+```text
 +------------------+-----------------------------+
 | Sidebar (240px)  | Main Area                   |
 |                  |                             |
@@ -465,7 +390,7 @@ export interface User {
 
 ### モバイルレイアウト
 
-```
+```text
 +----------------------------------+
 | Header                           |
 | [☰]  [Logo]          [User ▼]   |
@@ -484,7 +409,7 @@ export interface User {
 
 ### コンポーネント階層
 
-```
+```text
 DashboardLayout (app/routes/dashboard.tsx)
 ├── DashboardSidebar (app/components/dashboard/Sidebar.tsx)
 │   ├── NavigationItem (internal component)
