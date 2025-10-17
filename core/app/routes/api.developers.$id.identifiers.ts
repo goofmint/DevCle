@@ -9,7 +9,7 @@
 
 import { json, type LoaderFunctionArgs } from '@remix-run/node';
 import { requireAuth } from '~/auth.middleware.js';
-import { listIdentifiers } from '../../../services/identity-identifiers.service.js';
+import { listIdentifiers } from '../../services/identity-identifiers.service.js';
 import { z } from 'zod';
 
 /**

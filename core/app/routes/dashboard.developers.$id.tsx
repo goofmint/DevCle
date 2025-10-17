@@ -13,10 +13,22 @@
  * because it's an authenticated page and we want to fetch data client-side.
  */
 
+import { json, type LoaderFunctionArgs } from '@remix-run/node';
 import { useParams, Link } from '@remix-run/react';
 import { useState, useEffect } from 'react';
+import { requireAuth } from '~/auth.middleware.js';
 import { DeveloperDetail } from '~/components/developers/DeveloperDetail';
 import { ActivityTimeline } from '~/components/developers/ActivityTimeline';
+
+/**
+ * Loader function for authentication check
+ * Returns null because actual data is fetched client-side via useEffect
+ */
+export async function loader({ request }: LoaderFunctionArgs) {
+  // Ensure user is authenticated before allowing access to this page
+  await requireAuth(request);
+  return json(null);
+}
 
 /**
  * Type definitions for developer detail data

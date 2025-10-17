@@ -34,13 +34,11 @@ describe('Funnel Drop Rate Service', () => {
   let aliceDeveloperId: string;
   let bobDeveloperId: string;
   let charlieDeveloperId: string;
-  let testActivityIds: string[] = [];
 
   // Create test developers before each test
   // This ensures each test starts with a clean state
   beforeEach(async () => {
     const db = getDb();
-    testActivityIds = []; // Reset activity tracking
 
     // Ensure 'other-tenant' tenant exists (required for foreign key constraint)
     // Use onConflictDoNothing() to make this idempotent

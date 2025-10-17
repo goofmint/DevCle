@@ -9,9 +9,7 @@
 
 import { json, type LoaderFunctionArgs } from '@remix-run/node';
 import { requireAuth } from '~/auth.middleware.js';
-import { withTenantContext } from '../../../db/connection.js';
-import * as schema from '../../../db/schema/index.js';
-import { eq, and, desc, asc } from 'drizzle-orm';
+import { listActivities } from '../../services/activity-list.service.js';
 import { z } from 'zod';
 
 /**
@@ -92,50 +90,18 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
     // Validate query params with defaults
     const queryParams = QueryParamsSchema.parse(rawQueryParams);
 
-    // 5. Fetch activities using Drizzle ORM with tenant context
-    const activities = await withTenantContext(tenantId, async (tx) => {
-      try {
-        // Determine sort column
-        const sortColumn =
-          queryParams.sortBy === 'action'
-            ? schema.activities.action
-            : queryParams.sortBy === 'source'
-            ? schema.activities.source
-            : schema.activities.occurredAt;
-
-        // Determine sort direction
-        const sortOrder = queryParams.sortOrder === 'asc' ? asc : desc;
-
-        // Query activities for the specified developer
-        // RLS policy will automatically filter by tenant_id
-        const result = await tx
-          .select({
-            activityId: schema.activities.activityId,
-            action: schema.activities.action,
-            source: schema.activities.source,
-            occurredAt: schema.activities.occurredAt,
-            metadata: schema.activities.metadata,
-            value: schema.activities.value,
-          })
-          .from(schema.activities)
-          .where(
-            and(
-              eq(schema.activities.tenantId, tenantId),
-              eq(schema.activities.developerId, developerId)
-            )
-          )
-          .orderBy(sortOrder(sortColumn))
-          .limit(queryParams.limit);
-
-        return result;
-      } catch (error) {
-        console.error('Failed to query activities:', error);
-        throw new Error('Failed to retrieve activities from database');
-      }
+    // 5. Fetch activities using service layer
+    // Note: listActivities only supports occurred_at, recorded_at, ingested_at for orderBy
+    // Action and source sorting is not supported by the service layer
+    const result = await listActivities(tenantId, {
+      developerId,
+      limit: queryParams.limit,
+      orderBy: 'occurred_at', // Always use occurred_at for developer activities
+      orderDirection: queryParams.sortOrder,
     });
 
     // 6. Return activities list (empty array if developer not found or has no activities)
-    return json({ activities }, { status: 200 });
+    return json({ activities: result.activities }, { status: 200 });
   } catch (error) {
     // 7. Handle errors
 

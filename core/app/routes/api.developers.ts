@@ -21,13 +21,12 @@ import {
   type ActionFunctionArgs,
 } from '@remix-run/node';
 import { requireAuth } from '~/auth.middleware.js';
-import { setTenantContext, clearTenantContext } from '../../../db/connection.js';
 import {
   createDeveloper,
   listDevelopers,
   type CreateDeveloperInput,
   type ListDevelopersInput,
-} from '../../../services/drm.service.js';
+} from '../../services/drm.service.js';
 import { z } from 'zod';
 
 /**
@@ -75,25 +74,13 @@ export async function loader({ request }: LoaderFunctionArgs) {
       orderDirection: url.searchParams.get('orderDirection') || undefined,
     };
 
-    // 3. Set tenant context for RLS (Row Level Security)
-    // This ensures all database queries are filtered by tenant_id
-    await setTenantContext(tenantId);
+    // 3. Call service layer to list developers
+    // Service layer handles tenant context via withTenantContext()
+    // Service layer will validate params using Zod schema and apply defaults
+    const result = await listDevelopers(tenantId, rawParams as ListDevelopersInput);
 
-    try {
-      // 4. Call service layer to list developers
-      // Service layer will validate params using Zod schema and apply defaults
-      const result = await listDevelopers(tenantId, rawParams as ListDevelopersInput);
-
-      // 5. Clear tenant context after successful operation
-      await clearTenantContext();
-
-      // 6. Return success response with developers list
-      return json(result, { status: 200 });
-    } catch (serviceError) {
-      // Ensure tenant context is cleared even if service call fails
-      await clearTenantContext();
-      throw serviceError; // Re-throw to outer catch block
-    }
+    // 4. Return success response with developers list
+    return json(result, { status: 200 });
   } catch (error) {
     // 7. Handle errors and return appropriate HTTP status codes
 
@@ -180,24 +167,13 @@ export async function action({ request }: ActionFunctionArgs) {
       );
     }
 
-    // 3. Set tenant context for RLS
-    await setTenantContext(tenantId);
+    // 3. Call service layer to create developer
+    // Service layer handles tenant context via withTenantContext()
+    // Service layer will validate input using Zod schema
+    const result = await createDeveloper(tenantId, requestData);
 
-    try {
-      // 4. Call service layer to create developer
-      // Service layer will validate input using Zod schema
-      const result = await createDeveloper(tenantId, requestData);
-
-      // 5. Clear tenant context after successful operation
-      await clearTenantContext();
-
-      // 6. Return success response with 201 Created status
-      return json(result, { status: 201 });
-    } catch (serviceError) {
-      // Ensure tenant context is cleared even if service call fails
-      await clearTenantContext();
-      throw serviceError; // Re-throw to outer catch block
-    }
+    // 4. Return success response with 201 Created status
+    return json(result, { status: 201 });
   } catch (error) {
     // 7. Handle errors and return appropriate HTTP status codes
 
