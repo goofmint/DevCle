@@ -491,9 +491,6 @@ test('swapy layout persists after reload', async ({ page }) => {
   await page.waitForTimeout(1000);
 
   // Get positions after swap
-  const firstCard = page.locator('[data-swapy-slot="slot-1"]');
-  const activityChart = page.locator('[data-swapy-slot="slot-5"]');
-
   const firstBoxBeforeReload = await firstCard.boundingBox();
   const chartBoxBeforeReload = await activityChart.boundingBox();
 

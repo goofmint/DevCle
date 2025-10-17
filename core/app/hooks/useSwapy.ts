@@ -148,8 +148,30 @@ export function useSwapy(options: UseSwapyOptions): UseSwapyReturn {
     if (savedLayout) {
       try {
         const parsed = JSON.parse(savedLayout) as SlotItemMap;
-        console.debug('[useSwapy] Restored layout from localStorage:', parsed);
-        return parsed;
+
+        // Validate saved layout - check if it matches current items structure
+        const savedSlotCount = Object.keys(parsed).length;
+        const currentItemCount = items.length;
+
+        // Check if all saved itemIds exist in current items
+        const currentItemIds = new Set(items.map((item) => item.id));
+        const allItemsExist = Object.values(parsed).every(
+          (itemId) => itemId === null || currentItemIds.has(itemId)
+        );
+
+        if (savedSlotCount === currentItemCount && allItemsExist) {
+          console.debug('[useSwapy] Restored layout from localStorage:', parsed);
+          return parsed;
+        } else {
+          console.warn(
+            '[useSwapy] Saved layout incompatible (slots:', savedSlotCount,
+            'items:', currentItemCount,
+            'allItemsExist:', allItemsExist,
+            ') - resetting to initial layout'
+          );
+          localStorage.removeItem(storageKey);
+          return initSlotItemMap(items);
+        }
       } catch (error) {
         console.warn('[useSwapy] Failed to parse saved layout:', error);
         return initSlotItemMap(items);
@@ -191,10 +213,14 @@ export function useSwapy(options: UseSwapyOptions): UseSwapyReturn {
   const getSlottedItems = useCallback((): SlottedItem[] => {
     const itemsMap = new Map(items.map((item) => [item.id, item]));
 
-    return Object.entries(slotItemMap)
+    console.debug('[useSwapy] getSlottedItems called with slotItemMap:', slotItemMap);
+    console.debug('[useSwapy] Available item IDs:', Array.from(itemsMap.keys()));
+
+    const slottedItems = Object.entries(slotItemMap)
       .sort(([slotA], [slotB]) => slotA.localeCompare(slotB))
       .map(([slotId, itemId]) => {
         if (itemId === null) {
+          console.debug(`[useSwapy] Slot "${slotId}" is empty (null)`);
           return { slotId, itemId: null, content: null };
         }
 
@@ -204,12 +230,16 @@ export function useSwapy(options: UseSwapyOptions): UseSwapyReturn {
           return { slotId, itemId, content: null };
         }
 
+        console.debug(`[useSwapy] Mapped slot "${slotId}" -> item "${itemId}"`);
         return {
           slotId,
           itemId: item.id,
           content: item.content,
         };
       });
+
+    console.debug('[useSwapy] Returning', slottedItems.length, 'slotted items');
+    return slottedItems;
   }, [items, slotItemMap]);
 
   /**

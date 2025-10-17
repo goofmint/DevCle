@@ -61,7 +61,7 @@
                 - generic [ref=e90]:
                   - img [ref=e92]
                   - heading "Total Activities" [level=3] [ref=e94]
-                - paragraph [ref=e96]: "0"
+                - paragraph [ref=e96]: "10"
                 - paragraph [ref=e97]: All tracked activities
             - generic [ref=e99]:
               - generic "Drag to reorder" [ref=e100]:
@@ -70,7 +70,7 @@
                 - generic [ref=e113]:
                   - img [ref=e115]
                   - heading "Active Campaigns" [level=3] [ref=e117]
-                - paragraph [ref=e119]: "0"
+                - paragraph [ref=e119]: "3"
                 - paragraph [ref=e120]: Running campaigns
             - generic [ref=e122]:
               - generic "Drag to reorder" [ref=e123]:
@@ -100,9 +100,9 @@
                       - generic [ref=e178]: 10/17
                     - generic [ref=e180]:
                       - generic [ref=e182]: "0"
-                      - generic [ref=e184]: "1"
-                      - generic [ref=e186]: "2"
-                      - generic [ref=e188]: "3"
-                      - generic [ref=e190]: "4"
-  - generic [ref=e257]: "0"
+                      - generic [ref=e184]: "0.25"
+                      - generic [ref=e186]: "0.5"
+                      - generic [ref=e188]: "0.75"
+                      - generic [ref=e190]: "1"
+  - generic [ref=e259]: "0"
 ```
