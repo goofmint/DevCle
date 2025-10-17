@@ -16,6 +16,47 @@
 - ✅ Task 4.5: Activity API実装
 - ✅ Task 5.4: Campaign API実装
 
+## 型定義
+
+```typescript
+// Activity型（core/db/schema/activities.tsから参照）
+interface Activity {
+  activityId: string;
+  tenantId: string;
+  developerId: string;
+  accountId: string | null;
+  resourceId: string | null;
+  action: string;
+  source: string;
+  occurredAt: Date;
+  metadata: Record<string, unknown>;
+  value: number | null;
+  dedupKey: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// 時系列データポイント
+interface TimeSeriesDataPoint {
+  date: string; // YYYY-MM-DD
+  activities: number;
+  developers: number;
+}
+
+// 統計カードプロパティ
+interface StatCardProps {
+  testId?: string;
+  label: string;
+  value: string | number;
+  icon: React.ComponentType<{ className?: string }>;
+  description?: string;
+  trend?: {
+    value: number;
+    isPositive: boolean;
+  };
+}
+```
+
 ## 実装内容
 
 ### 1. ルート定義
@@ -39,29 +80,11 @@ interface OverviewData {
   recentActivities: Activity[];
   timeSeriesData: TimeSeriesDataPoint[];
 }
-
-interface TimeSeriesDataPoint {
-  date: string; // YYYY-MM-DD
-  activities: number;
-  developers: number;
-}
 ```
 
 ### 3. ウィジェット構成
 
-以下の4つの統計カードウィジェットを実装：
-
-```typescript
-interface StatCardProps {
-  label: string;
-  value: string | number;
-  icon: React.ComponentType<{ className?: string }>;
-  trend?: {
-    value: number;
-    isPositive: boolean;
-  };
-}
-```
+以下の4つの統計カードウィジェットを実装（`StatCardProps`型を使用）：
 
 **ウィジェット一覧**:
 - **Total Developers**: 総開発者数
@@ -121,7 +144,7 @@ interface ChartData {
 
 ## ファイル構成
 
-```
+```text
 core/
 ├── app/
 │   ├── routes/
@@ -134,6 +157,78 @@ core/
 │   └── hooks/
 │       └── useSwapy.ts                   # Swapy初期化カスタムフック
 └── package.json                          # swapy, rechartsを追加
+```
+
+## カスタムフック仕様
+
+### useSwapy
+
+Swapyライブラリを初期化し、ドラッグ&ドロップ機能を提供するカスタムフック。
+
+**ファイル**: `core/app/hooks/useSwapy.ts`
+
+```typescript
+interface UseSwapyOptions {
+  /** localStorage保存キー */
+  storageKey?: string;
+  /** アニメーション設定 */
+  animation?: 'dynamic' | 'spring' | 'none';
+  /** レイアウト変更時のコールバック */
+  onLayoutChange?: (layout: Record<string, string>) => void;
+}
+
+interface UseSwapyReturn {
+  /** Swapyコンテナに適用するref */
+  containerRef: React.RefObject<HTMLDivElement>;
+  /** Swapyインスタンス（初期化後に利用可能） */
+  swapyInstance: Swapy | null;
+  /** レイアウトをリセットする関数 */
+  resetLayout: () => void;
+}
+
+/**
+ * useSwapy Hook
+ *
+ * Swapyインスタンスを初期化し、ドラッグ&ドロップによるウィジェット並び替えを提供。
+ *
+ * 機能:
+ * - Swapyインスタンスの自動初期化・クリーンアップ
+ * - レイアウトのlocalStorage永続化
+ * - レイアウト変更イベントのハンドリング
+ *
+ * ライフサイクル:
+ * - マウント時: Swapyインスタンス作成、localStorageからレイアウト復元
+ * - アンマウント時: Swapyインスタンス破棄
+ *
+ * 使用例:
+ * ```typescript
+ * function OverviewPage() {
+ *   const { containerRef, resetLayout } = useSwapy({
+ *     storageKey: 'overview-layout',
+ *     animation: 'dynamic',
+ *     onLayoutChange: (layout) => console.log('Layout changed:', layout)
+ *   });
+ *
+ *   return (
+ *     <div ref={containerRef} data-swapy-container>
+ *       <div data-swapy-slot="slot-1">
+ *         <div data-swapy-item="item-1">Widget 1</div>
+ *       </div>
+ *       <div data-swapy-slot="slot-2">
+ *         <div data-swapy-item="item-2">Widget 2</div>
+ *       </div>
+ *       <button onClick={resetLayout}>Reset Layout</button>
+ *     </div>
+ *   );
+ * }
+ * ```
+ */
+export function useSwapy(options?: UseSwapyOptions): UseSwapyReturn {
+  // Swapyインスタンスの初期化
+  // localStorageからのレイアウト復元
+  // レイアウト変更イベントのリスナー登録
+  // クリーンアップ処理
+}
 ```
 
 ## API仕様
@@ -255,28 +350,58 @@ export function SwapyContainer({ children, storageKey = 'overview-layout' }: Swa
 6. レイアウト変更時にlocalStorageに保存
 
 ```typescript
-// Loader実装例
+// Loader実装例（エラーハンドリング付き）
 export async function loader({ request }: LoaderFunctionArgs) {
+  // 認証チェック（未認証時は/loginへリダイレクト）
   const user = await requireAuth(request);
 
-  // 統計情報とタイムラインデータを並列取得
-  const [statsResponse, timelineResponse] = await Promise.all([
-    fetch('/api/overview/stats', {
-      headers: { Cookie: request.headers.get('Cookie') || '' }
-    }),
-    fetch('/api/overview/timeline?days=30', {
-      headers: { Cookie: request.headers.get('Cookie') || '' }
-    })
-  ]);
+  try {
+    // 統計情報とタイムラインデータを並列取得
+    const [statsResponse, timelineResponse] = await Promise.all([
+      fetch('/api/overview/stats', {
+        headers: { Cookie: request.headers.get('Cookie') || '' }
+      }),
+      fetch('/api/overview/timeline?days=30', {
+        headers: { Cookie: request.headers.get('Cookie') || '' }
+      })
+    ]);
 
-  const stats = await statsResponse.json();
-  const timeline = await timelineResponse.json();
+    // レスポンスステータスチェック
+    if (!statsResponse.ok) {
+      throw new Error(`Failed to fetch stats: ${statsResponse.status} ${statsResponse.statusText}`);
+    }
+    if (!timelineResponse.ok) {
+      throw new Error(`Failed to fetch timeline: ${timelineResponse.status} ${timelineResponse.statusText}`);
+    }
 
-  return json<OverviewData>({
-    stats: stats.stats,
-    recentActivities: [],
-    timeSeriesData: timeline.timeline
-  });
+    // JSONパース
+    const stats = await statsResponse.json();
+    const timeline = await timelineResponse.json();
+
+    // データ構造の検証（オプション）
+    if (!stats?.stats) {
+      throw new Error('Invalid stats response structure');
+    }
+    if (!Array.isArray(timeline?.timeline)) {
+      throw new Error('Invalid timeline response structure');
+    }
+
+    return json<OverviewData>({
+      stats: stats.stats,
+      // recentActivities: 将来の実装用（現在は未使用）
+      recentActivities: [],
+      timeSeriesData: timeline.timeline
+    });
+  } catch (error) {
+    // エラーログ出力
+    console.error('Overview loader error:', error);
+
+    // RemixのErrorBoundaryに投げる
+    throw new Response('Failed to load overview data', {
+      status: 500,
+      statusText: error instanceof Error ? error.message : 'Internal Server Error'
+    });
+  }
 }
 ```
 
@@ -314,18 +439,20 @@ export async function loader({ request }: LoaderFunctionArgs) {
 - **XSS対策**: ユーザー入力は全てエスケープ
 - **CSRF対策**: RemixのCSRFトークンを使用
 
-## 完了条件
+## 実装完了条件（受け入れ基準）
 
-- [x] Overviewページが`/dashboard`で表示される
-- [x] 4つの統計カード（開発者数、アクティビティ数、施策数、ROI平均値）が表示される
-- [x] Rechartsグラフが描画され、過去30日間のデータが表示される
-- [x] Swapyでウィジェットをドラッグ&ドロップで並び替えられる
-- [x] レイアウト変更がlocalStorageに保存され、リロード後も維持される
-- [x] ダークモード対応が完了している
-- [x] レスポンシブデザインが実装されている（モバイル/タブレット/デスクトップ）
-- [x] E2Eテストが実装され、全テストがパスする
-- [x] TypeScriptエラーがない
-- [x] ESLintエラーがない
+以下の全ての項目が満たされた時点で、Task 7.2は完了とみなされます。
+
+- [ ] Overviewページが`/dashboard`で表示される
+- [ ] 4つの統計カード（開発者数、アクティビティ数、施策数、ROI平均値）が表示される
+- [ ] Rechartsグラフが描画され、過去30日間のデータが表示される
+- [ ] Swapyでウィジェットをドラッグ&ドロップで並び替えられる
+- [ ] レイアウト変更がlocalStorageに保存され、リロード後も維持される
+- [ ] ダークモード対応が完了している
+- [ ] レスポンシブデザインが実装されている（モバイル/タブレット/デスクトップ）
+- [ ] E2Eテストが実装され、全テストがパスする
+- [ ] TypeScriptエラーがない
+- [ ] ESLintエラーがない
 
 ## 備考
 
