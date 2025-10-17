@@ -119,6 +119,66 @@ export default function DashboardOverview() {
     );
   }
 
+  // Define widget items for Swapy - each card is a separate widget
+  const widgetItems = [
+    {
+      id: 'total-developers',
+      content: (
+        <StatCard
+          testId="total-developers"
+          label="Total Developers"
+          value={stats.totalDevelopers}
+          icon={UsersIcon}
+          description="Registered developers"
+        />
+      ),
+    },
+    {
+      id: 'total-activities',
+      content: (
+        <StatCard
+          testId="total-activities"
+          label="Total Activities"
+          value={stats.totalActivities}
+          icon={ChartBarIcon}
+          description="All tracked activities"
+        />
+      ),
+    },
+    {
+      id: 'total-campaigns',
+      content: (
+        <StatCard
+          testId="total-campaigns"
+          label="Active Campaigns"
+          value={stats.totalCampaigns}
+          icon={MegaphoneIcon}
+          description="Running campaigns"
+        />
+      ),
+    },
+    {
+      id: 'average-roi',
+      content: (
+        <StatCard
+          testId="average-roi"
+          label="Average ROI"
+          value={
+            stats.averageROI !== null
+              ? `${stats.averageROI.toFixed(1)}%`
+              : 'N/A'
+          }
+          icon={CurrencyDollarIcon}
+          description="Campaign ROI average"
+        />
+      ),
+    },
+    {
+      id: 'activity-chart',
+      content: <ActivityChart data={timeSeriesData} height={300} />,
+    },
+  ];
+
   return (
     <div className="space-y-6">
       {/* Page Title */}
@@ -131,70 +191,12 @@ export default function DashboardOverview() {
         </p>
       </div>
 
-      {/* Stats Grid with Swapy Drag-and-Drop */}
-      <SwapyContainer storageKey="overview-stats-layout" animation="dynamic">
-        {/* Grid: 4 columns on desktop, 2 on tablet, 1 on mobile */}
-        <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-          {/* Stat Card 1: Total Developers */}
-          <div data-swapy-slot="slot-1">
-            <div data-swapy-item="item-1">
-              <StatCard
-                testId="total-developers"
-                label="Total Developers"
-                value={stats.totalDevelopers}
-                icon={UsersIcon}
-                description="Registered developers"
-              />
-            </div>
-          </div>
-
-          {/* Stat Card 2: Total Activities */}
-          <div data-swapy-slot="slot-2">
-            <div data-swapy-item="item-2">
-              <StatCard
-                testId="total-activities"
-                label="Total Activities"
-                value={stats.totalActivities}
-                icon={ChartBarIcon}
-                description="All tracked activities"
-              />
-            </div>
-          </div>
-
-          {/* Stat Card 3: Active Campaigns */}
-          <div data-swapy-slot="slot-3">
-            <div data-swapy-item="item-3">
-              <StatCard
-                testId="total-campaigns"
-                label="Active Campaigns"
-                value={stats.totalCampaigns}
-                icon={MegaphoneIcon}
-                description="Running campaigns"
-              />
-            </div>
-          </div>
-
-          {/* Stat Card 4: Average ROI */}
-          <div data-swapy-slot="slot-4">
-            <div data-swapy-item="item-4">
-              <StatCard
-                testId="average-roi"
-                label="Average ROI"
-                value={
-                  stats.averageROI !== null
-                    ? `${stats.averageROI.toFixed(1)}%`
-                    : 'N/A'
-                }
-                icon={CurrencyDollarIcon}
-                description="Campaign ROI average"
-              />
-            </div>
-          </div>
-        </div>
-      </SwapyContainer>
-
-      {/* Activity Timeline Chart */}
-      <ActivityChart data={timeSeriesData} height={300} />
+      {/* All widgets with Swapy Drag-and-Drop */}
+      <SwapyContainer
+        storageKey="overview-layout"
+        animation="dynamic"
+        items={widgetItems}
+      />
     </div>
   );
 }

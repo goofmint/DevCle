@@ -682,7 +682,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 **実装方針**:
 1. Task 3.8で実装した`requireAuth()`ミドルウェアを使用
 2. `requireAuth()`がユーザー情報（userId, tenantId, email, role）を返す
-3. 未認証の場合は自動的に`/auth/login`にリダイレクト
+3. 未認証の場合は自動的に`/login`にリダイレクト
 
 ```typescript
 import { requireAuth } from '~/core/services/auth.middleware.js';
@@ -699,7 +699,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 ```
 
 **認証エラーハンドリング**:
-- `requireAuth()`は未認証時に`throw redirect('/auth/login?returnTo=...')` を実行
+- `requireAuth()`は未認証時に`throw redirect('/login?returnTo=...')` を実行
 - API routesでは、リダイレクトの代わりに401 Unauthorizedを返したい場合は、`try-catch`で処理
 
 ```typescript

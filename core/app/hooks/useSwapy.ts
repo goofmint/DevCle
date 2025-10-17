@@ -2,35 +2,69 @@
  * useSwapy Hook
  *
  * Custom hook for initializing Swapy drag-and-drop library.
- * Handles instance lifecycle, localStorage persistence, and layout management.
+ * Implements the official React pattern with manualSwap and slotItemMap.
+ *
+ * Based on: https://swapy.tahazsh.com/docs/framework-react-dynamic/
  *
  * Features:
- * - Automatic Swapy instance initialization and cleanup
+ * - Manual swap control with slotItemMap
  * - Layout persistence via localStorage
  * - Layout change event handling
- * - Reset functionality
  *
  * Usage:
  * ```typescript
  * function MyComponent() {
- *   const { containerRef } = useSwapy({
+ *   const { containerRef, slotItemMap, handleSwap } = useSwapy({
+ *     items: [{ id: 'item-1', content: <Component1 /> }],
  *     storageKey: 'my-layout',
- *     animation: 'dynamic'
  *   });
+ *
+ *   const slottedItems = getSlottedItems(items, slotItemMap);
  *
  *   return (
  *     <div ref={containerRef} data-swapy-container>
- *       <div data-swapy-slot="slot-1">
- *         <div data-swapy-item="item-1">Content 1</div>
- *       </div>
+ *       {slottedItems.map((item, index) => (
+ *         <div key={item.slotId} data-swapy-slot={item.slotId}>
+ *           <div data-swapy-item={item.itemId}>{item.content}</div>
+ *         </div>
+ *       ))}
  *     </div>
  *   );
  * }
  * ```
  */
 
-import { useRef, useEffect, useState } from 'react';
-import { createSwapy, type Swapy } from 'swapy';
+import { useRef, useEffect, useState, useCallback } from 'react';
+import { createSwapy, type Swapy, type SwapEvent } from 'swapy';
+
+/**
+ * Widget Item Type
+ *
+ * Represents a single widget with unique ID and content.
+ */
+export interface SwapyItem {
+  id: string;
+  content: React.ReactNode;
+}
+
+/**
+ * Slotted Item Type
+ *
+ * Represents an item with its assigned slot.
+ */
+export interface SlottedItem {
+  slotId: string;
+  itemId: string | null;
+  content: React.ReactNode | null;
+}
+
+/**
+ * SlotItemMap Type
+ *
+ * Maps slot IDs to item IDs.
+ * Example: { 'slot-1': 'item-1', 'slot-2': 'item-2' }
+ */
+export type SlotItemMap = Record<string, string | null>;
 
 /**
  * useSwapy Options
@@ -38,12 +72,12 @@ import { createSwapy, type Swapy } from 'swapy';
  * Configuration options for Swapy initialization.
  */
 export interface UseSwapyOptions {
+  /** Array of widget items to display */
+  items: SwapyItem[];
   /** localStorage key for persisting layout (default: 'swapy-layout') */
   storageKey?: string;
   /** Animation type for drag-and-drop transitions (default: 'dynamic') */
   animation?: 'dynamic' | 'spring' | 'none';
-  /** Callback fired when layout changes */
-  onLayoutChange?: (layout: Record<string, string>) => void;
 }
 
 /**
@@ -54,116 +88,184 @@ export interface UseSwapyOptions {
 export interface UseSwapyReturn {
   /** Ref to attach to Swapy container element */
   containerRef: React.RefObject<HTMLDivElement>;
-  /** Swapy instance (null until initialized) */
-  swapyInstance: Swapy | null;
+  /** Current slot-to-item mapping */
+  slotItemMap: SlotItemMap;
+  /** Swap event handler */
+  handleSwap: (event: SwapEvent) => void;
+  /** Get slotted items for rendering */
+  getSlottedItems: () => SlottedItem[];
   /** Function to reset layout to initial state */
   resetLayout: () => void;
+}
+
+/**
+ * Initialize SlotItemMap
+ *
+ * Creates initial slot-to-item mapping.
+ * By default, assigns items to slots in order: slot-1 -> item-1, slot-2 -> item-2, etc.
+ *
+ * @param items - Array of widget items
+ * @returns Initial slotItemMap
+ */
+function initSlotItemMap(items: SwapyItem[]): SlotItemMap {
+  const map: SlotItemMap = {};
+  items.forEach((item, index) => {
+    map[`slot-${index + 1}`] = item.id;
+  });
+  return map;
 }
 
 /**
  * useSwapy Hook
  *
  * Initializes Swapy drag-and-drop functionality with localStorage persistence.
+ * Uses manualSwap mode as recommended in Swapy docs for React.
  *
  * Lifecycle:
  * 1. On mount: Create Swapy instance, restore layout from localStorage
- * 2. On layout change: Save to localStorage, call onLayoutChange callback
+ * 2. On swap: Update slotItemMap, save to localStorage
  * 3. On unmount: Destroy Swapy instance, clean up event listeners
  *
  * @param options - Configuration options
- * @returns Container ref, Swapy instance, and reset function
+ * @returns Container ref, slotItemMap, swap handler, and utility functions
  */
-export function useSwapy(options: UseSwapyOptions = {}): UseSwapyReturn {
-  const {
-    storageKey = 'swapy-layout',
-    animation = 'dynamic',
-    onLayoutChange,
-  } = options;
+export function useSwapy(options: UseSwapyOptions): UseSwapyReturn {
+  const { items, storageKey = 'swapy-layout', animation = 'dynamic' } = options;
 
   // Ref to container element (must have data-swapy-container attribute)
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // State to store Swapy instance
-  const [swapyInstance, setSwapyInstance] = useState<Swapy | null>(null);
+  // Ref to Swapy instance
+  const swapyRef = useRef<Swapy | null>(null);
 
-  /**
-   * Initialize Swapy
-   *
-   * Creates Swapy instance and sets up event listeners.
-   * Runs once on mount when containerRef is available.
-   */
-  useEffect(() => {
-    // Wait for container to be mounted
-    if (!containerRef.current) return;
+  // Initialize slotItemMap from localStorage or default
+  const [slotItemMap, setSlotItemMap] = useState<SlotItemMap>(() => {
+    if (typeof window === 'undefined') {
+      return initSlotItemMap(items);
+    }
 
-    // Create Swapy instance
-    const swapy = createSwapy(containerRef.current, {
-      animation,
-    });
-
-    // Store instance in state
-    setSwapyInstance(swapy);
-
-    // Enable Swapy drag-and-drop
-    swapy.enable(true);
-
-    // Restore layout from localStorage
-    if (typeof window !== 'undefined') {
-      const savedLayout = localStorage.getItem(storageKey);
-      if (savedLayout) {
-        try {
-          const layout = JSON.parse(savedLayout) as Record<string, string>;
-          // Swapy will automatically restore layout if data attributes match
-          // This is handled by Swapy library internally
-          console.debug('Restored layout from localStorage:', layout);
-        } catch (error) {
-          console.warn('Failed to parse saved layout:', error);
-        }
+    const savedLayout = localStorage.getItem(storageKey);
+    if (savedLayout) {
+      try {
+        const parsed = JSON.parse(savedLayout) as SlotItemMap;
+        console.debug('[useSwapy] Restored layout from localStorage:', parsed);
+        return parsed;
+      } catch (error) {
+        console.warn('[useSwapy] Failed to parse saved layout:', error);
+        return initSlotItemMap(items);
       }
     }
 
-    // Set up layout change listener
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    swapy.onSwap((event: any) => {
-      // event.object contains the new layout mapping (according to Swapy docs)
-      // Format: { slotId: itemId, ... }
-      const newLayout = event.object as Record<string, string>;
+    return initSlotItemMap(items);
+  });
+
+  /**
+   * Handle Swap Event
+   *
+   * Called when user drags and drops a widget.
+   * Updates slotItemMap and saves to localStorage.
+   */
+  const handleSwap = useCallback(
+    (event: SwapEvent) => {
+      // SwapEvent contains newSlotItemMap with asObject, asMap, asArray
+      const newMap = event.newSlotItemMap.asObject;
+      console.debug('[useSwapy] Swap event:', newMap);
+
+      setSlotItemMap(newMap);
 
       // Save to localStorage
       if (typeof window !== 'undefined') {
-        localStorage.setItem(storageKey, JSON.stringify(newLayout));
+        localStorage.setItem(storageKey, JSON.stringify(newMap));
+        console.debug('[useSwapy] Saved layout to localStorage');
       }
+    },
+    [storageKey]
+  );
 
-      // Call user-provided callback
-      if (onLayoutChange) {
-        onLayoutChange(newLayout);
-      }
-    });
+  /**
+   * Get Slotted Items
+   *
+   * Converts items and slotItemMap into SlottedItem array for rendering.
+   * Sorts by slot order.
+   */
+  const getSlottedItems = useCallback((): SlottedItem[] => {
+    const itemsMap = new Map(items.map((item) => [item.id, item]));
 
-    // Cleanup on unmount
-    return () => {
-      swapy.destroy();
-      setSwapyInstance(null);
-    };
-  }, [animation, storageKey, onLayoutChange]);
+    return Object.entries(slotItemMap)
+      .sort(([slotA], [slotB]) => slotA.localeCompare(slotB))
+      .map(([slotId, itemId]) => {
+        if (itemId === null) {
+          return { slotId, itemId: null, content: null };
+        }
+
+        const item = itemsMap.get(itemId);
+        if (!item) {
+          console.warn(`[useSwapy] Item "${itemId}" not found for slot "${slotId}"`);
+          return { slotId, itemId, content: null };
+        }
+
+        return {
+          slotId,
+          itemId: item.id,
+          content: item.content,
+        };
+      });
+  }, [items, slotItemMap]);
 
   /**
    * Reset Layout
    *
-   * Clears saved layout from localStorage and reloads the page.
-   * This forces Swapy to use the initial layout defined in JSX.
+   * Clears saved layout from localStorage and resets to initial layout.
    */
-  const resetLayout = () => {
+  const resetLayout = useCallback(() => {
     if (typeof window !== 'undefined') {
       localStorage.removeItem(storageKey);
-      // Reload to apply initial layout
-      window.location.reload();
+      setSlotItemMap(initSlotItemMap(items));
+      console.debug('[useSwapy] Reset layout to initial state');
     }
-  };
+  }, [storageKey, items]);
+
+  /**
+   * Initialize Swapy
+   *
+   * Creates Swapy instance with manualSwap mode.
+   * Runs once on mount when containerRef is available.
+   */
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    console.debug('[useSwapy] Initializing Swapy with manualSwap mode');
+
+    // Create Swapy instance with manualSwap
+    const swapy = createSwapy(containerRef.current, {
+      animation,
+      manualSwap: true,
+    });
+
+    // Store instance in ref
+    swapyRef.current = swapy;
+
+    // Enable drag-and-drop
+    swapy.enable(true);
+
+    // Set up swap event listener
+    swapy.onSwap(handleSwap);
+
+    console.debug('[useSwapy] Swapy initialized successfully');
+
+    // Cleanup on unmount
+    return () => {
+      console.debug('[useSwapy] Destroying Swapy instance');
+      swapy.destroy();
+      swapyRef.current = null;
+    };
+  }, [animation, handleSwap]);
 
   return {
     containerRef,
-    swapyInstance,
+    slotItemMap,
+    handleSwap,
+    getSlottedItems,
     resetLayout,
   };
 }

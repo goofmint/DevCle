@@ -56,7 +56,7 @@ import { z } from 'zod';
 export async function loader({ request }: LoaderFunctionArgs) {
   try {
     // 1. Authentication check using requireAuth middleware
-    // This throws a redirect to /auth/login if not authenticated
+    // This throws a redirect to /login if not authenticated
     const user = await requireAuth(request);
     const tenantId = user.tenantId;
 

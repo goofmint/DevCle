@@ -4,6 +4,8 @@
  * Wrapper component that enables drag-and-drop functionality using Swapy library.
  * Provides layout persistence via localStorage.
  *
+ * Based on: https://swapy.tahazsh.com/docs/framework-react-dynamic/
+ *
  * Features:
  * - Drag-and-drop widget reordering
  * - Layout persistence across page reloads
@@ -12,23 +14,17 @@
  *
  * Usage:
  * ```typescript
- * <SwapyContainer storageKey="overview-layout">
- *   <div data-swapy-slot="slot-1">
- *     <div data-swapy-item="item-1">
- *       <StatCard ... />
- *     </div>
- *   </div>
- *   <div data-swapy-slot="slot-2">
- *     <div data-swapy-item="item-2">
- *       <StatCard ... />
- *     </div>
- *   </div>
- * </SwapyContainer>
+ * <SwapyContainer
+ *   storageKey="overview-layout"
+ *   items={[
+ *     { id: 'stats-grid', content: <StatsGrid /> },
+ *     { id: 'activity-chart', content: <ActivityChart /> },
+ *   ]}
+ * />
  * ```
  */
 
-import React, { useCallback } from 'react';
-import { useSwapy } from '~/hooks/useSwapy.js';
+import { useSwapy, type SwapyItem } from '~/hooks/useSwapy.js';
 
 /**
  * SwapyContainer Props
@@ -36,9 +32,9 @@ import { useSwapy } from '~/hooks/useSwapy.js';
  * Configuration for SwapyContainer component.
  */
 export interface SwapyContainerProps {
-  /** Child elements (must include data-swapy-slot and data-swapy-item attributes) */
-  children: React.ReactNode;
-  /** localStorage key for persisting layout (default: 'overview-layout') */
+  /** Array of widget items to display */
+  items: SwapyItem[];
+  /** localStorage key for persisting layout (default: 'swapy-layout') */
   storageKey?: string;
   /** Animation type for drag transitions (default: 'dynamic') */
   animation?: 'dynamic' | 'spring' | 'none';
@@ -49,33 +45,30 @@ export interface SwapyContainerProps {
 /**
  * SwapyContainer Component
  *
- * Enables drag-and-drop functionality for child widgets.
+ * Enables drag-and-drop functionality for widget items.
  * Uses useSwapy hook for Swapy initialization and lifecycle management.
  *
- * Children must use Swapy's data attributes:
- * - data-swapy-slot: Defines a droppable slot
- * - data-swapy-item: Defines a draggable item
+ * Items are rendered based on slotItemMap, which determines the order
+ * and mapping of items to slots. Layout is persisted in localStorage.
  *
  * @param props - SwapyContainer props
  * @returns SwapyContainer JSX element
  */
 export function SwapyContainer({
-  children,
-  storageKey = 'overview-layout',
+  items,
+  storageKey = 'swapy-layout',
   animation = 'dynamic',
   showResetButton = false,
 }: SwapyContainerProps): JSX.Element {
-  // Memoize layout change handler to prevent useEffect re-runs
-  const handleLayoutChange = useCallback((layout: Record<string, string>) => {
-    console.debug('Layout changed:', layout);
-  }, []);
-
   // Initialize Swapy with useSwapy hook
-  const { containerRef, resetLayout } = useSwapy({
+  const { containerRef, getSlottedItems, resetLayout } = useSwapy({
+    items,
     storageKey,
     animation,
-    onLayoutChange: handleLayoutChange,
   });
+
+  // Get slotted items based on current layout
+  const slottedItems = getSlottedItems();
 
   return (
     <div className="relative">
@@ -102,8 +95,46 @@ export function SwapyContainer({
 
       {/* Swapy Container */}
       {/* Must have data-swapy-container attribute for Swapy to recognize it */}
-      <div ref={containerRef} data-swapy-container>
-        {children}
+      <div
+        ref={containerRef}
+        data-swapy-container
+        className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4"
+      >
+        {slottedItems.map((slottedItem) => (
+          <div key={slottedItem.slotId} data-swapy-slot={slottedItem.slotId}>
+            {slottedItem.itemId && slottedItem.content && (
+              <div data-swapy-item={slottedItem.itemId} className="relative">
+                {/* Drag Handle - Top left corner */}
+                <div
+                  data-swapy-handle
+                  className="absolute top-2 left-2 z-10 cursor-grab active:cursor-grabbing p-1.5 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                  aria-label="Drag to reorder"
+                >
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 12 12"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="text-gray-600 dark:text-gray-400"
+                  >
+                    <circle cx="2" cy="2" r="1.5" fill="currentColor" />
+                    <circle cx="6" cy="2" r="1.5" fill="currentColor" />
+                    <circle cx="10" cy="2" r="1.5" fill="currentColor" />
+                    <circle cx="2" cy="6" r="1.5" fill="currentColor" />
+                    <circle cx="6" cy="6" r="1.5" fill="currentColor" />
+                    <circle cx="10" cy="6" r="1.5" fill="currentColor" />
+                    <circle cx="2" cy="10" r="1.5" fill="currentColor" />
+                    <circle cx="6" cy="10" r="1.5" fill="currentColor" />
+                    <circle cx="10" cy="10" r="1.5" fill="currentColor" />
+                  </svg>
+                </div>
+                {/* Widget content */}
+                {slottedItem.content}
+              </div>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );

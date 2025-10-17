@@ -71,7 +71,7 @@ test('user can login and logout', async ({ page }) => {
   await page.evaluate(async () => {
     const form = document.createElement('form');
     form.method = 'POST';
-    form.action = '/auth/logout';
+    form.action = '/logout';
     document.body.appendChild(form);
     form.submit();
   });

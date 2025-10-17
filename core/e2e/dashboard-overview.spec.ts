@@ -376,3 +376,153 @@ test('design alignment check - no偏り', async ({ page }) => {
   // We allow up to 4 unique positions
   expect(uniqueTops.length).toBeLessThanOrEqual(4);
 });
+
+/**
+ * Test: Swapy drag-and-drop functionality
+ *
+ * Verifies that:
+ * 1. Widgets can be dragged and dropped to reorder
+ * 2. Layout changes are reflected in the DOM
+ * 3. Both stats grid and activity chart are swappable
+ */
+test('swapy drag-and-drop works', async ({ page }) => {
+  await login(page);
+
+  // Clear localStorage before test to ensure clean state
+  await page.evaluate(() => {
+    localStorage.removeItem('overview-layout');
+  });
+
+  await page.reload();
+  await page.waitForLoadState('networkidle');
+
+  // Wait for Swapy to initialize
+  await page.waitForTimeout(1000);
+
+  // Get initial positions
+  const statsGrid = page.locator('[data-swapy-slot="stats-grid"]');
+  const activityChart = page.locator('[data-swapy-slot="activity-chart"]');
+
+  const statsInitialBox = await statsGrid.boundingBox();
+  const chartInitialBox = await activityChart.boundingBox();
+
+  console.log('Stats grid initial Y:', statsInitialBox?.y);
+  console.log('Activity chart initial Y:', chartInitialBox?.y);
+
+  // Stats grid should be above activity chart initially
+  expect(statsInitialBox).not.toBeNull();
+  expect(chartInitialBox).not.toBeNull();
+  expect(statsInitialBox!.y).toBeLessThan(chartInitialBox!.y);
+
+  // Perform drag-and-drop: drag activity chart to stats grid position
+  // Note: Swapy uses data-swapy-item as drag handle
+  const chartItem = page.locator('[data-swapy-item="activity-chart-item"]');
+  const statsItem = page.locator('[data-swapy-item="stats-grid-item"]');
+
+  // Drag chart item to stats item position
+  await chartItem.dragTo(statsItem, {
+    force: true,
+    targetPosition: { x: 10, y: 10 },
+  });
+
+  // Wait for animation to complete
+  await page.waitForTimeout(1000);
+
+  // Get new positions after swap
+  const statsNewBox = await statsGrid.boundingBox();
+  const chartNewBox = await activityChart.boundingBox();
+
+  console.log('Stats grid new Y:', statsNewBox?.y);
+  console.log('Activity chart new Y:', chartNewBox?.y);
+
+  // After swap, activity chart should be above stats grid
+  expect(statsNewBox).not.toBeNull();
+  expect(chartNewBox).not.toBeNull();
+  expect(chartNewBox!.y).toBeLessThan(statsNewBox!.y);
+
+  // Verify localStorage was updated
+  const savedLayout = await page.evaluate(() => {
+    return localStorage.getItem('overview-layout');
+  });
+
+  console.log('Saved layout:', savedLayout);
+  expect(savedLayout).not.toBeNull();
+
+  // Parse and verify layout structure
+  const layout = JSON.parse(savedLayout!);
+  expect(layout).toHaveProperty('stats-grid');
+  expect(layout).toHaveProperty('activity-chart');
+});
+
+/**
+ * Test: Swapy layout persists after reload
+ *
+ * Verifies that:
+ * 1. Layout changes are saved to localStorage
+ * 2. Layout is restored correctly after page reload
+ * 3. Swapped widgets maintain their positions
+ */
+test('swapy layout persists after reload', async ({ page }) => {
+  await login(page);
+
+  // Clear localStorage before test
+  await page.evaluate(() => {
+    localStorage.removeItem('overview-layout');
+  });
+
+  await page.reload();
+  await page.waitForLoadState('networkidle');
+  await page.waitForTimeout(1000);
+
+  // Perform drag-and-drop
+  const chartItem = page.locator('[data-swapy-item="activity-chart-item"]');
+  const statsItem = page.locator('[data-swapy-item="stats-grid-item"]');
+
+  await chartItem.dragTo(statsItem, {
+    force: true,
+    targetPosition: { x: 10, y: 10 },
+  });
+
+  await page.waitForTimeout(1000);
+
+  // Get positions after swap
+  const statsGrid = page.locator('[data-swapy-slot="stats-grid"]');
+  const activityChart = page.locator('[data-swapy-slot="activity-chart"]');
+
+  const statsBoxBeforeReload = await statsGrid.boundingBox();
+  const chartBoxBeforeReload = await activityChart.boundingBox();
+
+  console.log('Before reload - Stats Y:', statsBoxBeforeReload?.y);
+  console.log('Before reload - Chart Y:', chartBoxBeforeReload?.y);
+
+  // Chart should be above stats after swap
+  expect(chartBoxBeforeReload!.y).toBeLessThan(statsBoxBeforeReload!.y);
+
+  // Reload page
+  await page.reload();
+  await page.waitForLoadState('networkidle');
+  await page.waitForTimeout(1000);
+
+  // Get positions after reload
+  const statsBoxAfterReload = await statsGrid.boundingBox();
+  const chartBoxAfterReload = await activityChart.boundingBox();
+
+  console.log('After reload - Stats Y:', statsBoxAfterReload?.y);
+  console.log('After reload - Chart Y:', chartBoxAfterReload?.y);
+
+  // Layout should be maintained: chart still above stats
+  expect(chartBoxAfterReload!.y).toBeLessThan(statsBoxAfterReload!.y);
+
+  // Verify localStorage still contains layout
+  const savedLayout = await page.evaluate(() => {
+    return localStorage.getItem('overview-layout');
+  });
+
+  console.log('Saved layout after reload:', savedLayout);
+  expect(savedLayout).not.toBeNull();
+
+  // Clean up: clear localStorage after test
+  await page.evaluate(() => {
+    localStorage.removeItem('overview-layout');
+  });
+});
