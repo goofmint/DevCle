@@ -9,7 +9,7 @@
  * - getOverviewTimeline(): Get time-series data for charts
  */
 
-import { getDb } from '../db/connection.js';
+import { getDb, withTenantContext } from '../db/connection.js';
 import * as schema from '../db/schema/index.js';
 import { sql, and, eq, gte, count, countDistinct } from 'drizzle-orm';
 import { calculateROI } from './roi-calculate.service.js';
@@ -58,74 +58,88 @@ export interface TimelineDataPoint {
 export async function getOverviewStats(
   tenantId: string
 ): Promise<OverviewStats> {
-  const db = getDb();
+  console.log('[getOverviewStats] Called with tenantId:', tenantId);
 
-  // Query 1: Count total developers
-  // Uses count() aggregate function with tenant filter
-  const [developerCount] = await db
-    .select({ count: count() })
-    .from(schema.developers)
-    .where(eq(schema.developers.tenantId, tenantId));
+  // Use withTenantContext() to ensure RLS works correctly with connection pooling
+  // All database queries inside this callback will use the tenant context
+  return await withTenantContext(tenantId, async (tx) => {
+    // Query 1: Count total developers
+    // Uses count() aggregate function with tenant filter
+    const [developerCount] = await tx
+      .select({ count: count() })
+      .from(schema.developers)
+      .where(eq(schema.developers.tenantId, tenantId));
 
-  // Query 2: Count total activities
-  // Uses count() aggregate function with tenant filter
-  const [activityCount] = await db
-    .select({ count: count() })
-    .from(schema.activities)
-    .where(eq(schema.activities.tenantId, tenantId));
+    console.log('[getOverviewStats] Developer count result:', developerCount);
 
-  // Query 3: Count total campaigns
-  // Uses count() aggregate function with tenant filter
-  const [campaignCount] = await db
-    .select({ count: count() })
-    .from(schema.campaigns)
-    .where(eq(schema.campaigns.tenantId, tenantId));
+    // Query 2: Count total activities
+    // Uses count() aggregate function with tenant filter
+    const [activityCount] = await tx
+      .select({ count: count() })
+      .from(schema.activities)
+      .where(eq(schema.activities.tenantId, tenantId));
 
-  // Query 4: Calculate average ROI across all campaigns
-  // Fetch all campaigns, calculate ROI for each, then compute average
-  let averageROI: number | null = null;
+    console.log('[getOverviewStats] Activity count result:', activityCount);
 
-  const allCampaigns = await db
-    .select({ campaignId: schema.campaigns.campaignId })
-    .from(schema.campaigns)
-    .where(eq(schema.campaigns.tenantId, tenantId));
+    // Query 3: Count total campaigns
+    // Uses count() aggregate function with tenant filter
+    const [campaignCount] = await tx
+      .select({ count: count() })
+      .from(schema.campaigns)
+      .where(eq(schema.campaigns.tenantId, tenantId));
 
-  if (allCampaigns.length > 0) {
-    // Calculate ROI for each campaign
-    // ROI values may be null if campaign has no cost/value data
-    const roiValues: number[] = [];
+    console.log('[getOverviewStats] Campaign count result:', campaignCount);
 
-    for (const campaign of allCampaigns) {
-      try {
-        const roi = await calculateROI(tenantId, campaign.campaignId);
-        // Only include campaigns with valid ROI percentage
-        // roi can be null if campaign not found
-        if (roi && roi.roi !== null) {
-          roiValues.push(roi.roi);
+    // Query 4: Calculate average ROI across all campaigns
+    // Fetch all campaigns, calculate ROI for each, then compute average
+    let averageROI: number | null = null;
+
+    const allCampaigns = await tx
+      .select({ campaignId: schema.campaigns.campaignId })
+      .from(schema.campaigns)
+      .where(eq(schema.campaigns.tenantId, tenantId));
+
+    if (allCampaigns.length > 0) {
+      // Calculate ROI for each campaign
+      // ROI values may be null if campaign has no cost/value data
+      const roiValues: number[] = [];
+
+      for (const campaign of allCampaigns) {
+        try {
+          const roi = await calculateROI(tenantId, campaign.campaignId);
+          // Only include campaigns with valid ROI percentage
+          // roi can be null if campaign not found
+          if (roi && roi.roi !== null) {
+            roiValues.push(roi.roi);
+          }
+        } catch (error) {
+          // Skip campaigns that fail ROI calculation
+          // This can happen if campaign has no associated data
+          console.warn(
+            `Failed to calculate ROI for campaign ${campaign.campaignId}:`,
+            error
+          );
         }
-      } catch (error) {
-        // Skip campaigns that fail ROI calculation
-        // This can happen if campaign has no associated data
-        console.warn(
-          `Failed to calculate ROI for campaign ${campaign.campaignId}:`,
-          error
-        );
+      }
+
+      // Calculate average if we have valid ROI values
+      if (roiValues.length > 0) {
+        const sum = roiValues.reduce((acc, val) => acc + val, 0);
+        averageROI = sum / roiValues.length;
       }
     }
 
-    // Calculate average if we have valid ROI values
-    if (roiValues.length > 0) {
-      const sum = roiValues.reduce((acc, val) => acc + val, 0);
-      averageROI = sum / roiValues.length;
-    }
-  }
+    const result = {
+      totalDevelopers: developerCount?.count ?? 0,
+      totalActivities: activityCount?.count ?? 0,
+      totalCampaigns: campaignCount?.count ?? 0,
+      averageROI,
+    };
 
-  return {
-    totalDevelopers: developerCount?.count ?? 0,
-    totalActivities: activityCount?.count ?? 0,
-    totalCampaigns: campaignCount?.count ?? 0,
-    averageROI,
-  };
+    console.log('[getOverviewStats] Returning result:', result);
+
+    return result;
+  });
 }
 
 /**

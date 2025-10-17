@@ -16,10 +16,6 @@
 
 import { json, type LoaderFunctionArgs } from '@remix-run/node';
 import { requireAuth } from '~/auth.middleware.js';
-import {
-  setTenantContext,
-  clearTenantContext,
-} from '../../db/connection.js';
 import { getOverviewStats } from '../../services/overview.service.js';
 
 /**
@@ -53,26 +49,13 @@ export async function loader({ request }: LoaderFunctionArgs) {
     const user = await requireAuth(request);
     const tenantId = user.tenantId;
 
-    // 2. Set tenant context for RLS (Row Level Security)
-    // This ensures all database queries are filtered by tenant_id
-    await setTenantContext(tenantId);
+    // 2. Call service layer to get overview statistics
+    // Service layer uses withTenantContext() for safe RLS with connection pooling
+    const stats = await getOverviewStats(tenantId);
 
-    try {
-      // 3. Call service layer to get overview statistics
-      // Service layer will aggregate data from multiple tables
-      const stats = await getOverviewStats(tenantId);
-
-      // 4. Clear tenant context after successful operation
-      await clearTenantContext();
-
-      // 5. Return success response with statistics
-      // Wrapped in { stats } object to match API spec
-      return json({ stats }, { status: 200 });
-    } catch (serviceError) {
-      // Ensure tenant context is cleared even if service call fails
-      await clearTenantContext();
-      throw serviceError; // Re-throw to outer catch block
-    }
+    // 3. Return success response with statistics
+    // Wrapped in { stats } object to match API spec
+    return json({ stats }, { status: 200 });
   } catch (error) {
     // 6. Handle errors and return appropriate HTTP status codes
 

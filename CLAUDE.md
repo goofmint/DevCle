@@ -56,6 +56,59 @@ This is an **early-stage project** with specification documents in `.tmp/` but m
 - Always include `tenant_id` in data paths
 - Use PostgreSQL RLS for tenant isolation
 
+## 🚨 CRITICAL: Database Access Pattern 🚨
+
+### ALWAYS Use `withTenantContext()` for RLS
+
+**NEVER use `setTenantContext()` / `clearTenantContext()` directly** - they don't work with connection pooling!
+
+**CORRECT Pattern:**
+```typescript
+// In service layer (services/*.service.ts)
+import { withTenantContext } from '../db/connection.js';
+
+export async function getOverviewStats(tenantId: string) {
+  return await withTenantContext(tenantId, async (tx) => {
+    // All queries use tx (transaction client), not db
+    const [count] = await tx
+      .select({ count: count() })
+      .from(schema.developers)
+      .where(eq(schema.developers.tenantId, tenantId));
+
+    return { totalDevelopers: count?.count ?? 0 };
+  });
+}
+```
+
+**WRONG Pattern (causes random data loss):**
+```typescript
+// ❌ DON'T DO THIS - session variables leak between requests!
+await setTenantContext(tenantId);
+const result = await db.select().from(schema.developers);
+await clearTenantContext();
+```
+
+**Why:**
+- PostgreSQL connection pooling reuses connections
+- `SET app.current_tenant_id` persists across requests on same connection
+- `withTenantContext()` uses `SET LOCAL` within transaction (safe)
+- `setTenantContext()` uses `SET` globally (unsafe with pooling)
+
+**Symptoms of Wrong Pattern:**
+- Data randomly appears/disappears on page reload
+- Counts change between requests (5 → 0 → 5)
+- RLS filters sometimes work, sometimes don't
+
+**In API Routes:**
+```typescript
+// Just call service function - no manual context management!
+export async function loader({ request }) {
+  const user = await requireAuth(request);
+  const stats = await getOverviewStats(user.tenantId); // Service handles context
+  return json({ stats });
+}
+```
+
 ## Entity Relationships
 
 ```
