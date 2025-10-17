@@ -9,6 +9,8 @@ import {
 
 // Import Tailwind CSS
 import styles from './tailwind.css?url';
+// Import GridStack CSS
+import gridstackStyles from 'gridstack/dist/gridstack.min.css?url';
 import { DarkModeProvider } from './contexts/dark-mode-context';
 
 /**
@@ -16,13 +18,16 @@ import { DarkModeProvider } from './contexts/dark-mode-context';
  *
  * This component wraps all routes and provides:
  * - HTML document structure
- * - Meta tags and links (including Tailwind CSS)
+ * - Meta tags and links (including Tailwind CSS and GridStack CSS)
  * - Scripts and scroll restoration
  * - Dark mode management via Context API
  * - Error boundary for unhandled errors
  */
 export const links: LinksFunction = () => {
-  return [{ rel: 'stylesheet', href: styles }];
+  return [
+    { rel: 'stylesheet', href: styles },
+    { rel: 'stylesheet', href: gridstackStyles },
+  ];
 };
 
 export function Layout({

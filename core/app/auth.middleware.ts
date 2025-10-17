@@ -27,15 +27,15 @@ import { getUserById, type AuthUser } from '../services/auth.service.js';
  * Workflow:
  * 1. Extract session cookie from request
  * 2. Get userId from session
- * 3. If no userId, redirect to /auth/login with returnTo parameter
+ * 3. If no userId, redirect to /login with returnTo parameter
  * 4. Query user by userId
- * 5. If user not found (invalid session), redirect to /auth/login
+ * 5. If user not found (invalid session), redirect to /login
  * 6. Return user object
  *
  * @param request - Remix request object
  * @param redirectTo - Optional URL to redirect after login (default: current URL)
  * @returns Authenticated user object
- * @throws {Response} Redirects to /auth/login if not authenticated
+ * @throws {Response} Redirects to /login if not authenticated
  *
  * Usage in protected routes:
  * ```typescript
@@ -60,14 +60,14 @@ export async function requireAuth(
     // Not authenticated: redirect to login with returnTo parameter
     const url = new URL(request.url);
     const returnToPath = redirectTo || url.pathname + url.search;
-    throw redirect(`/auth/login?returnTo=${encodeURIComponent(returnToPath)}`);
+    throw redirect(`/login?returnTo=${encodeURIComponent(returnToPath)}`);
   }
 
   // 3. Get user info from database
   const user = await getUserById(userId);
   if (!user) {
     // Session is invalid (user deleted or disabled): destroy session and redirect to login
-    throw redirect('/auth/login', {
+    throw redirect('/login', {
       headers: {
         'Set-Cookie': await destroySession(session),
       },

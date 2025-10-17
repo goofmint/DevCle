@@ -1,63 +1,292 @@
 /**
  * Dashboard Overview Page
  *
- * Displays overview of key metrics and statistics.
+ * Displays dashboard overview with key metrics and activity timeline.
  * Accessible at: /dashboard
  *
- * Authentication:
- * - Authentication is handled by parent route (dashboard.tsx)
- * - No loader needed here
- *
  * Features:
- * - Key metrics cards (developers, activities, campaigns)
- * - Recent activity summary
+ * - Key metrics cards (developers, activities, campaigns, ROI)
+ * - Activity timeline chart (Recharts)
+ * - Drag-and-drop widget reordering (GridStack)
  * - Dark mode support
- * - Responsive design
+ * - Responsive design (mobile/tablet/desktop)
  *
- * Note:
- * - This is a placeholder implementation
- * - Task 7.2 will add real data from API
+ * Architecture:
+ * - Loader: Fetches stats and timeline from API
+ * - Components: StatCard, ActivityChart, GridStackContainer
+ * - Layout: 12-column grid with responsive widgets
  */
+
+import { type MetaFunction } from '@remix-run/node';
+import { useState, useEffect, useRef } from 'react';
+import {
+  UsersIcon,
+  ChartBarIcon,
+  MegaphoneIcon,
+  CurrencyDollarIcon,
+} from '@heroicons/react/24/outline';
+import { GridStackOptions } from 'gridstack';
+import {
+  GridStackProvider,
+  GridStackRenderProvider,
+  GridStackRender,
+  type ComponentMap,
+} from '~/lib/gridstack';
+import { StatCard } from '~/components/dashboard/StatCard';
+import { ActivityChart } from '~/components/dashboard/ActivityChart';
+import 'gridstack/dist/gridstack.css';
+
+/**
+ * Meta function - Sets page title
+ */
+export const meta: MetaFunction = () => {
+  return [
+    { title: 'Overview - Dashboard - DevCle' },
+    { name: 'description', content: 'Dashboard overview with key metrics' },
+  ];
+};
+
+/**
+ * Overview Data Type
+ *
+ * Data structure returned by loader.
+ */
+interface OverviewData {
+  stats: {
+    totalDevelopers: number;
+    totalActivities: number;
+    totalCampaigns: number;
+    averageROI: number | null;
+  };
+  timeSeriesData: Array<{
+    date: string;
+    activities: number;
+    developers: number;
+  }>;
+}
+
+/**
+ * Icon Map
+ *
+ * Maps icon names to actual icon components.
+ */
+const ICON_MAP = {
+  UsersIcon,
+  ChartBarIcon,
+  MegaphoneIcon,
+  CurrencyDollarIcon,
+};
+
+/**
+ * Wrapper components that handle icon conversion
+ */
+function StatCardWrapper(props: Parameters<typeof StatCard>[0] & { icon: string }) {
+  const IconComponent = ICON_MAP[props.icon as keyof typeof ICON_MAP];
+  return <StatCard {...props} icon={IconComponent} />;
+}
+
+/**
+ * Component Map
+ *
+ * Maps component names to actual components for GridStack rendering.
+ */
+const COMPONENT_MAP: ComponentMap = {
+  StatCard: StatCardWrapper,
+  ActivityChart,
+};
+
 
 /**
  * Dashboard Overview Component
  *
- * Displays key metrics and recent activity.
- * This is a placeholder - real data will be fetched in Task 7.2.
+ * Renders overview page with statistics cards and activity chart.
+ * Uses GridStack for drag-and-drop widget reordering.
+ * Fetches data client-side via SPA pattern.
  */
 export default function DashboardOverview() {
-  // Placeholder data
-  // Task 7.2 will replace this with real data from API
-  const stats = [
-    {
-      key: 'developers',
-      label: 'Total Developers',
-      value: '1,234',
-      change: '+12.5%',
-      changeType: 'increase' as const,
-    },
-    {
-      key: 'activities',
-      label: 'Activities (30 days)',
-      value: '5,678',
-      change: '+8.2%',
-      changeType: 'increase' as const,
-    },
-    {
-      key: 'campaigns',
-      label: 'Active Campaigns',
-      value: '12',
-      change: '-2',
-      changeType: 'decrease' as const,
-    },
-    {
-      key: 'conversion',
-      label: 'Conversion Rate',
-      value: '23.4%',
-      change: '+3.1%',
-      changeType: 'increase' as const,
-    },
-  ];
+  // State management
+  const [stats, setStats] = useState<OverviewData['stats'] | null>(null);
+  const [timeSeriesData, setTimeSeriesData] = useState<OverviewData['timeSeriesData']>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Use ref to store gridOptions and only generate once after data loads
+  const gridOptionsRef = useRef<GridStackOptions | null>(null);
+
+  // Fetch data on mount (SPA pattern)
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const [statsResponse, timelineResponse] = await Promise.all([
+          fetch('/api/overview/stats'),
+          fetch('/api/overview/timeline?days=30'),
+        ]);
+
+        if (!statsResponse.ok || !timelineResponse.ok) {
+          throw new Error('Failed to fetch dashboard data');
+        }
+
+        const statsData = await statsResponse.json();
+        const timelineData = await timelineResponse.json();
+
+        setStats(statsData.stats);
+        setTimeSeriesData(timelineData.timeline);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Unknown error');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchData();
+  }, []);
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-gray-500 dark:text-gray-400">Loading...</div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error || !stats) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-red-500">Error: {error || 'Failed to load data'}</div>
+      </div>
+    );
+  }
+
+  // Generate gridOptions only once after data loads
+  // Store in ref to prevent re-initialization on subsequent renders
+  if (!gridOptionsRef.current && stats) {
+    // Load saved layout from localStorage
+    const loadLayout = () => {
+      if (typeof window === 'undefined') return null;
+      try {
+        const saved = localStorage.getItem('overview-layout');
+        return saved ? JSON.parse(saved) : null;
+      } catch (e) {
+        console.error('Failed to load layout:', e);
+        return null;
+      }
+    };
+
+    const savedLayout = loadLayout();
+
+    // Define base children
+    const baseChildren = [
+      {
+        id: 'total-developers',
+        w: 3,
+        h: 3,
+        content: JSON.stringify({
+          name: 'StatCard',
+          props: {
+            testId: 'total-developers',
+            label: 'Total Developers',
+            value: stats.totalDevelopers,
+            icon: 'UsersIcon',
+            description: 'Registered developers',
+          },
+        }),
+      },
+      {
+        id: 'total-activities',
+        w: 3,
+        h: 3,
+        content: JSON.stringify({
+          name: 'StatCard',
+          props: {
+            testId: 'total-activities',
+            label: 'Total Activities',
+            value: stats.totalActivities,
+            icon: 'ChartBarIcon',
+            description: 'All tracked activities',
+          },
+        }),
+      },
+      {
+        id: 'total-campaigns',
+        w: 3,
+        h: 3,
+        content: JSON.stringify({
+          name: 'StatCard',
+          props: {
+            testId: 'total-campaigns',
+            label: 'Active Campaigns',
+            value: stats.totalCampaigns,
+            icon: 'MegaphoneIcon',
+            description: 'Running campaigns',
+          },
+        }),
+      },
+      {
+        id: 'average-roi',
+        w: 3,
+        h: 3,
+        content: JSON.stringify({
+          name: 'StatCard',
+          props: {
+            testId: 'average-roi',
+            label: 'Average ROI',
+            value:
+              stats.averageROI !== null
+                ? `${stats.averageROI.toFixed(1)}%`
+                : 'N/A',
+            icon: 'CurrencyDollarIcon',
+            description: 'Campaign ROI average',
+          },
+        }),
+      },
+      {
+        id: 'activity-chart',
+        w: 12,
+        h: 6,
+        content: JSON.stringify({
+          name: 'ActivityChart',
+          props: {
+            data: timeSeriesData,
+          },
+        }),
+      },
+    ];
+
+    // Apply saved layout if available
+    const children = savedLayout
+      ? baseChildren.map((child) => {
+          const saved = savedLayout[child.id || ''];
+          if (saved) {
+            return {
+              ...child,
+              x: saved.x,
+              y: saved.y,
+              w: saved.w,
+              h: saved.h,
+            };
+          }
+          return child;
+        })
+      : baseChildren;
+
+    gridOptionsRef.current = {
+      column: 12,
+      cellHeight: 80,
+      animate: true,
+      float: false,
+      children,
+    };
+  }
+
+  const gridOptions = gridOptionsRef.current || {
+    column: 12,
+    cellHeight: 80,
+    animate: true,
+    float: false,
+    children: [],
+  };
 
   return (
     <div className="space-y-6">
@@ -71,147 +300,12 @@ export default function DashboardOverview() {
         </p>
       </div>
 
-      {/* Stats Grid */}
-      <div
-        className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4"
-        data-testid="stats-grid"
-      >
-        {stats.map((stat) => (
-          <StatCard key={stat.key} stat={stat} />
-        ))}
-      </div>
-
-      {/* Recent Activity Section (Placeholder) */}
-      <div
-        className="
-          bg-white dark:bg-gray-800
-          border border-gray-200 dark:border-gray-700
-          rounded-lg p-6
-        "
-      >
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-          Recent Activity
-        </h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400">
-          No recent activity. Activity data will be displayed here in Task 7.2.
-        </p>
-      </div>
-
-      {/* Quick Actions Section (Placeholder) */}
-      <div
-        className="
-          bg-white dark:bg-gray-800
-          border border-gray-200 dark:border-gray-700
-          rounded-lg p-6
-        "
-      >
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-          Quick Actions
-        </h2>
-        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-          <QuickActionButton
-            label="Add Developer"
-            description="Register a new developer"
-          />
-          <QuickActionButton
-            label="Create Campaign"
-            description="Launch a new campaign"
-          />
-          <QuickActionButton
-            label="View Funnel"
-            description="Analyze conversion funnel"
-          />
-        </div>
-      </div>
+      {/* GridStack Dashboard */}
+      <GridStackProvider initialOptions={gridOptions}>
+        <GridStackRenderProvider>
+          <GridStackRender componentMap={COMPONENT_MAP} />
+        </GridStackRenderProvider>
+      </GridStackProvider>
     </div>
-  );
-}
-
-/**
- * StatCard Component
- *
- * Displays a single metric card with value and change indicator.
- * Supports both increase and decrease change types with appropriate colors.
- */
-interface StatCardProps {
-  stat: {
-    key: string;
-    label: string;
-    value: string;
-    change: string;
-    changeType: 'increase' | 'decrease';
-  };
-}
-
-function StatCard({ stat }: StatCardProps) {
-  // Determine change color based on type
-  const changeColor =
-    stat.changeType === 'increase'
-      ? 'text-green-600 dark:text-green-400'
-      : 'text-red-600 dark:text-red-400';
-
-  return (
-    <div
-      className="
-        bg-white dark:bg-gray-800
-        border border-gray-200 dark:border-gray-700
-        rounded-lg p-6
-        transition-shadow duration-150
-        hover:shadow-md
-      "
-      data-testid={`stat-card-${stat.key}`}
-    >
-      {/* Label */}
-      <div className="text-sm font-medium text-gray-500 dark:text-gray-400">
-        {stat.label}
-      </div>
-
-      {/* Value */}
-      <div className="mt-2 flex items-baseline justify-between">
-        <div className="text-2xl font-semibold text-gray-900 dark:text-white">
-          {stat.value}
-        </div>
-
-        {/* Change Indicator */}
-        <div className={`text-sm font-medium ${changeColor}`}>
-          {stat.change}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/**
- * QuickActionButton Component
- *
- * Displays a quick action button with label and description.
- * This is a placeholder - real actions will be implemented later.
- */
-interface QuickActionButtonProps {
-  label: string;
-  description: string;
-}
-
-function QuickActionButton({ label, description }: QuickActionButtonProps) {
-  return (
-    <button
-      type="button"
-      className="
-        text-left p-4
-        bg-gray-50 dark:bg-gray-700
-        border border-gray-200 dark:border-gray-600
-        rounded-lg
-        transition-colors duration-150
-        hover:bg-gray-100 dark:hover:bg-gray-600
-        focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2
-      "
-    >
-      <div className="text-sm font-medium text-gray-900 dark:text-white">
-        {label}
-      </div>
-      <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-        {description}
-      </div>
-    </button>
   );
 }

@@ -30,36 +30,27 @@ describe('Funnel Drop Rate Service', () => {
     await closeDb();
   });
 
-  // Developer IDs for testing
+  // Developer IDs for testing - track test-created developers for cleanup
   let aliceDeveloperId: string;
   let bobDeveloperId: string;
   let charlieDeveloperId: string;
+  let testActivityIds: string[] = [];
 
-  // Clean up and create test developers before each test
+  // Create test developers before each test
   // This ensures each test starts with a clean state
   beforeEach(async () => {
     const db = getDb();
+    testActivityIds = []; // Reset activity tracking
 
-    // Clean up for 'default' tenant (must be in correct tenant context due to RLS)
-    await setTenantContext('default');
-    await db.delete(schema.activities).where(
-      eq(schema.activities.tenantId, 'default')
-    );
-    await db.delete(schema.developers).where(
-      eq(schema.developers.tenantId, 'default')
-    );
-
-    // Clean up for 'other-tenant' tenant (must be in correct tenant context due to RLS)
-    await setTenantContext('other-tenant');
-    await db.delete(schema.activities).where(
-      eq(schema.activities.tenantId, 'other-tenant')
-    );
-    await db.delete(schema.developers).where(
-      eq(schema.developers.tenantId, 'other-tenant')
-    );
+    // Ensure 'other-tenant' tenant exists (required for foreign key constraint)
+    // Use onConflictDoNothing() to make this idempotent
+    await db.insert(schema.tenants).values({
+      tenantId: 'other-tenant',
+      name: 'Other Tenant',
+      plan: 'OSS',
+    }).onConflictDoNothing();
 
     // Create test developers for 'default' tenant
-    // Ensure we're in 'default' tenant context
     await setTenantContext('default');
     const [alice] = await db.insert(schema.developers).values({
       developerId: crypto.randomUUID(),
@@ -104,6 +95,43 @@ describe('Funnel Drop Rate Service', () => {
     aliceDeveloperId = alice.developerId;
     bobDeveloperId = bob.developerId;
     charlieDeveloperId = charlie.developerId;
+  });
+
+  // Clean up test data after each test
+  // Only delete data created by this test, not seed data
+  afterEach(async () => {
+    const db = getDb();
+
+    // Delete activities created by test developers
+    await setTenantContext('default');
+    await db.delete(schema.activities).where(
+      eq(schema.activities.developerId, aliceDeveloperId)
+    );
+    await db.delete(schema.activities).where(
+      eq(schema.activities.developerId, bobDeveloperId)
+    );
+
+    await setTenantContext('other-tenant');
+    await db.delete(schema.activities).where(
+      eq(schema.activities.developerId, charlieDeveloperId)
+    );
+
+    // Delete test developers
+    await setTenantContext('default');
+    await db.delete(schema.developers).where(
+      eq(schema.developers.developerId, aliceDeveloperId)
+    );
+    await db.delete(schema.developers).where(
+      eq(schema.developers.developerId, bobDeveloperId)
+    );
+
+    await setTenantContext('other-tenant');
+    await db.delete(schema.developers).where(
+      eq(schema.developers.developerId, charlieDeveloperId)
+    );
+
+    // Reset to default tenant
+    await setTenantContext('default');
   });
 
   /**

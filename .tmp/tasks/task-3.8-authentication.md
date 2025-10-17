@@ -295,7 +295,7 @@ import { getUserById, type AuthUser } from './auth.service.js';
  * @param request - Remix request object
  * @param redirectTo - Optional URL to redirect after login (default: current URL)
  * @returns Authenticated user object
- * @throws {Response} Redirects to /auth/login if not authenticated
+ * @throws {Response} Redirects to /login if not authenticated
  *
  * Implementation:
  * 1. Get session from request
@@ -318,14 +318,14 @@ export async function requireAuth(
   // if (!userId) {
   //   const url = new URL(request.url);
   //   const returnTo = redirectTo || url.pathname + url.search;
-  //   throw redirect(`/auth/login?returnTo=${encodeURIComponent(returnTo)}`);
+  //   throw redirect(`/login?returnTo=${encodeURIComponent(returnTo)}`);
   // }
   //
   // 3. Get user info
   // const user = await getUserById(userId);
   // if (!user) {
   //   // Session invalid (user deleted)
-  //   throw redirect('/auth/login');
+  //   throw redirect('/login');
   // }
   //
   // 4. Return user
@@ -359,7 +359,7 @@ export async function getCurrentUser(
 }
 ```
 
-### 4. `app/routes/auth/login.tsx` - ログインフォーム
+### 4. `app/routes/login.tsx` - ログインフォーム
 
 ログインUIとアクション処理を実装します。
 
@@ -368,7 +368,7 @@ export async function getCurrentUser(
  * Login Route
  *
  * Provides login form and handles login action.
- * Accessible at: /auth/login
+ * Accessible at: /login
  */
 
 import { json, redirect, type ActionFunctionArgs } from '@remix-run/node';
@@ -378,7 +378,7 @@ import { getSession, commitSession } from '~/sessions.server.js';
 import { setTenantContext } from '~/core/db/connection.js';
 
 /**
- * POST /auth/login - Handle login form submission
+ * POST /login - Handle login form submission
  *
  * Request Body:
  * - email: string
@@ -453,7 +453,7 @@ export default function Login() {
 }
 ```
 
-### 5. `app/routes/auth/logout.ts` - ログアウト処理
+### 5. `app/routes/logout.ts` - ログアウト処理
 
 ログアウトアクションを実装します。
 
@@ -462,7 +462,7 @@ export default function Login() {
  * Logout Route
  *
  * Handles logout action (no UI).
- * Accessible at: /auth/logout (POST only)
+ * Accessible at: /logout (POST only)
  */
 
 import { redirect, type ActionFunctionArgs } from '@remix-run/node';
@@ -470,7 +470,7 @@ import { getSession, destroySession } from '~/sessions.server.js';
 import { clearTenantContext } from '~/db/connection.js';
 
 /**
- * POST /auth/logout - Handle logout
+ * POST /logout - Handle logout
  *
  * Success:
  * - Clear session cookie
@@ -495,7 +495,7 @@ export async function action({ request }: ActionFunctionArgs) {
 }
 
 /**
- * GET /auth/logout - Redirect to home (logout requires POST)
+ * GET /logout - Redirect to home (logout requires POST)
  */
 export async function loader() {
   return redirect('/');
@@ -538,7 +538,7 @@ export async function loader() {
 **実装しないこと**:
 - パスワード検証（サービス層が担当）
 
-### HTTP層（`app/routes/auth/*.tsx`）
+### HTTP層（`app/routes/login.tsx and logout.ts`）
 
 **責務**:
 - HTTPリクエスト/レスポンス処理
@@ -652,7 +652,7 @@ if (!await bcrypt.compare(password, user.passwordHash)) {
 ```
 1. User submits login form
    ↓
-2. POST /auth/login (action)
+2. POST /login (action)
    ↓
 3. auth.service.login(email, password)
    ↓
@@ -677,13 +677,13 @@ if (!await bcrypt.compare(password, user.passwordHash)) {
 4. Query user by userId
    ↓
 5. If authenticated: return user
-   If not: redirect to /auth/login
+   If not: redirect to /login
 ```
 
 ### ログアウトフロー
 
 ```
-1. POST /auth/logout
+1. POST /logout
    ↓
 2. clearTenantContext()
    ↓
@@ -775,10 +775,10 @@ describe('hashPassword', () => {
 });
 ```
 
-### 統合テスト（`app/routes/auth/login.test.ts`）
+### 統合テスト（`app/routes/login.test.ts`）
 
 ```typescript
-describe('POST /auth/login', () => {
+describe('POST /login', () => {
   it('should login with valid credentials', async () => {
     // Test successful login flow
   });
@@ -796,7 +796,7 @@ describe('POST /auth/login', () => {
   });
 });
 
-describe('POST /auth/logout', () => {
+describe('POST /logout', () => {
   it('should clear session cookie', async () => {
     // Test logout flow
   });
@@ -812,7 +812,7 @@ describe('POST /auth/logout', () => {
 ```typescript
 test('user can login and logout', async ({ page }) => {
   // 1. Navigate to login page
-  await page.goto('/auth/login');
+  await page.goto('/login');
 
   // 2. Fill login form
   await page.fill('input[name="email"]', 'admin@example.com');
@@ -884,8 +884,8 @@ export async function requireAuth(request: Request): Promise<AuthUser> {
 - [ ] `app/sessions.server.ts`ファイル作成
 - [ ] `core/services/auth.service.ts`ファイル作成
 - [ ] `core/services/auth.middleware.ts`ファイル作成
-- [ ] `app/routes/auth/login.tsx`ファイル作成
-- [ ] `app/routes/auth/logout.ts`ファイル作成
+- [ ] `app/routes/login.tsx`ファイル作成
+- [ ] `app/routes/logout.ts`ファイル作成
 - [ ] `login()`実装とテスト
 - [ ] `getUserById()`実装とテスト
 - [ ] `hashPassword()`実装とテスト

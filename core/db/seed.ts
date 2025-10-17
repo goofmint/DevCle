@@ -956,13 +956,10 @@ async function seed(): Promise<void> {
 
     console.log('    ✅ RLS disabled on all tables\n');
 
-    // Clear all existing data for idempotent seeding
-    // This allows running the seed script multiple times (useful for testing)
-    // Uses TRUNCATE CASCADE to handle foreign key constraints
+    // TRUNCATE all tables BEFORE seeding to ensure clean state
+    // This prevents conflicts with test data that may have been created
+    // Each test should clean up its own data, but seed runs with fresh slate
     console.log('  🗑️  Clearing existing data...\n');
-
-    // TRUNCATE in reverse dependency order to avoid FK violations
-    // Note: CASCADE handles all FK constraints automatically
     await sql.unsafe('TRUNCATE TABLE activity_funnel_map CASCADE');
     await sql.unsafe('TRUNCATE TABLE funnel_stages CASCADE');
     await sql.unsafe('TRUNCATE TABLE activities CASCADE');
@@ -987,7 +984,6 @@ async function seed(): Promise<void> {
     await sql.unsafe('TRUNCATE TABLE developer_stats CASCADE');
     await sql.unsafe('TRUNCATE TABLE campaign_stats CASCADE');
     await sql.unsafe('TRUNCATE TABLE tenants CASCADE');
-
     console.log('    ✅ All data cleared\n');
 
     // Seed in dependency order

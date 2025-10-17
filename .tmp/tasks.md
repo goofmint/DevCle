@@ -490,26 +490,33 @@
 
 ## Phase 7: ダッシュボードUI実装（MVP）
 
-### Task 7.1: ダッシュボードレイアウト実装
+### Task 7.1: ダッシュボードレイアウト実装 ✅
 
-- [ ] `app/routes/dashboard.tsx`作成
-- [ ] サイドバーナビゲーション（Overview, Developers, Campaigns, Funnel）。一番下に System Settings へのアイコン
-- [ ] ヘッダー（ロゴ、ユーザー情報）
-- [ ] サイドバーの項目、ウィジェットはプラグイン次第で増減することを想定
-- **完了条件**: ダッシュボードが表示され、ナビゲーションが機能する
+- [x] `app/routes/dashboard.tsx`作成
+- [x] サイドバーナビゲーション（Overview, Developers, Campaigns, Funnel）。一番下に System Settings へのアイコン
+- [x] ヘッダー（ロゴ、ユーザー情報）
+- [x] サイドバーの項目、ウィジェットはプラグイン次第で増減することを想定
+- [x] ダークモード対応（DarkModeProvider実装）
+- [x] モバイル対応（レスポンシブデザイン）
+- [x] E2Eテスト作成（12テスト）
+- **完了条件**: ダッシュボードが表示され、ナビゲーションが機能する ✓
 - **依存**: Task 2.1
 - **推定時間**: 3時間
+- **ドキュメント**: [.tmp/tasks/task-7.1-dashboard-layout.md](.tmp/tasks/task-7.1-dashboard-layout.md)
+- **完了日**: 2025-10-17
 
 ### Task 7.2: Overviewページ実装
 
-- [ ] `app/routes/dashboard/overview.tsx`作成
+- [ ] `app/routes/dashboard._index.tsx`作成
 - [ ] Swapyでウィジェットをドラッグ＆ドロップ可能に（[Swapy](https://swapy.tahazsh.com/)）
 - [ ] 総アクティビティ数・開発者数・施策件数の表示
 - [ ] ROI平均値の表示
 - [ ] 簡易グラフ（Recharts）
+- [ ] E2Eテスト作成
 - **完了条件**: Overviewページが表示され、データが取得される
 - **依存**: Task 7.1, Task 4.5, Task 5.4
 - **推定時間**: 4時間
+- **ドキュメント**: [.tmp/tasks/task-7.2-overview-page.md](.tmp/tasks/task-7.2-overview-page.md)
 
 ### Task 7.3: Developersページ実装
 

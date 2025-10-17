@@ -38,6 +38,8 @@ yarn-debug.log*
 coverage/
 .vitest/
 .nyc_output/
+test-results/
+playwright-report/
 
 # TypeScript
 *.tsbuildinfo
