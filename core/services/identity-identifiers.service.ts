@@ -13,7 +13,7 @@
 import { withTenantContext } from '../db/connection.js';
 import * as schema from '../db/schema/index.js';
 import { z } from 'zod';
-import { eq, and, sql } from 'drizzle-orm';
+import { eq, and, sql, desc } from 'drizzle-orm';
 
 /**
  * Zod schema for identifier lookup
@@ -175,6 +175,59 @@ export async function addIdentifier(
         throw error; // Re-throw our custom errors
       }
       throw new Error('Failed to add identifier due to database error');
+    }
+  });
+}
+
+/**
+ * List identifiers for a developer
+ *
+ * @param tenantId - Tenant ID for multi-tenant isolation
+ * @param developerId - Developer ID to list identifiers for
+ * @returns Array of identifier records sorted by firstSeen descending
+ * @throws {Error} If database error occurs or invalid UUID provided
+ *
+ * Implementation details:
+ * 1. Validate developerId is a valid UUID
+ * 2. Query developer_identifiers table by developer_id
+ * 3. RLS automatically filters by tenant_id
+ * 4. Sort by firstSeen descending (most recent first)
+ * 5. Return empty array if developer not found or has no identifiers
+ *
+ * RLS: Requires app.current_tenant_id to be set in session
+ */
+export async function listIdentifiers(
+  tenantId: string,
+  developerId: string
+): Promise<Array<typeof schema.developerIdentifiers.$inferSelect>> {
+  // Validate developerId is a valid UUID
+  const uuidSchema = z.string().uuid();
+  try {
+    uuidSchema.parse(developerId);
+  } catch {
+    throw new Error('Invalid developer ID: must be a valid UUID');
+  }
+
+  // Execute within transaction with tenant context (production-safe with connection pooling)
+  return await withTenantContext(tenantId, async (tx) => {
+    try {
+      // Query identifiers for the specified developer
+      // RLS policy will automatically filter by tenant_id
+      const identifiers = await tx
+        .select()
+        .from(schema.developerIdentifiers)
+        .where(
+          and(
+            eq(schema.developerIdentifiers.tenantId, tenantId),
+            eq(schema.developerIdentifiers.developerId, developerId)
+          )
+        )
+        .orderBy(desc(schema.developerIdentifiers.firstSeen));
+
+      return identifiers;
+    } catch (error) {
+      console.error('Failed to list identifiers:', error);
+      throw new Error('Failed to retrieve identifiers from database');
     }
   });
 }

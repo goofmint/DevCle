@@ -164,8 +164,8 @@ describe('Funnel API - /api/funnel', () => {
   });
 
   beforeEach(async () => {
-    // Clean up activities created by test developer only
-    // This ensures tests don't interfere with each other while preserving seed data
+    // Clean up activities created by THIS TEST ONLY
+    // This ensures tests don't interfere with each other
     const db = getDb();
     await db
       .delete(schema.activities)

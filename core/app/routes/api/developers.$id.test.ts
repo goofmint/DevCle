@@ -33,7 +33,7 @@ import * as schema from '../../../db/schema/index.js';
 import {
   loader as developerDetailLoader,
   action as developerDetailAction,
-} from './developers.$id.js';
+} from '../api.developers.$id.js';
 import { getSession, commitSession } from '../../sessions.server.js';
 
 // Type guard helpers for response data

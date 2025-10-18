@@ -505,28 +505,77 @@
 - **ドキュメント**: [.tmp/tasks/task-7.1-dashboard-layout.md](.tmp/tasks/task-7.1-dashboard-layout.md)
 - **完了日**: 2025-10-17
 
-### Task 7.2: Overviewページ実装
+### Task 7.2: Overviewページ実装 ✅
 
-- [ ] `app/routes/dashboard._index.tsx`作成
-- [ ] Swapyでウィジェットをドラッグ＆ドロップ可能に（[Swapy](https://swapy.tahazsh.com/)）
-- [ ] 総アクティビティ数・開発者数・施策件数の表示
-- [ ] ROI平均値の表示
-- [ ] 簡易グラフ（Recharts）
-- [ ] E2Eテスト作成
-- **完了条件**: Overviewページが表示され、データが取得される
+- [x] `app/routes/dashboard._index.tsx`作成
+- [x] Swapyでウィジェットをドラッグ＆ドロップ可能に（[Swapy](https://swapy.tahazsh.com/)）
+- [x] 総アクティビティ数・開発者数・施策件数の表示
+- [x] ROI平均値の表示
+- [x] 簡易グラフ（Recharts）
+- [x] E2Eテスト作成
+- **完了条件**: Overviewページが表示され、データが取得される ✓
 - **依存**: Task 7.1, Task 4.5, Task 5.4
 - **推定時間**: 4時間
 - **ドキュメント**: [.tmp/tasks/task-7.2-overview-page.md](.tmp/tasks/task-7.2-overview-page.md)
+- **完了日**: 2025-10-17
 
-### Task 7.3: Developersページ実装
+### Task 7.3: Developersページ実装 ✅
 
-- [ ] `app/routes/dashboard/developers.tsx`作成
-- [ ] 開発者リスト表示（ページネーション付き）
-- [ ] 検索・フィルタ機能
-- [ ] 開発者詳細ページ（`/dashboard/developers/:id`）
-- **完了条件**: 開発者リストが表示され、詳細ページへ遷移できる
-- **依存**: Task 7.1, Task 4.4
+- [x] `app/routes/dashboard/developers.tsx`作成
+- [x] 開発者リスト表示（ページネーション付き）
+  - 一覧機能はプラグインでも使うので、共通コンポーネント化する
+- [x] 検索・フィルタ機能
+- [x] 開発者詳細ページ（`/dashboard/developers/:id`）
+- **完了条件**: 開発者リストが表示され、詳細ページへ遷移できる ✓
+- **依存**: Task 7.1, Task 4.2, Task 4.3
 - **推定時間**: 4時間
+- **ドキュメント**: [.tmp/tasks/task-7.3-developers-page.md](.tmp/tasks/task-7.3-developers-page.md)
+- **完了日**: 2025-10-18
+
+### Task 7.3.1: システム設定画面の実装
+
+- [ ] `app/routes/dashboard.settings.tsx`作成（システム設定画面）
+
+### Task 7.3.1: アクティビティカラーとアイコンの設定画面実装
+
+- [ ] `app/routes/dashboard.settings.activity-types.tsx`作成（アクティビティタイプ設定画面）
+- [ ] `app/routes/api/activity-types.ts`作成（アクティビティタイプCRUD API）
+- [ ] `core/db/schema/admin.ts`に`activity_types`テーブル追加
+  - カラム: `activity_type_id`, `tenant_id`, `action`, `icon_name`, `color_class`, `funnel_stage_id`, `created_at`, `updated_at`
+  - `action`は`'click' | 'attend' | 'signup' | 'post' | 'star'`等の文字列
+  - `icon_name`は`'heroicons:bolt'`等のIconifyアイコン名
+  - `color_class`はTailwind CSS classの文字列（例: `'text-blue-600 bg-blue-100 border-blue-200'`）
+  - `funnel_stage_id`は`funnel_stages`テーブルへの外部キー（NULL可）
+- [ ] `core/services/activity-type.service.ts`作成（CRUD + デフォルトシードデータ）
+- [ ] 設定画面UI実装
+  - アクティビティタイプ一覧表示（テーブル形式）
+  - アイコンピッカー（Iconify検索UI）
+  - カラーパレット（Tailwindカラー選択UI）
+  - ファネルステージ選択ドロップダウン
+  - CRUD操作（作成・編集・削除）
+- [ ] `ActivityTimeline.tsx`の`getActivityColor()`と`getActivityIconName()`を修正
+  - データベースから取得した設定を使用
+  - デフォルト値（gray, heroicons:bolt）をフォールバックとして保持
+- [ ] E2Eテスト作成（設定画面の動作確認）
+- **完了条件**: 設定画面でアクティビティタイプごとにアイコンとカラーを設定でき、ActivityTimelineに反映される
+- **依存**: Task 7.3
+- **推定時間**: 5時間
+- **注意**:
+  - 実装は2段階に分割：
+    1. このタスク（7.3.1）: 設定画面とテーブル作成
+    2. 次のタスク（7.3.2）: `getActivityColor()`と`getActivityIconName()`の実装（データベースから取得）
+  - ActivityTimeline.tsx内のTODOコメントを参照
+
+### Task 7.3.2: ActivityTimeline動的カラー・アイコン適用
+
+- [ ] `getActivityColor()`実装（データベースから設定を取得）
+- [ ] `getActivityIconName()`実装（データベースから設定を取得）
+- [ ] `ActivityTimeline.tsx`にデータローディング処理追加
+- [ ] キャッシング実装（同一テナント内で設定を再利用）
+- [ ] E2Eテスト作成（カラー・アイコンの動的表示確認）
+- **完了条件**: ActivityTimelineがデータベースの設定に基づいてカラーとアイコンを動的に表示する
+- **依存**: Task 7.3.1
+- **推定時間**: 3時間
 
 ### Task 7.4: Campaignsページ実装
 

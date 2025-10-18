@@ -32,7 +32,7 @@ import { deleteDeveloper, createDeveloper } from '../../../services/drm.service.
 import { hashPassword } from '../../../services/auth.service.js';
 import { getDb } from '../../../db/connection.js';
 import * as schema from '../../../db/schema/index.js';
-import { loader as developersLoader, action as developersAction } from './developers.js';
+import { loader as developersLoader, action as developersAction } from '../api.developers.js';
 import { getSession, commitSession } from '../../sessions.server.js';
 
 // Type guard helpers for response data

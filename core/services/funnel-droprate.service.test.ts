@@ -7,8 +7,8 @@
  * - getFunnelTimeSeries(): Time series aggregation
  */
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import { setTenantContext, clearTenantContext, closeDb, getDb } from '../db/connection';
+import { describe, it, expect, afterAll } from 'vitest';
+import { setTenantContext, closeDb, getDb } from '../db/connection';
 import * as schema from '../db/schema/index';
 import { eq } from 'drizzle-orm';
 import {
@@ -19,42 +19,36 @@ import {
 import { createActivity } from './activity.service';
 
 describe('Funnel Drop Rate Service', () => {
-  // Set tenant context before all tests
-  beforeAll(async () => {
-    await setTenantContext('default');
-  });
+  // Use dedicated test tenant to avoid conflicts with seed data
+  const TEST_TENANT = 'test-funnel-droprate';
+  const OTHER_TEST_TENANT = 'test-funnel-droprate-other';
 
   // Clean up after all tests
   afterAll(async () => {
-    await clearTenantContext();
     await closeDb();
   });
 
-  // Developer IDs for testing - track test-created developers for cleanup
-  let aliceDeveloperId: string;
-  let bobDeveloperId: string;
-  let charlieDeveloperId: string;
-  let testActivityIds: string[] = [];
-
-  // Create test developers before each test
-  // This ensures each test starts with a clean state
-  beforeEach(async () => {
+  // Helper function to create test developers
+  async function createTestDevelopers() {
     const db = getDb();
-    testActivityIds = []; // Reset activity tracking
 
-    // Ensure 'other-tenant' tenant exists (required for foreign key constraint)
-    // Use onConflictDoNothing() to make this idempotent
+    // Ensure test tenants exist
     await db.insert(schema.tenants).values({
-      tenantId: 'other-tenant',
-      name: 'Other Tenant',
+      tenantId: TEST_TENANT,
+      name: 'Test Funnel Drop Rate Tenant',
       plan: 'OSS',
     }).onConflictDoNothing();
 
-    // Create test developers for 'default' tenant
-    await setTenantContext('default');
+    await db.insert(schema.tenants).values({
+      tenantId: OTHER_TEST_TENANT,
+      name: 'Other Test Funnel Drop Rate Tenant',
+      plan: 'OSS',
+    }).onConflictDoNothing();
+
+    await setTenantContext(TEST_TENANT);
     const [alice] = await db.insert(schema.developers).values({
       developerId: crypto.randomUUID(),
-      tenantId: 'default',
+      tenantId: TEST_TENANT,
       displayName: 'Alice Anderson',
       primaryEmail: 'alice@example.com',
       orgId: null,
@@ -64,7 +58,7 @@ describe('Funnel Drop Rate Service', () => {
 
     const [bob] = await db.insert(schema.developers).values({
       developerId: crypto.randomUUID(),
-      tenantId: 'default',
+      tenantId: TEST_TENANT,
       displayName: 'Bob Builder',
       primaryEmail: 'bob@example.com',
       orgId: null,
@@ -72,12 +66,10 @@ describe('Funnel Drop Rate Service', () => {
       tags: [],
     }).returning();
 
-    // Create test developer for 'other-tenant'
-    // Switch to other-tenant context to avoid RLS violation
-    await setTenantContext('other-tenant');
+    await setTenantContext(OTHER_TEST_TENANT);
     const [charlie] = await db.insert(schema.developers).values({
       developerId: crypto.randomUUID(),
-      tenantId: 'other-tenant',
+      tenantId: OTHER_TEST_TENANT,
       displayName: 'Charlie Chaplin',
       primaryEmail: 'charlie@example.com',
       orgId: null,
@@ -85,54 +77,57 @@ describe('Funnel Drop Rate Service', () => {
       tags: [],
     }).returning();
 
-    // Switch back to default tenant context
-    await setTenantContext('default');
+    await setTenantContext(TEST_TENANT);
 
     if (!alice || !bob || !charlie) {
       throw new Error('Failed to create test developers');
     }
 
-    aliceDeveloperId = alice.developerId;
-    bobDeveloperId = bob.developerId;
-    charlieDeveloperId = charlie.developerId;
-  });
+    // Create activity-funnel mappings for test tenant (copy from default tenant mappings)
+    // This ensures classifyStage can properly map activities to funnel stages
+    await db.insert(schema.activityFunnelMap).values([
+      { tenantId: TEST_TENANT, action: 'click', stageKey: 'awareness' },
+      { tenantId: TEST_TENANT, action: 'view', stageKey: 'awareness' },
+      { tenantId: TEST_TENANT, action: 'attend', stageKey: 'engagement' },
+      { tenantId: TEST_TENANT, action: 'comment', stageKey: 'engagement' },
+      { tenantId: TEST_TENANT, action: 'signup', stageKey: 'adoption' },
+      { tenantId: TEST_TENANT, action: 'api_call', stageKey: 'adoption' },
+      { tenantId: TEST_TENANT, action: 'deploy', stageKey: 'adoption' },
+      { tenantId: TEST_TENANT, action: 'post', stageKey: 'advocacy' },
+      { tenantId: TEST_TENANT, action: 'talk', stageKey: 'advocacy' },
+      { tenantId: TEST_TENANT, action: 'referral', stageKey: 'advocacy' },
+      { tenantId: TEST_TENANT, action: 'contribute', stageKey: 'advocacy' },
+    ]).onConflictDoNothing();
 
-  // Clean up test data after each test
-  // Only delete data created by this test, not seed data
-  afterEach(async () => {
+    return {
+      alice: alice.developerId,
+      bob: bob.developerId,
+      charlie: charlie.developerId,
+    };
+  }
+
+  // Helper function to clean up test developers and their data
+  async function cleanupTestDevelopers(aliceId: string, bobId: string, charlieId: string) {
     const db = getDb();
 
-    // Delete activities created by test developers
-    await setTenantContext('default');
-    await db.delete(schema.activities).where(
-      eq(schema.activities.developerId, aliceDeveloperId)
-    );
-    await db.delete(schema.activities).where(
-      eq(schema.activities.developerId, bobDeveloperId)
-    );
+    // Delete activities
+    await setTenantContext(TEST_TENANT);
+    await db.delete(schema.activities).where(eq(schema.activities.developerId, aliceId));
+    await db.delete(schema.activities).where(eq(schema.activities.developerId, bobId));
 
-    await setTenantContext('other-tenant');
-    await db.delete(schema.activities).where(
-      eq(schema.activities.developerId, charlieDeveloperId)
-    );
+    await setTenantContext(OTHER_TEST_TENANT);
+    await db.delete(schema.activities).where(eq(schema.activities.developerId, charlieId));
 
-    // Delete test developers
-    await setTenantContext('default');
-    await db.delete(schema.developers).where(
-      eq(schema.developers.developerId, aliceDeveloperId)
-    );
-    await db.delete(schema.developers).where(
-      eq(schema.developers.developerId, bobDeveloperId)
-    );
+    // Delete developers
+    await setTenantContext(TEST_TENANT);
+    await db.delete(schema.developers).where(eq(schema.developers.developerId, aliceId));
+    await db.delete(schema.developers).where(eq(schema.developers.developerId, bobId));
 
-    await setTenantContext('other-tenant');
-    await db.delete(schema.developers).where(
-      eq(schema.developers.developerId, charlieDeveloperId)
-    );
+    await setTenantContext(OTHER_TEST_TENANT);
+    await db.delete(schema.developers).where(eq(schema.developers.developerId, charlieId));
 
-    // Reset to default tenant
-    await setTenantContext('default');
-  });
+    await setTenantContext(TEST_TENANT);
+  }
 
   /**
    * calculateDropRate() Tests
@@ -142,110 +137,134 @@ describe('Funnel Drop Rate Service', () => {
   describe('calculateDropRate', () => {
     it('should throw error for awareness stage', async () => {
       await expect(
-        calculateDropRate('default', 'awareness')
+        calculateDropRate(TEST_TENANT, 'awareness')
       ).rejects.toThrow('Cannot calculate drop rate for awareness stage');
     });
 
     it('should return null for non-existent stage', async () => {
-      const dropRate = await calculateDropRate('default', 'non-existent' as any);
+      const dropRate = await calculateDropRate(TEST_TENANT, 'non-existent' as any);
       expect(dropRate).toBeNull();
     });
 
     it('should calculate drop rate for engagement stage correctly', async () => {
-      // Create test data: Awareness = 2, Engagement = 1
-      await createActivity('default', {
-        developerId: aliceDeveloperId,
-        action: 'click',
-        source: 'web',
-        occurredAt: new Date('2025-10-10T10:00:00Z'),
-        metadata: {},
-      });
-      await createActivity('default', {
-        developerId: aliceDeveloperId,
-        action: 'attend',
-        source: 'event',
-        occurredAt: new Date('2025-10-10T11:00:00Z'),
-        metadata: {},
-      });
-      await createActivity('default', {
-        developerId: bobDeveloperId,
-        action: 'click',
-        source: 'web',
-        occurredAt: new Date('2025-10-10T12:00:00Z'),
-        metadata: {},
-      });
+      const { alice, bob, charlie } = await createTestDevelopers();
 
-      const dropRate = await calculateDropRate('default', 'engagement');
+      try {
+        // Create test data: Awareness = 2, Engagement = 1
+        await createActivity(TEST_TENANT, {
+          developerId: alice,
+          action: 'click',
+          source: 'web',
+          occurredAt: new Date('2025-10-10T10:00:00Z'),
+          metadata: {},
+        });
+        await createActivity(TEST_TENANT, {
+          developerId: alice,
+          action: 'attend',
+          source: 'event',
+          occurredAt: new Date('2025-10-10T11:00:00Z'),
+          metadata: {},
+        });
+        await createActivity(TEST_TENANT, {
+          developerId: bob,
+          action: 'click',
+          source: 'web',
+          occurredAt: new Date('2025-10-10T12:00:00Z'),
+          metadata: {},
+        });
 
-      expect(dropRate).not.toBeNull();
-      expect(dropRate?.stageKey).toBe('engagement');
-      expect(dropRate?.uniqueDevelopers).toBe(1);
-      expect(dropRate?.previousStageCount).toBe(2);
-      expect(dropRate?.dropRate).toBeCloseTo(50, 1);
+        const dropRate = await calculateDropRate(TEST_TENANT, 'engagement');
+
+        expect(dropRate).not.toBeNull();
+        expect(dropRate?.stageKey).toBe('engagement');
+        expect(dropRate?.uniqueDevelopers).toBe(1);
+        expect(dropRate?.previousStageCount).toBe(2);
+        expect(dropRate?.dropRate).toBeCloseTo(50, 1);
+      } finally {
+        await cleanupTestDevelopers(alice, bob, charlie);
+      }
     });
 
     it('should calculate drop rate for adoption stage correctly', async () => {
-      await createActivity('default', {
-        developerId: aliceDeveloperId,
-        action: 'attend',
-        source: 'event',
-        occurredAt: new Date('2025-10-10T11:00:00Z'),
-        metadata: {},
-      });
+      const { alice, bob, charlie } = await createTestDevelopers();
 
-      const dropRate = await calculateDropRate('default', 'adoption');
+      try {
+        await createActivity(TEST_TENANT, {
+          developerId: alice,
+          action: 'attend',
+          source: 'event',
+          occurredAt: new Date('2025-10-10T11:00:00Z'),
+          metadata: {},
+        });
 
-      expect(dropRate).not.toBeNull();
-      expect(dropRate?.stageKey).toBe('adoption');
-      expect(dropRate?.uniqueDevelopers).toBe(0);
-      expect(dropRate?.previousStageCount).toBe(1);
-      expect(dropRate?.dropRate).toBe(100);
+        const dropRate = await calculateDropRate(TEST_TENANT, 'adoption');
+
+        expect(dropRate).not.toBeNull();
+        expect(dropRate?.stageKey).toBe('adoption');
+        expect(dropRate?.uniqueDevelopers).toBe(0);
+        expect(dropRate?.previousStageCount).toBe(1);
+        expect(dropRate?.dropRate).toBe(100);
+      } finally {
+        await cleanupTestDevelopers(alice, bob, charlie);
+      }
     });
 
     it('should return null for drop rate when previous stage has 0 developers', async () => {
-      const dropRate = await calculateDropRate('default', 'advocacy');
+      const { alice, bob, charlie } = await createTestDevelopers();
 
-      expect(dropRate).not.toBeNull();
-      expect(dropRate?.dropRate).toBeNull();
+      try {
+        const dropRate = await calculateDropRate(TEST_TENANT, 'advocacy');
+
+        expect(dropRate).not.toBeNull();
+        expect(dropRate?.dropRate).toBeNull();
+      } finally {
+        await cleanupTestDevelopers(alice, bob, charlie);
+      }
     });
 
     it('should respect tenant isolation', async () => {
-      await createActivity('default', {
-        developerId: aliceDeveloperId,
-        action: 'click',
-        source: 'web',
-        occurredAt: new Date('2025-10-10T10:00:00Z'),
-        metadata: {},
-      });
-      await createActivity('default', {
-        developerId: aliceDeveloperId,
-        action: 'attend',
-        source: 'event',
-        occurredAt: new Date('2025-10-10T11:00:00Z'),
-        metadata: {},
-      });
-      await createActivity('default', {
-        developerId: bobDeveloperId,
-        action: 'click',
-        source: 'web',
-        occurredAt: new Date('2025-10-10T12:00:00Z'),
-        metadata: {},
-      });
+      const { alice, bob, charlie } = await createTestDevelopers();
 
-      await setTenantContext('other-tenant');
-      await createActivity('other-tenant', {
-        developerId: charlieDeveloperId,
-        action: 'click',
-        source: 'web',
-        occurredAt: new Date('2025-10-10T14:00:00Z'),
-        metadata: {},
-      });
-      await setTenantContext('default');
+      try {
+        await createActivity(TEST_TENANT, {
+          developerId: alice,
+          action: 'click',
+          source: 'web',
+          occurredAt: new Date('2025-10-10T10:00:00Z'),
+          metadata: {},
+        });
+        await createActivity(TEST_TENANT, {
+          developerId: alice,
+          action: 'attend',
+          source: 'event',
+          occurredAt: new Date('2025-10-10T11:00:00Z'),
+          metadata: {},
+        });
+        await createActivity(TEST_TENANT, {
+          developerId: bob,
+          action: 'click',
+          source: 'web',
+          occurredAt: new Date('2025-10-10T12:00:00Z'),
+          metadata: {},
+        });
 
-      const dropRate = await calculateDropRate('default', 'engagement');
+        await setTenantContext(OTHER_TEST_TENANT);
+        await createActivity(OTHER_TEST_TENANT, {
+          developerId: charlie,
+          action: 'click',
+          source: 'web',
+          occurredAt: new Date('2025-10-10T14:00:00Z'),
+          metadata: {},
+        });
+        await setTenantContext(TEST_TENANT);
 
-      expect(dropRate?.uniqueDevelopers).toBe(1);
-      expect(dropRate?.previousStageCount).toBe(2);
+        const dropRate = await calculateDropRate(TEST_TENANT, 'engagement');
+
+        expect(dropRate?.uniqueDevelopers).toBe(1);
+        expect(dropRate?.previousStageCount).toBe(2);
+      } finally {
+        await cleanupTestDevelopers(alice, bob, charlie);
+      }
     });
   });
 
@@ -256,143 +275,173 @@ describe('Funnel Drop Rate Service', () => {
    */
   describe('getFunnelDropRates', () => {
     it('should calculate drop rates for all stages correctly', async () => {
-    await createActivity('default', {
-      developerId: aliceDeveloperId,
-      action: 'click',
-      source: 'web',
-      occurredAt: new Date('2025-10-10T10:00:00Z'),
-      metadata: {},
-    });
-    await createActivity('default', {
-      developerId: aliceDeveloperId,
-      action: 'attend',
-      source: 'event',
-      occurredAt: new Date('2025-10-10T11:00:00Z'),
-      metadata: {},
-    });
-    await createActivity('default', {
-      developerId: aliceDeveloperId,
-      action: 'signup',
-      source: 'web',
-      occurredAt: new Date('2025-10-10T12:00:00Z'),
-      metadata: {},
-    });
-    await createActivity('default', {
-      developerId: bobDeveloperId,
-      action: 'click',
-      source: 'web',
-      occurredAt: new Date('2025-10-10T13:00:00Z'),
-      metadata: {},
-    });
-    await createActivity('default', {
-      developerId: bobDeveloperId,
-      action: 'attend',
-      source: 'event',
-      occurredAt: new Date('2025-10-10T14:00:00Z'),
-      metadata: {},
-    });
+      const { alice, bob, charlie } = await createTestDevelopers();
 
-    const dropRates = await getFunnelDropRates('default');
+      try {
+        await createActivity(TEST_TENANT, {
+          developerId: alice,
+          action: 'click',
+          source: 'web',
+          occurredAt: new Date('2025-10-10T10:00:00Z'),
+          metadata: {},
+        });
+        await createActivity(TEST_TENANT, {
+          developerId: alice,
+          action: 'attend',
+          source: 'event',
+          occurredAt: new Date('2025-10-10T11:00:00Z'),
+          metadata: {},
+        });
+        await createActivity(TEST_TENANT, {
+          developerId: alice,
+          action: 'signup',
+          source: 'web',
+          occurredAt: new Date('2025-10-10T12:00:00Z'),
+          metadata: {},
+        });
+        await createActivity(TEST_TENANT, {
+          developerId: bob,
+          action: 'click',
+          source: 'web',
+          occurredAt: new Date('2025-10-10T13:00:00Z'),
+          metadata: {},
+        });
+        await createActivity(TEST_TENANT, {
+          developerId: bob,
+          action: 'attend',
+          source: 'event',
+          occurredAt: new Date('2025-10-10T14:00:00Z'),
+          metadata: {},
+        });
 
-    expect(dropRates.stages).toHaveLength(4);
-    expect(dropRates.stages[0]?.dropRate).toBeNull();
-    expect(dropRates.stages[1]?.dropRate).toBeCloseTo(0, 1);
-    expect(dropRates.stages[2]?.dropRate).toBeCloseTo(50, 1);
-  });
+        const dropRates = await getFunnelDropRates(TEST_TENANT);
+
+        expect(dropRates.stages).toHaveLength(4);
+        expect(dropRates.stages[0]?.dropRate).toBeNull();
+        expect(dropRates.stages[1]?.dropRate).toBeCloseTo(0, 1);
+        expect(dropRates.stages[2]?.dropRate).toBeCloseTo(50, 1);
+      } finally {
+        await cleanupTestDevelopers(alice, bob, charlie);
+      }
+    });
 
   // Test 8: getFunnelDropRates - calculate overall conversion rate correctly
-  it('should calculate overall conversion rate correctly', async () => {
-    await createActivity('default', {
-      developerId: aliceDeveloperId,
-      action: 'click',
-      source: 'web',
-      occurredAt: new Date('2025-10-10T10:00:00Z'),
-      metadata: {},
-    });
-    await createActivity('default', {
-      developerId: bobDeveloperId,
-      action: 'click',
-      source: 'web',
-      occurredAt: new Date('2025-10-10T13:00:00Z'),
-      metadata: {},
-    });
+    it('should calculate overall conversion rate correctly', async () => {
+      const { alice, bob, charlie } = await createTestDevelopers();
 
-    const dropRates = await getFunnelDropRates('default');
+      try {
+        await createActivity(TEST_TENANT, {
+          developerId: alice,
+          action: 'click',
+          source: 'web',
+          occurredAt: new Date('2025-10-10T10:00:00Z'),
+          metadata: {},
+        });
+        await createActivity(TEST_TENANT, {
+          developerId: bob,
+          action: 'click',
+          source: 'web',
+          occurredAt: new Date('2025-10-10T13:00:00Z'),
+          metadata: {},
+        });
 
-    expect(dropRates.overallConversionRate).toBe(0);
-  });
+        const dropRates = await getFunnelDropRates(TEST_TENANT);
 
-  // Test 9: getFunnelDropRates - set dropRate to null for awareness stage
-  it('should set dropRate to null for awareness stage', async () => {
-    const dropRates = await getFunnelDropRates('default');
-
-    const awareness = dropRates.stages.find(s => s.stageKey === 'awareness');
-    expect(awareness?.dropRate).toBeNull();
-  });
-
-  // Test 10: getFunnelDropRates - respect tenant isolation
-  it('should respect tenant isolation in getFunnelDropRates', async () => {
-    await createActivity('default', {
-      developerId: aliceDeveloperId,
-      action: 'click',
-      source: 'web',
-      occurredAt: new Date('2025-10-10T10:00:00Z'),
-      metadata: {},
+        expect(dropRates.overallConversionRate).toBe(0);
+      } finally {
+        await cleanupTestDevelopers(alice, bob, charlie);
+      }
     });
 
-    await setTenantContext('other-tenant');
-    await createActivity('other-tenant', {
-      developerId: charlieDeveloperId,
-      action: 'click',
-      source: 'web',
-      occurredAt: new Date('2025-10-10T16:00:00Z'),
-      metadata: {},
-    });
-    await setTenantContext('default');
+    // Test 9: getFunnelDropRates - set dropRate to null for awareness stage
+    it('should set dropRate to null for awareness stage', async () => {
+      const { alice, bob, charlie } = await createTestDevelopers();
 
-    const dropRates = await getFunnelDropRates('default');
+      try {
+        const dropRates = await getFunnelDropRates(TEST_TENANT);
 
-    const awareness = dropRates.stages.find(s => s.stageKey === 'awareness');
-    expect(awareness?.uniqueDevelopers).toBe(1);
-  });
-
-  // Test 11: getFunnelDropRates - handle complete funnel with all stages populated
-  it('should handle complete funnel with all stages populated', async () => {
-    await createActivity('default', {
-      developerId: aliceDeveloperId,
-      action: 'click',
-      source: 'web',
-      occurredAt: new Date('2025-10-10T10:00:00Z'),
-      metadata: {},
-    });
-    await createActivity('default', {
-      developerId: aliceDeveloperId,
-      action: 'signup',
-      source: 'web',
-      occurredAt: new Date('2025-10-10T12:00:00Z'),
-      metadata: {},
-    });
-    await createActivity('default', {
-      developerId: aliceDeveloperId,
-      action: 'contribute',
-      source: 'github',
-      occurredAt: new Date('2025-10-10T17:00:00Z'),
-      metadata: {},
-    });
-    await createActivity('default', {
-      developerId: bobDeveloperId,
-      action: 'click',
-      source: 'web',
-      occurredAt: new Date('2025-10-10T13:00:00Z'),
-      metadata: {},
+        const awareness = dropRates.stages.find(s => s.stageKey === 'awareness');
+        expect(awareness?.dropRate).toBeNull();
+      } finally {
+        await cleanupTestDevelopers(alice, bob, charlie);
+      }
     });
 
-    const dropRates = await getFunnelDropRates('default');
+    // Test 10: getFunnelDropRates - respect tenant isolation
+    it('should respect tenant isolation in getFunnelDropRates', async () => {
+      const { alice, bob, charlie } = await createTestDevelopers();
 
-    const advocacy = dropRates.stages.find(s => s.stageKey === 'advocacy');
-    expect(advocacy?.uniqueDevelopers).toBe(1);
-    expect(dropRates.overallConversionRate).toBeCloseTo(50, 1);
-  });
+      try {
+        await createActivity(TEST_TENANT, {
+          developerId: alice,
+          action: 'click',
+          source: 'web',
+          occurredAt: new Date('2025-10-10T10:00:00Z'),
+          metadata: {},
+        });
+
+        await setTenantContext(OTHER_TEST_TENANT);
+        await createActivity(OTHER_TEST_TENANT, {
+          developerId: charlie,
+          action: 'click',
+          source: 'web',
+          occurredAt: new Date('2025-10-10T16:00:00Z'),
+          metadata: {},
+        });
+        await setTenantContext(TEST_TENANT);
+
+        const dropRates = await getFunnelDropRates(TEST_TENANT);
+
+        const awareness = dropRates.stages.find(s => s.stageKey === 'awareness');
+        expect(awareness?.uniqueDevelopers).toBe(1);
+      } finally {
+        await cleanupTestDevelopers(alice, bob, charlie);
+      }
+    });
+
+    // Test 11: getFunnelDropRates - handle complete funnel with all stages populated
+    it('should handle complete funnel with all stages populated', async () => {
+      const { alice, bob, charlie } = await createTestDevelopers();
+
+      try {
+        await createActivity(TEST_TENANT, {
+          developerId: alice,
+          action: 'click',
+          source: 'web',
+          occurredAt: new Date('2025-10-10T10:00:00Z'),
+          metadata: {},
+        });
+        await createActivity(TEST_TENANT, {
+          developerId: alice,
+          action: 'signup',
+          source: 'web',
+          occurredAt: new Date('2025-10-10T12:00:00Z'),
+          metadata: {},
+        });
+        await createActivity(TEST_TENANT, {
+          developerId: alice,
+          action: 'contribute',
+          source: 'github',
+          occurredAt: new Date('2025-10-10T17:00:00Z'),
+          metadata: {},
+        });
+        await createActivity(TEST_TENANT, {
+          developerId: bob,
+          action: 'click',
+          source: 'web',
+          occurredAt: new Date('2025-10-10T13:00:00Z'),
+          metadata: {},
+        });
+
+        const dropRates = await getFunnelDropRates(TEST_TENANT);
+
+        const advocacy = dropRates.stages.find(s => s.stageKey === 'advocacy');
+        expect(advocacy?.uniqueDevelopers).toBe(1);
+        expect(dropRates.overallConversionRate).toBeCloseTo(50, 1);
+      } finally {
+        await cleanupTestDevelopers(alice, bob, charlie);
+      }
+    });
   });
 
   /**
@@ -402,91 +451,109 @@ describe('Funnel Drop Rate Service', () => {
    */
   describe('getFunnelTimeSeries', () => {
     it('should aggregate data by day granularity', async () => {
-    await createActivity('default', {
-      developerId: aliceDeveloperId,
-      action: 'click',
-      source: 'web',
-      occurredAt: new Date('2025-10-10T10:00:00Z'),
-      metadata: {},
-    });
-    await createActivity('default', {
-      developerId: bobDeveloperId,
-      action: 'click',
-      source: 'web',
-      occurredAt: new Date('2025-10-11T10:00:00Z'),
-      metadata: {},
-    });
+      const { alice, bob, charlie } = await createTestDevelopers();
 
-    const timeSeries = await getFunnelTimeSeries(
-      'default',
-      new Date('2025-10-10T00:00:00Z'),
-      new Date('2025-10-12T00:00:00Z'),
-      'day'
-    );
+      try {
+        await createActivity(TEST_TENANT, {
+          developerId: alice,
+          action: 'click',
+          source: 'web',
+          occurredAt: new Date('2025-10-10T10:00:00Z'),
+          metadata: {},
+        });
+        await createActivity(TEST_TENANT, {
+          developerId: bob,
+          action: 'click',
+          source: 'web',
+          occurredAt: new Date('2025-10-11T10:00:00Z'),
+          metadata: {},
+        });
 
-    expect(timeSeries.length).toBe(2);
-    expect(timeSeries[0]?.date.toISOString()).toContain('2025-10-10');
-    expect(timeSeries[1]?.date.toISOString()).toContain('2025-10-11');
-  });
+        const timeSeries = await getFunnelTimeSeries(
+          TEST_TENANT,
+          new Date('2025-10-10T00:00:00Z'),
+          new Date('2025-10-12T00:00:00Z'),
+          'day'
+        );
 
-  // Test 13: getFunnelTimeSeries - aggregate data by week granularity
-  it('should aggregate data by week granularity', async () => {
-    await createActivity('default', {
-      developerId: aliceDeveloperId,
-      action: 'click',
-      source: 'web',
-      occurredAt: new Date('2025-10-10T10:00:00Z'),
-      metadata: {},
-    });
-    await createActivity('default', {
-      developerId: bobDeveloperId,
-      action: 'click',
-      source: 'web',
-      occurredAt: new Date('2025-10-11T10:00:00Z'),
-      metadata: {},
+        expect(timeSeries.length).toBe(2);
+        expect(timeSeries[0]?.date.toISOString()).toContain('2025-10-10');
+        expect(timeSeries[1]?.date.toISOString()).toContain('2025-10-11');
+      } finally {
+        await cleanupTestDevelopers(alice, bob, charlie);
+      }
     });
 
-    const timeSeries = await getFunnelTimeSeries(
-      'default',
-      new Date('2025-10-01T00:00:00Z'),
-      new Date('2025-10-31T00:00:00Z'),
-      'week'
-    );
+    // Test 13: getFunnelTimeSeries - aggregate data by week granularity
+    it('should aggregate data by week granularity', async () => {
+      const { alice, bob, charlie } = await createTestDevelopers();
 
-    expect(timeSeries.length).toBe(1);
-  });
+      try {
+        await createActivity(TEST_TENANT, {
+          developerId: alice,
+          action: 'click',
+          source: 'web',
+          occurredAt: new Date('2025-10-10T10:00:00Z'),
+          metadata: {},
+        });
+        await createActivity(TEST_TENANT, {
+          developerId: bob,
+          action: 'click',
+          source: 'web',
+          occurredAt: new Date('2025-10-11T10:00:00Z'),
+          metadata: {},
+        });
 
-  // Test 14: getFunnelTimeSeries - aggregate data by month granularity
-  it('should aggregate data by month granularity', async () => {
-    await createActivity('default', {
-      developerId: aliceDeveloperId,
-      action: 'click',
-      source: 'web',
-      occurredAt: new Date('2025-10-10T10:00:00Z'),
-      metadata: {},
+        const timeSeries = await getFunnelTimeSeries(
+          TEST_TENANT,
+          new Date('2025-10-01T00:00:00Z'),
+          new Date('2025-10-31T00:00:00Z'),
+          'week'
+        );
+
+        expect(timeSeries.length).toBe(1);
+      } finally {
+        await cleanupTestDevelopers(alice, bob, charlie);
+      }
     });
-    await createActivity('default', {
-      developerId: bobDeveloperId,
-      action: 'click',
-      source: 'web',
-      occurredAt: new Date('2025-11-10T10:00:00Z'),
-      metadata: {},
+
+    // Test 14: getFunnelTimeSeries - aggregate data by month granularity
+    it('should aggregate data by month granularity', async () => {
+      const { alice, bob, charlie } = await createTestDevelopers();
+
+      try {
+        await createActivity(TEST_TENANT, {
+          developerId: alice,
+          action: 'click',
+          source: 'web',
+          occurredAt: new Date('2025-10-10T10:00:00Z'),
+          metadata: {},
+        });
+        await createActivity(TEST_TENANT, {
+          developerId: bob,
+          action: 'click',
+          source: 'web',
+          occurredAt: new Date('2025-11-10T10:00:00Z'),
+          metadata: {},
+        });
+
+        const timeSeries = await getFunnelTimeSeries(
+          TEST_TENANT,
+          new Date('2025-10-01T00:00:00Z'),
+          new Date('2025-11-30T00:00:00Z'),
+          'month'
+        );
+
+        expect(timeSeries.length).toBe(2);
+      } finally {
+        await cleanupTestDevelopers(alice, bob, charlie);
+      }
     });
-
-    const timeSeries = await getFunnelTimeSeries(
-      'default',
-      new Date('2025-10-01T00:00:00Z'),
-      new Date('2025-11-30T00:00:00Z'),
-      'month'
-    );
-
-    expect(timeSeries.length).toBe(2);
-  });
 
   it('should validate date range (fromDate > toDate)', async () => {
     await expect(
       getFunnelTimeSeries(
-        'default',
+        TEST_TENANT,
         new Date('2025-10-20T00:00:00Z'),
         new Date('2025-10-10T00:00:00Z'),
         'day'
@@ -498,7 +565,7 @@ describe('Funnel Drop Rate Service', () => {
     // Test with a malicious SQL injection attempt
     await expect(
       getFunnelTimeSeries(
-        'default',
+        TEST_TENANT,
         new Date('2025-10-10T00:00:00Z'),
         new Date('2025-10-11T00:00:00Z'),
         "day'; DROP TABLE activities; --" as any
@@ -507,96 +574,114 @@ describe('Funnel Drop Rate Service', () => {
   });
 
   // Test 16: getFunnelTimeSeries - respect tenant isolation
-  it('should respect tenant isolation in getFunnelTimeSeries', async () => {
-    await createActivity('default', {
-      developerId: aliceDeveloperId,
-      action: 'click',
-      source: 'web',
-      occurredAt: new Date('2025-10-10T10:00:00Z'),
-      metadata: {},
+    it('should respect tenant isolation in getFunnelTimeSeries', async () => {
+      const { alice, bob, charlie } = await createTestDevelopers();
+
+      try {
+        await createActivity(TEST_TENANT, {
+          developerId: alice,
+          action: 'click',
+          source: 'web',
+          occurredAt: new Date('2025-10-10T10:00:00Z'),
+          metadata: {},
+        });
+
+        await setTenantContext(OTHER_TEST_TENANT);
+        await createActivity(OTHER_TEST_TENANT, {
+          developerId: charlie,
+          action: 'click',
+          source: 'web',
+          occurredAt: new Date('2025-10-10T11:00:00Z'),
+          metadata: {},
+        });
+        await setTenantContext(TEST_TENANT);
+
+        const timeSeries = await getFunnelTimeSeries(
+          TEST_TENANT,
+          new Date('2025-10-10T00:00:00Z'),
+          new Date('2025-10-11T00:00:00Z'),
+          'day'
+        );
+
+        expect(timeSeries.length).toBe(1);
+        const day1Awareness = timeSeries[0]?.stages.find(s => s.stageKey === 'awareness');
+        expect(day1Awareness?.uniqueDevelopers).toBe(1);
+      } finally {
+        await cleanupTestDevelopers(alice, bob, charlie);
+      }
     });
 
-    await setTenantContext('other-tenant');
-    await createActivity('other-tenant', {
-      developerId: charlieDeveloperId,
-      action: 'click',
-      source: 'web',
-      occurredAt: new Date('2025-10-10T11:00:00Z'),
-      metadata: {},
-    });
-    await setTenantContext('default');
+    // Test 17: getFunnelTimeSeries - return empty array when no data in date range
+    it('should return empty array when no data in date range', async () => {
+      const { alice, bob, charlie } = await createTestDevelopers();
 
-    const timeSeries = await getFunnelTimeSeries(
-      'default',
-      new Date('2025-10-10T00:00:00Z'),
-      new Date('2025-10-11T00:00:00Z'),
-      'day'
-    );
+      try {
+        await createActivity(TEST_TENANT, {
+          developerId: alice,
+          action: 'click',
+          source: 'web',
+          occurredAt: new Date('2025-09-10T10:00:00Z'),
+          metadata: {},
+        });
 
-    expect(timeSeries.length).toBe(1);
-    const day1Awareness = timeSeries[0]?.stages.find(s => s.stageKey === 'awareness');
-    expect(day1Awareness?.uniqueDevelopers).toBe(1);
-  });
+        const timeSeries = await getFunnelTimeSeries(
+          TEST_TENANT,
+          new Date('2025-10-01T00:00:00Z'),
+          new Date('2025-10-31T00:00:00Z'),
+          'day'
+        );
 
-  // Test 17: getFunnelTimeSeries - return empty array when no data in date range
-  it('should return empty array when no data in date range', async () => {
-    await createActivity('default', {
-      developerId: aliceDeveloperId,
-      action: 'click',
-      source: 'web',
-      occurredAt: new Date('2025-09-10T10:00:00Z'),
-      metadata: {},
+        expect(timeSeries).toEqual([]);
+      } finally {
+        await cleanupTestDevelopers(alice, bob, charlie);
+      }
     });
 
-    const timeSeries = await getFunnelTimeSeries(
-      'default',
-      new Date('2025-10-01T00:00:00Z'),
-      new Date('2025-10-31T00:00:00Z'),
-      'day'
-    );
+    // Test 18: getFunnelTimeSeries - calculate drop rates in time series correctly
+    it('should calculate drop rates in time series correctly', async () => {
+      const { alice, bob, charlie } = await createTestDevelopers();
 
-    expect(timeSeries).toEqual([]);
-  });
+      try {
+        await createActivity(TEST_TENANT, {
+          developerId: alice,
+          action: 'click',
+          source: 'web',
+          occurredAt: new Date('2025-10-10T10:00:00Z'),
+          metadata: {},
+        });
+        await createActivity(TEST_TENANT, {
+          developerId: bob,
+          action: 'click',
+          source: 'web',
+          occurredAt: new Date('2025-10-10T10:30:00Z'),
+          metadata: {},
+        });
+        await createActivity(TEST_TENANT, {
+          developerId: alice,
+          action: 'attend',
+          source: 'event',
+          occurredAt: new Date('2025-10-10T11:00:00Z'),
+          metadata: {},
+        });
 
-  // Test 18: getFunnelTimeSeries - calculate drop rates in time series correctly
-  it('should calculate drop rates in time series correctly', async () => {
-    await createActivity('default', {
-      developerId: aliceDeveloperId,
-      action: 'click',
-      source: 'web',
-      occurredAt: new Date('2025-10-10T10:00:00Z'),
-      metadata: {},
+        const timeSeries = await getFunnelTimeSeries(
+          TEST_TENANT,
+          new Date('2025-10-10T00:00:00Z'),
+          new Date('2025-10-11T00:00:00Z'),
+          'day'
+        );
+
+        expect(timeSeries.length).toBe(1);
+        const awareness = timeSeries[0]?.stages.find(s => s.stageKey === 'awareness');
+        expect(awareness?.uniqueDevelopers).toBe(2);
+        expect(awareness?.dropRate).toBeNull();
+
+        const engagement = timeSeries[0]?.stages.find(s => s.stageKey === 'engagement');
+        expect(engagement?.uniqueDevelopers).toBe(1);
+        expect(engagement?.dropRate).toBeCloseTo(50, 1);
+      } finally {
+        await cleanupTestDevelopers(alice, bob, charlie);
+      }
     });
-    await createActivity('default', {
-      developerId: bobDeveloperId,
-      action: 'click',
-      source: 'web',
-      occurredAt: new Date('2025-10-10T10:30:00Z'),
-      metadata: {},
-    });
-    await createActivity('default', {
-      developerId: aliceDeveloperId,
-      action: 'attend',
-      source: 'event',
-      occurredAt: new Date('2025-10-10T11:00:00Z'),
-      metadata: {},
-    });
-
-    const timeSeries = await getFunnelTimeSeries(
-      'default',
-      new Date('2025-10-10T00:00:00Z'),
-      new Date('2025-10-11T00:00:00Z'),
-      'day'
-    );
-
-    expect(timeSeries.length).toBe(1);
-    const awareness = timeSeries[0]?.stages.find(s => s.stageKey === 'awareness');
-    expect(awareness?.uniqueDevelopers).toBe(2);
-    expect(awareness?.dropRate).toBeNull();
-
-    const engagement = timeSeries[0]?.stages.find(s => s.stageKey === 'engagement');
-    expect(engagement?.uniqueDevelopers).toBe(1);
-    expect(engagement?.dropRate).toBeCloseTo(50, 1);
-  });
   });
 });

@@ -15,13 +15,13 @@ import {
   type ActionFunctionArgs,
 } from '@remix-run/node';
 import { requireAuth } from '~/auth.middleware.js';
-import { setTenantContext, clearTenantContext } from '../../../db/connection.js';
 import {
   getDeveloper,
   updateDeveloper,
   deleteDeveloper,
   type UpdateDeveloperInput,
-} from '../../../services/drm.service.js';
+} from '../../services/drm.service.js';
+import { getAllOrganizations } from '../../services/organization.service.js';
 import { z } from 'zod';
 
 /**
@@ -77,28 +77,24 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
       );
     }
 
-    // 4. Set tenant context for RLS
-    await setTenantContext(tenantId);
+    // 4. Call service layer to get developer
+    // Service layer handles tenant context via withTenantContext()
+    const result = await getDeveloper(tenantId, developerId);
 
-    try {
-      // 5. Call service layer to get developer
-      const result = await getDeveloper(tenantId, developerId);
-
-      // 6. Clear tenant context after successful operation
-      await clearTenantContext();
-
-      // 7. If developer not found, return 404
-      if (!result) {
-        return json({ error: 'Developer not found' }, { status: 404 });
-      }
-
-      // 8. Return success response with developer data
-      return json(result, { status: 200 });
-    } catch (serviceError) {
-      // Ensure tenant context is cleared even if service call fails
-      await clearTenantContext();
-      throw serviceError; // Re-throw to outer catch block
+    // 5. If developer not found, return 404
+    if (!result) {
+      return json({ error: 'Developer not found' }, { status: 404 });
     }
+
+    // 6. Fetch organization data if developer has orgId
+    let organization = null;
+    if (result.orgId) {
+      const organizations = await getAllOrganizations(tenantId);
+      organization = organizations.find(org => org.organizationId === result.orgId) || null;
+    }
+
+    // 7. Return success response with developer data and organization
+    return json({ ...result, organization }, { status: 200 });
   } catch (error) {
     // 9. Handle errors and return appropriate HTTP status codes
 
@@ -211,29 +207,18 @@ async function handleUpdate(
       );
     }
 
-    // 5. Set tenant context for RLS
-    await setTenantContext(tenantId);
+    // 5. Call service layer to update developer
+    // Service layer handles tenant context via withTenantContext()
+    // Service layer will validate input using Zod schema
+    const result = await updateDeveloper(tenantId, developerId, requestData);
 
-    try {
-      // 6. Call service layer to update developer
-      // Service layer will validate input using Zod schema
-      const result = await updateDeveloper(tenantId, developerId, requestData);
-
-      // 7. Clear tenant context after successful operation
-      await clearTenantContext();
-
-      // 8. If developer not found, return 404
-      if (!result) {
-        return json({ error: 'Developer not found' }, { status: 404 });
-      }
-
-      // 9. Return success response with updated developer data
-      return json(result, { status: 200 });
-    } catch (serviceError) {
-      // Ensure tenant context is cleared even if service call fails
-      await clearTenantContext();
-      throw serviceError; // Re-throw to outer catch block
+    // 6. If developer not found, return 404
+    if (!result) {
+      return json({ error: 'Developer not found' }, { status: 404 });
     }
+
+    // 7. Return success response with updated developer data
+    return json(result, { status: 200 });
   } catch (error) {
     // 10. Handle errors and return appropriate HTTP status codes
 
@@ -333,28 +318,17 @@ async function handleDelete(
       );
     }
 
-    // 4. Set tenant context for RLS
-    await setTenantContext(tenantId);
+    // 4. Call service layer to delete developer
+    // Service layer handles tenant context via withTenantContext()
+    const success = await deleteDeveloper(tenantId, developerId);
 
-    try {
-      // 5. Call service layer to delete developer
-      const success = await deleteDeveloper(tenantId, developerId);
-
-      // 6. Clear tenant context after successful operation
-      await clearTenantContext();
-
-      // 7. If developer not found, return 404
-      if (!success) {
-        return json({ error: 'Developer not found' }, { status: 404 });
-      }
-
-      // 8. Return 204 No Content (successful deletion with no response body)
-      return new Response(null, { status: 204 });
-    } catch (serviceError) {
-      // Ensure tenant context is cleared even if service call fails
-      await clearTenantContext();
-      throw serviceError; // Re-throw to outer catch block
+    // 5. If developer not found, return 404
+    if (!success) {
+      return json({ error: 'Developer not found' }, { status: 404 });
     }
+
+    // 6. Return 204 No Content (successful deletion with no response body)
+    return new Response(null, { status: 204 });
   } catch (error) {
     // 9. Handle errors and return appropriate HTTP status codes
 
