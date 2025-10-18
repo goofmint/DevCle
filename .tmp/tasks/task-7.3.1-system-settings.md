@@ -137,14 +137,23 @@ ALTER TABLE system_settings
 interface SystemSettings {
   tenantId: string;
   baseUrl: string | null;
-  smtpSettings: unknown | null;
-  aiSettings: unknown | null;
   shortlinkDomain: string | null;
+  // 基本設定
   serviceName: string | null;
   logoUrl: string | null;
   fiscalYearStart: string | null;
   fiscalYearEnd: string | null;
   timezone: string | null;
+  // SMTP設定
+  smtpHost: string | null;
+  smtpPort: number | null;
+  smtpUsername: string | null;
+  smtpPassword: string | null;
+  // AI設定
+  aiProvider: string | null;
+  aiApiKey: string | null;
+  aiModel: string | null;
+  // S3設定
   s3Bucket: string | null;
   s3Region: string | null;
   s3AccessKeyId: string | null;
@@ -155,11 +164,22 @@ interface SystemSettings {
 }
 
 interface UpdateSystemSettingsInput {
+  // 基本設定
   serviceName?: string;
   logoUrl?: string;
   fiscalYearStart?: string;
   fiscalYearEnd?: string;
   timezone?: string;
+  // SMTP設定
+  smtpHost?: string;
+  smtpPort?: number;
+  smtpUsername?: string;
+  smtpPassword?: string;
+  // AI設定
+  aiProvider?: string;
+  aiApiKey?: string;
+  aiModel?: string;
+  // S3設定
   s3Bucket?: string;
   s3Region?: string;
   s3AccessKeyId?: string;
@@ -211,11 +231,22 @@ export async function loader({ request }: LoaderFunctionArgs): Promise<Response>
  * PUT /api/settings
  * Body: UpdateSystemSettingsInput
  * {
+ *   // 基本設定
  *   serviceName?: string,
  *   logoUrl?: string,
  *   fiscalYearStart?: string,
  *   fiscalYearEnd?: string,
  *   timezone?: string,
+ *   // SMTP設定
+ *   smtpHost?: string,
+ *   smtpPort?: number,
+ *   smtpUsername?: string,
+ *   smtpPassword?: string,
+ *   // AI設定
+ *   aiProvider?: string,
+ *   aiApiKey?: string,
+ *   aiModel?: string,
+ *   // S3設定
  *   s3Bucket?: string,
  *   s3Region?: string,
  *   s3AccessKeyId?: string,
@@ -249,6 +280,15 @@ export default function SettingsPage(): JSX.Element;
  *   - 期末設定（MM-DD形式の日付入力）
  *   - タイムゾーン選択（ドロップダウン、Intl.supportedValuesOf('timeZone')から取得）
  *     - デフォルト値: Intl.DateTimeFormat().resolvedOptions().timeZone（ブラウザ設定）
+ * - SMTP設定セクション
+ *   - SMTPホスト入力フィールド
+ *   - SMTPポート入力フィールド（数値）
+ *   - SMTPユーザー名入力フィールド
+ *   - SMTPパスワード入力フィールド（パスワード形式）
+ * - AI設定セクション
+ *   - AIプロバイダー選択（ドロップダウン: openai, anthropic等）
+ *   - AI APIキー入力フィールド（パスワード形式）
+ *   - AIモデル入力フィールド
  * - S3設定セクション
  *   - バケット名入力フィールド
  *   - リージョン選択（ドロップダウン）
@@ -264,13 +304,24 @@ export default function SettingsPage(): JSX.Element;
 ```typescript
 // app/components/settings/BasicSettingsForm.tsx
 
-interface BasicSettingsFormProps {
+interface SystemSettingsFormProps {
   settings: {
+    // 基本設定
     serviceName: string | null;
     logoUrl: string | null;
     fiscalYearStart: string | null;
     fiscalYearEnd: string | null;
     timezone: string | null;
+    // SMTP設定
+    smtpHost: string | null;
+    smtpPort: number | null;
+    smtpUsername: string | null;
+    smtpPassword: string | null;
+    // AI設定
+    aiProvider: string | null;
+    aiApiKey: string | null;
+    aiModel: string | null;
+    // S3設定
     s3Bucket: string | null;
     s3Region: string | null;
     s3AccessKeyId: string | null;
@@ -280,7 +331,7 @@ interface BasicSettingsFormProps {
   defaultTimezone: string; // Intl.DateTimeFormat().resolvedOptions().timeZone
 }
 
-export function BasicSettingsForm(props: BasicSettingsFormProps): JSX.Element;
+export function SystemSettingsForm(props: SystemSettingsFormProps): JSX.Element;
 ```
 
 **デザイン要件:**
@@ -316,11 +367,22 @@ const timezoneValidator = z.string().refine((val) => validTimezones.includes(val
 
 // Update system settings input schema
 export const UpdateSystemSettingsSchema = z.object({
+  // 基本設定
   serviceName: z.string().min(1).max(100).optional(),
   logoUrl: z.string().url().or(z.string().startsWith('data:image/')).optional(),
   fiscalYearStart: mmddValidator.optional(),
   fiscalYearEnd: mmddValidator.optional(),
   timezone: timezoneValidator.optional(),
+  // SMTP設定
+  smtpHost: z.string().min(1, 'SMTP host is required').optional(),
+  smtpPort: z.number().int().min(1).max(65535, 'Invalid port number').optional(),
+  smtpUsername: z.string().min(1, 'SMTP username is required').optional(),
+  smtpPassword: z.string().min(1, 'SMTP password is required').optional(),
+  // AI設定
+  aiProvider: z.enum(['openai', 'anthropic', 'google'], { message: 'Invalid AI provider' }).optional(),
+  aiApiKey: z.string().min(1, 'AI API key is required').optional(),
+  aiModel: z.string().min(1, 'AI model is required').optional(),
+  // S3設定
   s3Bucket: z.string().min(1, 'Bucket name is required').optional(),
   s3Region: z.string().min(1, 'Region is required').optional(),
   s3AccessKeyId: z.string().min(1, 'Access Key ID is required').optional(),
@@ -384,16 +446,33 @@ test.describe('Settings Page', () => {
     // 必須フィールドを空にして保存
     // バリデーションエラーが表示されることを確認
   });
+
+  test('should save SMTP settings', async ({ page }) => {
+    // SMTP設定（ホスト、ポート、ユーザー名、パスワード）を入力
+    // 保存ボタンをクリック
+    // 設定が保存されることを確認
+    // SMTPパスワードがマスク表示されることを確認
+  });
+
+  test('should save AI settings', async ({ page }) => {
+    // AI設定（プロバイダー、APIキー、モデル）を入力
+    // 保存ボタンをクリック
+    // 設定が保存されることを確認
+    // AI APIキーがマスク表示されることを確認
+  });
 });
 ```
 
 ## 完了条件
 
 - [ ] `app/routes/dashboard.settings.tsx`が実装され、ブラウザで表示できる
-- [ ] サービス名、ロゴ、期初期末、タイムゾーン、S3設定が保存できる
+- [ ] 基本設定（サービス名、ロゴ、期初期末、タイムゾーン）が保存できる
+- [ ] SMTP設定（ホスト、ポート、ユーザー名、パスワード）が保存できる
+- [ ] AI設定（プロバイダー、APIキー、モデル）が保存できる
+- [ ] S3設定（バケット、リージョン、アクセスキー、シークレットキー、エンドポイント）が保存できる
 - [ ] タイムゾーンのデフォルト値がブラウザ設定（`Intl.DateTimeFormat().resolvedOptions().timeZone`）になる
 - [ ] 保存した設定が画面リロード後も保持される
-- [ ] S3シークレットアクセスキーがパスワード形式で表示される
+- [ ] パスワード/キー類（smtpPassword, aiApiKey, s3SecretAccessKey）がパスワード形式で表示される
 - [ ] E2Eテストが全て通過する
 - [ ] TypeScriptエラーがない（`pnpm typecheck`成功）
 - [ ] Lintエラーがない（`pnpm lint`成功）
@@ -404,21 +483,32 @@ test.describe('Settings Page', () => {
 - ロゴのMIMEタイプ検証（image/png, image/jpeg, image/svgのみ許可）
 - XSS対策（ロゴURLのサニタイズ）
 - CSRF対策（RemixのCSRF保護機能を使用）
-- **S3認証情報の暗号化**
-  - `secretAccessKey`はデータベース保存時に暗号化（AES-256-GCM推奨）
-  - `accessKeyId`も暗号化推奨（平文でも可だが暗号化が望ましい）
+- **機密情報の暗号化（必須）**
+  - `smtpPassword`はデータベース保存時に暗号化（AES-256-GCM推奨）
+  - `aiApiKey`はデータベース保存時に暗号化（AES-256-GCM推奨）
+  - `s3SecretAccessKey`はデータベース保存時に暗号化（AES-256-GCM推奨）
+  - `s3AccessKeyId`も暗号化推奨（平文でも可だが暗号化が望ましい）
   - 暗号化キーは環境変数（`ENCRYPTION_KEY`）で管理
-  - フロントエンドでは`secretAccessKey`をパスワード形式で表示（マスク表示）
+  - フロントエンドでは機密情報をパスワード形式で表示（マスク表示）
 
 ## 注意事項
 
-- ロゴアップロード機能は初期実装ではdata URI形式で保存し、後にS3等のストレージに移行予定
+- **ロゴアップロード**
+  - 初期実装ではdata URI形式で保存し、後にS3等のストレージに移行予定
   - S3設定が保存されている場合は、ロゴをS3にアップロードすることも可能
-- タイムゾーン一覧はIntl APIから取得（`Intl.supportedValuesOf('timeZone')`）
-- タイムゾーンのデフォルト値はブラウザ設定（`Intl.DateTimeFormat().resolvedOptions().timeZone`）
-- 期初期末の設定はROI計算やレポート生成で使用される予定
-- この設定画面はシステム管理者のみアクセス可能（認証チェック）
-- S3設定は将来的にロゴアップロード、データエクスポート、バックアップ等で使用される
+- **タイムゾーン**
+  - タイムゾーン一覧はIntl APIから取得（`Intl.supportedValuesOf('timeZone')`）
+  - デフォルト値はブラウザ設定（`Intl.DateTimeFormat().resolvedOptions().timeZone`）
+- **会計期間**
+  - 期初期末の設定はROI計算やレポート生成で使用される予定
+- **アクセス権限**
+  - この設定画面はシステム管理者のみアクセス可能（認証チェック）
+- **SMTP設定の用途**
+  - 通知メール送信、レポート送信、招待メール送信等で使用
+- **AI設定の用途**
+  - Activity分類、Developer属性推定、ROI分析等で使用（将来実装）
+- **S3設定の用途**
+  - ロゴアップロード、データエクスポート、バックアップ、レポートPDF保存等で使用
 
 ## 次のタスク
 
