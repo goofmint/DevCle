@@ -16,7 +16,7 @@
 import { json, type LoaderFunctionArgs } from '@remix-run/node';
 import { useParams, Link } from '@remix-run/react';
 import { useState, useEffect } from 'react';
-import { requireAuth } from '~/auth.middleware.js';
+import { requireAuth } from '~/auth.middleware';
 import { DeveloperDetail } from '~/components/developers/DeveloperDetail';
 import { ActivityTimeline } from '~/components/developers/ActivityTimeline';
 
