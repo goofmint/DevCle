@@ -261,7 +261,85 @@ export async function action({ request }: ActionFunctionArgs): Promise<Response>
 - 400: Invalid request body（バリデーションエラー）
 - 401: Unauthorized（認証エラー）
 - 404: Settings not found（初期化されていない場合は自動作成）
+- 413: Payload too large（>2MB）
 - 500: Internal server error
+
+**Handler-Level Validation (PUT /api/settings):**
+
+ハンドラーで実施する必須バリデーション項目：
+
+1. **認証・認可チェック**
+   - `requireAuth(request)` - ユーザー認証
+   - `user.role === 'admin'` - 管理者権限チェック
+
+2. **CSRF保護**
+   - RemixのCSRFトークン検証（自動）
+
+3. **Content-Length チェック**
+   ```typescript
+   const contentLength = request.headers.get('content-length');
+   if (contentLength && parseInt(contentLength) > 2 * 1024 * 1024) {
+     return json({ error: 'Payload too large' }, { status: 413 });
+   }
+   ```
+
+4. **logoUrl のハンドラーレベルバリデーション**
+
+   スキーマバリデーション（Zod）は形式のみチェック済み:
+   - Valid URL format OR starts with `data:image/`
+
+   ハンドラーで追加実施:
+   - **data URI の場合:**
+     - ペイロード長チェック（≤2MB）
+     - MIME タイプ検証（`data:image/png`, `data:image/jpeg`, `data:image/svg+xml`のみ）
+   - **URL の場合:**
+     - XSS対策: `javascript:`, `data:text/html` 等の危険なスキームを拒否
+     - （オプション）ドメインホワイトリスト検証
+     - （オプション）URL先のContent-Typeヘッダー検証
+
+5. **ファイルアップロードフロー（multipart/form-data）**
+
+   logoUrlをファイルアップロードで受け取る場合:
+   ```
+   Step 1: リクエスト受信
+     → Content-Type: multipart/form-data を確認
+
+   Step 2: Content-Length チェック
+     → ヘッダーから取得、>2MB なら即座に 413 Payload Too Large
+
+   Step 3: 最初のバイト読み込み
+     → ファイルの先頭バイトを読み、MIME タイプを検証
+     → PNGなら 89 50 4E 47 (PNG signature)
+     → JPEGなら FF D8 FF (JPEG signature)
+     → SVGなら <?xml or <svg (テキストベース)
+
+   Step 4: Content-Type ヘッダー検証
+     → image/png, image/jpeg, image/svg+xml のみ許可
+
+   Step 5: data URI 変換
+     → File → Base64エンコード → data:image/{type};base64,{data}
+
+   Step 6: 変換後のペイロード長チェック
+     → data URI 全体が ≤2MB であることを再確認
+
+   Step 7: ストア or リジェクト
+     → 全チェック通過 → データベース保存
+     → いずれか失敗 → 400 Bad Request
+   ```
+
+6. **機密情報の暗号化**
+
+   保存前に以下を暗号化:
+   ```typescript
+   import { encrypt } from '~/lib/crypto.server';
+
+   const encrypted = {
+     smtpPassword: settings.smtpPassword ? encrypt(settings.smtpPassword) : null,
+     aiApiKey: settings.aiApiKey ? encrypt(settings.aiApiKey) : null,
+     s3SecretAccessKey: settings.s3SecretAccessKey ? encrypt(settings.s3SecretAccessKey) : null,
+     s3AccessKeyId: settings.s3AccessKeyId ? encrypt(settings.s3AccessKeyId) : null,
+   };
+   ```
 
 ### 5. UI実装
 
@@ -347,6 +425,25 @@ export function SystemSettingsForm(props: SystemSettingsFormProps): JSX.Element;
 // core/services/system-settings.schemas.ts
 
 import { z } from 'zod';
+
+/**
+ * SCHEMA-LEVEL VALIDATION
+ *
+ * These Zod schemas validate REQUEST SHAPE only:
+ * - logoUrl: Valid URL format OR starts with "data:image/" prefix
+ *   (does NOT validate file size, MIME type, or data-URI payload)
+ * - timezone: IANA timezone via Intl.supportedValuesOf('timeZone')
+ * - fiscalYearStart/End: MM-DD format with month 01-12, day 01-31
+ * - smtpPort: Integer 1-65535
+ * - aiProvider: Enum whitelist (openai, anthropic, google)
+ * - s3Endpoint: Valid URL format
+ *
+ * HANDLER-LEVEL VALIDATION (see API Routes section):
+ * - Content-Length check (reject >2MB)
+ * - MIME whitelist (image/png, image/jpeg, image/svg+xml)
+ * - XSS sanitization for non-data URIs
+ * - CSRF token enforcement (Remix)
+ */
 
 // Helper: Validate MM-DD format
 const mmddValidator = z.string().refine((val) => {
@@ -479,17 +576,106 @@ test.describe('Settings Page', () => {
 
 ## セキュリティ考慮事項
 
-- ロゴアップロードはファイルサイズ制限（例: 2MB）を設ける
-- ロゴのMIMEタイプ検証（image/png, image/jpeg, image/svgのみ許可）
-- XSS対策（ロゴURLのサニタイズ）
-- CSRF対策（RemixのCSRF保護機能を使用）
-- **機密情報の暗号化（必須）**
-  - `smtpPassword`はデータベース保存時に暗号化（AES-256-GCM推奨）
-  - `aiApiKey`はデータベース保存時に暗号化（AES-256-GCM推奨）
-  - `s3SecretAccessKey`はデータベース保存時に暗号化（AES-256-GCM推奨）
-  - `s3AccessKeyId`も暗号化推奨（平文でも可だが暗号化が望ましい）
-  - 暗号化キーは環境変数（`ENCRYPTION_KEY`）で管理
-  - フロントエンドでは機密情報をパスワード形式で表示（マスク表示）
+### Schema-Level Validation（Zodスキーマ）
+
+Zodスキーマで実施するバリデーション:
+
+1. **フィールド形式チェック**
+   - `logoUrl`: Valid URL format OR starts with `data:image/` prefix
+     - ⚠️ ファイルサイズ、MIME type、data-URIペイロードは検証しない
+   - `timezone`: IANA timezone (`Intl.supportedValuesOf('timeZone')`)
+   - `fiscalYearStart/End`: MM-DD format (month 01-12, day 01-31)
+   - `smtpPort`: Integer 1-65535
+   - `aiProvider`: Enum (`openai`, `anthropic`, `google`)
+   - `s3Endpoint`: Valid URL format
+
+2. **文字列長チェック**
+   - `serviceName`: 1-100文字
+   - その他必須フィールド: 最小1文字
+
+### Handler-Level Validation（APIハンドラー）
+
+APIハンドラー（`PUT /api/settings`）で実施する必須バリデーション:
+
+1. **認証・認可**
+   - `requireAuth(request)` - ユーザー認証必須
+   - `user.role === 'admin'` - 管理者権限チェック
+
+2. **リクエストサイズ制限**
+   - Content-Length ヘッダーチェック
+   - >2MB のリクエストは即座に 413 Payload Too Large でリジェクト
+
+3. **CSRF保護**
+   - Remix CSRF トークン検証（フレームワーク組み込み）
+
+4. **logoUrl ハンドラーバリデーション**
+   - **data URI の場合:**
+     - MIME type whitelist: `data:image/png`, `data:image/jpeg`, `data:image/svg+xml`
+     - ペイロード長 ≤2MB
+   - **URL の場合:**
+     - Scheme denylist: `javascript:`, `data:text/html`, `vbscript:` 等を拒否
+     - （オプション）ドメインホワイトリスト検証
+
+5. **ファイルアップロード処理**
+   - Content-Type ヘッダー検証（`image/png`, `image/jpeg`, `image/svg+xml`）
+   - ファイル先頭バイト検証（magic number）:
+     - PNG: `89 50 4E 47`
+     - JPEG: `FF D8 FF`
+     - SVG: `<?xml` or `<svg`
+   - Base64エンコード → data URI 変換
+   - 変換後の全長チェック（≤2MB）
+
+6. **XSS/インジェクション対策**
+   - logoUrl: 危険なスキーム（`javascript:`, `data:text/html`）を拒否
+   - serviceName: HTMLエスケープ（フロントエンドで自動）
+   - 外部URL: （オプション）Content-Security-Policy ヘッダー設定
+
+7. **機密情報の暗号化（必須）**
+   - 以下のフィールドは保存前に暗号化:
+     - `smtpPassword` （AES-256-GCM）
+     - `aiApiKey` （AES-256-GCM）
+     - `s3SecretAccessKey` （AES-256-GCM）
+     - `s3AccessKeyId` （推奨）
+   - 暗号化キー: 環境変数 `ENCRYPTION_KEY` で管理
+   - フロントエンド: パスワード形式で表示（マスク）
+
+### Security Flow Summary
+
+**ファイルアップロードフロー:**
+```
+1. リクエスト受信
+   ↓
+2. Content-Length チェック (>2MB → 413)
+   ↓
+3. Content-Type ヘッダー検証 (whitelist)
+   ↓
+4. ファイル先頭バイト読み込み (magic number検証)
+   ↓
+5. Base64エンコード → data URI 変換
+   ↓
+6. 変換後のペイロード長チェック (>2MB → 400)
+   ↓
+7. Zodスキーマバリデーション
+   ↓
+8. 機密情報暗号化
+   ↓
+9. データベース保存 or 400 Bad Request
+```
+
+**URLアップロードフロー:**
+```
+1. リクエスト受信
+   ↓
+2. Zodスキーマバリデーション (URL format)
+   ↓
+3. Scheme denylist チェック (javascript:, data:text/html 等)
+   ↓
+4. （オプション）ドメインホワイトリスト検証
+   ↓
+5. 機密情報暗号化
+   ↓
+6. データベース保存 or 400 Bad Request
+```
 
 ## 注意事項
 
