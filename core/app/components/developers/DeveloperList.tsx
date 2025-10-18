@@ -3,11 +3,10 @@
  *
  * Main container component for developer list page.
  * Integrates filters, table/card view, and pagination.
- * Manages filter state and syncs with URL parameters.
+ * Fetches data client-side via API on filter changes (no page reload).
  */
 
 import { useState } from 'react';
-import { useNavigate } from '@remix-run/react';
 import { DeveloperFilters } from './DeveloperFilters';
 import { DeveloperTable } from './DeveloperTable';
 import { DeveloperCard } from './DeveloperCard';
@@ -63,12 +62,12 @@ interface FilterValues {
  * Props for DeveloperList component
  */
 interface DeveloperListProps {
-  /** List of developers to display */
-  developers: DeveloperListItem[];
+  /** Initial list of developers to display */
+  initialDevelopers: DeveloperListItem[];
   /** List of organizations for filter dropdown */
   organizations: Organization[];
-  /** Pagination info */
-  pagination: Pagination;
+  /** Initial pagination info */
+  initialPagination: Pagination;
   /** Initial filter values from URL params */
   initialFilters: FilterValues;
   /** View mode (table or card), defaults to responsive (table on desktop, card on mobile) */
@@ -80,54 +79,75 @@ interface DeveloperListProps {
  *
  * Renders developer list with filters, sorting, and pagination.
  * Automatically switches between table and card view based on screen size (if viewMode='responsive').
+ * Fetches data via API on filter changes (no page reload).
  */
 export function DeveloperList({
-  developers,
+  initialDevelopers,
   organizations,
-  pagination,
+  initialPagination,
   initialFilters,
   viewMode = 'responsive',
 }: DeveloperListProps) {
-  const navigate = useNavigate();
-
-  // Filter state
+  // Component state
+  const [developers, setDevelopers] = useState<DeveloperListItem[]>(initialDevelopers);
+  const [pagination, setPagination] = useState<Pagination>(initialPagination);
   const [filters, setFilters] = useState<FilterValues>(initialFilters);
 
-  // Update URL with new filter values
-  const updateUrl = (newFilters: Partial<FilterValues>) => {
-    const updatedFilters = { ...filters, ...newFilters };
-    const params = new URLSearchParams();
+  // Fetch developers from API
+  const fetchDevelopers = async (newFilters: FilterValues, page: number = 1) => {
+    try {
+      const params = new URLSearchParams({
+        limit: String(pagination.limit),
+        offset: String((page - 1) * pagination.limit),
+        orderBy: newFilters.sortBy === 'name' ? 'displayName' : newFilters.sortBy === 'email' ? 'primaryEmail' : newFilters.sortBy,
+        orderDirection: newFilters.sortOrder,
+      });
 
-    if (updatedFilters.query) {
-      params.set('query', updatedFilters.query);
-    }
-    if (updatedFilters.organizationId) {
-      params.set('organizationId', updatedFilters.organizationId);
-    }
-    if (updatedFilters.consentAnalytics !== null) {
-      params.set('consentAnalytics', String(updatedFilters.consentAnalytics));
-    }
-    params.set('sortBy', updatedFilters.sortBy);
-    params.set('sortOrder', updatedFilters.sortOrder);
-    params.set('page', '1'); // Reset to first page on filter change
+      if (newFilters.query) {
+        params.set('search', newFilters.query);
+      }
+      if (newFilters.organizationId) {
+        params.set('orgId', newFilters.organizationId);
+      }
+      if (newFilters.consentAnalytics !== null) {
+        params.set('consentAnalytics', String(newFilters.consentAnalytics));
+      }
 
-    navigate(`?${params.toString()}`, { replace: true });
+      const response = await fetch(`/api/developers?${params.toString()}`);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch developers: ${response.status}`);
+      }
+
+      const data = await response.json();
+      setDevelopers(data.developers || []);
+      setPagination({
+        page,
+        limit: pagination.limit,
+        total: data.total || 0,
+        totalPages: Math.ceil((data.total || 0) / pagination.limit),
+      });
+    } catch (err) {
+      console.error('Failed to fetch developers:', err);
+    }
   };
 
   // Handle filter changes
   const handleQueryChange = (query: string) => {
-    setFilters({ ...filters, query });
-    updateUrl({ query });
+    const newFilters = { ...filters, query };
+    setFilters(newFilters);
+    fetchDevelopers(newFilters);
   };
 
   const handleOrganizationChange = (organizationId: string | null) => {
-    setFilters({ ...filters, organizationId });
-    updateUrl({ organizationId });
+    const newFilters = { ...filters, organizationId };
+    setFilters(newFilters);
+    fetchDevelopers(newFilters);
   };
 
   const handleConsentAnalyticsChange = (consentAnalytics: boolean | null) => {
-    setFilters({ ...filters, consentAnalytics });
-    updateUrl({ consentAnalytics });
+    const newFilters = { ...filters, consentAnalytics };
+    setFilters(newFilters);
+    fetchDevelopers(newFilters);
   };
 
   const handleReset = () => {
@@ -139,15 +159,16 @@ export function DeveloperList({
       sortOrder: 'asc',
     };
     setFilters(resetFilters);
-    updateUrl(resetFilters);
+    fetchDevelopers(resetFilters);
   };
 
   // Handle sort column click
   const handleSort = (column: 'name' | 'email' | 'createdAt' | 'activityCount') => {
-    const newSortOrder =
+    const newSortOrder: 'asc' | 'desc' =
       filters.sortBy === column && filters.sortOrder === 'asc' ? 'desc' : 'asc';
-    setFilters({ ...filters, sortBy: column, sortOrder: newSortOrder });
-    updateUrl({ sortBy: column, sortOrder: newSortOrder });
+    const newFilters: FilterValues = { ...filters, sortBy: column, sortOrder: newSortOrder };
+    setFilters(newFilters);
+    fetchDevelopers(newFilters);
   };
 
   return (

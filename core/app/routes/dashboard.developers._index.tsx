@@ -177,9 +177,9 @@ export default function DevelopersPage() {
       </h1>
 
       <DeveloperList
-        developers={developers}
+        initialDevelopers={developers}
         organizations={organizations}
-        pagination={pagination}
+        initialPagination={pagination}
         initialFilters={{
           query,
           organizationId,

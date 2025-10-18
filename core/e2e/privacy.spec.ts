@@ -448,6 +448,9 @@ test.describe('Privacy Policy Page', () => {
     });
     await darkModeToggle.click();
 
+    // Wait for dark mode class to be applied
+    await page.waitForSelector('html.dark', { timeout: 5000 });
+
     // Wait for transition
     await page.waitForTimeout(500);
 
