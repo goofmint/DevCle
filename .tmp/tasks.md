@@ -535,8 +535,14 @@
 ### Task 7.3.1: システム設定画面の実装
 
 - [ ] `app/routes/dashboard.settings.tsx`作成（システム設定画面）
+- [ ] 基本設定（管理するサービス名、ロゴアップロード、期初期末設定、タイムゾーン）
+- [ ] E2Eテスト作成（設定画面の動作確認）
+- **完了条件**: システム設定画面が表示され、設定が保存できる
+- **依存**: Task 7.1
+- **推定時間**: 4時間
+- **ドキュメント**: [.tmp/tasks/task-7.3.1-system-settings.md](.tmp/tasks/task-7.3.1-system-settings.md)
 
-### Task 7.3.1: アクティビティカラーとアイコンの設定画面実装
+### Task 7.3.2: アクティビティカラーとアイコンの設定画面実装（システム設定画面の一部）
 
 - [ ] `app/routes/dashboard.settings.activity-types.tsx`作成（アクティビティタイプ設定画面）
 - [ ] `app/routes/api/activity-types.ts`作成（アクティビティタイプCRUD API）
@@ -560,13 +566,14 @@
 - **完了条件**: 設定画面でアクティビティタイプごとにアイコンとカラーを設定でき、ActivityTimelineに反映される
 - **依存**: Task 7.3
 - **推定時間**: 5時間
+- **ドキュメント**: [.tmp/tasks/task-7.3.2-activity-type-settings.md](.tmp/tasks/task-7.3.2-activity-type-settings.md)
 - **注意**:
   - 実装は2段階に分割：
-    1. このタスク（7.3.1）: 設定画面とテーブル作成
-    2. 次のタスク（7.3.2）: `getActivityColor()`と`getActivityIconName()`の実装（データベースから取得）
+    1. このタスク（7.3.2）: 設定画面とテーブル作成
+    2. 次のタスク（7.3.3）: `getActivityColor()`と`getActivityIconName()`の実装（データベースから取得）
   - ActivityTimeline.tsx内のTODOコメントを参照
 
-### Task 7.3.2: ActivityTimeline動的カラー・アイコン適用
+### Task 7.3.3: ActivityTimeline動的カラー・アイコン適用
 
 - [ ] `getActivityColor()`実装（データベースから設定を取得）
 - [ ] `getActivityIconName()`実装（データベースから設定を取得）
@@ -574,8 +581,9 @@
 - [ ] キャッシング実装（同一テナント内で設定を再利用）
 - [ ] E2Eテスト作成（カラー・アイコンの動的表示確認）
 - **完了条件**: ActivityTimelineがデータベースの設定に基づいてカラーとアイコンを動的に表示する
-- **依存**: Task 7.3.1
+- **依存**: Task 7.3.2
 - **推定時間**: 3時間
+- **ドキュメント**: [.tmp/tasks/task-7.3.3-activity-timeline-dynamic.md](.tmp/tasks/task-7.3.3-activity-timeline-dynamic.md)
 
 ### Task 7.4: Campaignsページ実装
 
