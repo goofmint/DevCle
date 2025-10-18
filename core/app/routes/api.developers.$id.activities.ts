@@ -19,12 +19,22 @@ const UuidSchema = z.string().uuid();
 
 /**
  * Query parameters schema for activity listing
+ * Supported sortBy values map to DB columns: occurredAt -> occurred_at, recordedAt -> recorded_at, ingestedAt -> ingested_at
  */
 const QueryParamsSchema = z.object({
   limit: z.number().int().positive().max(100).default(10),
-  sortBy: z.enum(['occurredAt', 'action', 'source']).default('occurredAt'),
+  sortBy: z.enum(['occurredAt', 'recordedAt', 'ingestedAt']).default('occurredAt'),
   sortOrder: z.enum(['asc', 'desc']).default('desc'),
 });
+
+/**
+ * Map camelCase client sortBy values to snake_case DB column names
+ */
+const SORT_BY_MAPPING: Record<'occurredAt' | 'recordedAt' | 'ingestedAt', 'occurred_at' | 'recorded_at' | 'ingested_at'> = {
+  occurredAt: 'occurred_at',
+  recordedAt: 'recorded_at',
+  ingestedAt: 'ingested_at',
+};
 
 /**
  * GET /api/developers/:id/activities
@@ -34,7 +44,7 @@ const QueryParamsSchema = z.object({
  *
  * Query Parameters:
  * - limit: Number of activities to return (max 100, default 10)
- * - sortBy: Field to sort by (occurredAt, action, source, default: occurredAt)
+ * - sortBy: Field to sort by (occurredAt, recordedAt, ingestedAt, default: occurredAt)
  * - sortOrder: Sort direction (asc, desc, default: desc)
  *
  * Response:
@@ -91,12 +101,12 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
     const queryParams = QueryParamsSchema.parse(rawQueryParams);
 
     // 5. Fetch activities using service layer
-    // Note: listActivities only supports occurred_at, recorded_at, ingested_at for orderBy
-    // Action and source sorting is not supported by the service layer
+    // Map camelCase sortBy to snake_case DB column name
+    const orderBy = SORT_BY_MAPPING[queryParams.sortBy];
     const result = await listActivities(tenantId, {
       developerId,
       limit: queryParams.limit,
-      orderBy: 'occurred_at', // Always use occurred_at for developer activities
+      orderBy,
       orderDirection: queryParams.sortOrder,
     });
 

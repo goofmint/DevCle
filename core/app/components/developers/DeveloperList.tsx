@@ -40,7 +40,7 @@ interface Organization {
 /**
  * Pagination info
  */
-interface Pagination {
+interface PaginationInfo {
   page: number;
   limit: number;
   total: number;
@@ -67,7 +67,7 @@ interface DeveloperListProps {
   /** List of organizations for filter dropdown */
   organizations: Organization[];
   /** Initial pagination info */
-  initialPagination: Pagination;
+  initialPagination: PaginationInfo;
   /** Initial filter values from URL params */
   initialFilters: FilterValues;
   /** View mode (table or card), defaults to responsive (table on desktop, card on mobile) */
@@ -90,7 +90,7 @@ export function DeveloperList({
 }: DeveloperListProps) {
   // Component state
   const [developers, setDevelopers] = useState<DeveloperListItem[]>(initialDevelopers);
-  const [pagination, setPagination] = useState<Pagination>(initialPagination);
+  const [pagination, setPagination] = useState<PaginationInfo>(initialPagination);
   const [filters, setFilters] = useState<FilterValues>(initialFilters);
 
   // Fetch developers from API

@@ -6,8 +6,8 @@
  * - getFunnelStats(): Funnel statistics calculation
  */
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import { setTenantContext, clearTenantContext, closeDb, getDb } from '../db/connection';
+import { describe, it, expect, afterAll } from 'vitest';
+import { setTenantContext, closeDb, getDb } from '../db/connection';
 import * as schema from '../db/schema/index';
 import { eq, and } from 'drizzle-orm';
 import { classifyStage, getFunnelStats } from './funnel.service';

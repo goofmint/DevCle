@@ -14,7 +14,7 @@ import { Icon } from '@iconify/react';
  */
 interface DeveloperListItem {
   developerId: string;
-  displayName: string;
+  displayName: string | null;
   primaryEmail: string;
   avatarUrl: string | null;
   organizationId: string | null;
@@ -23,7 +23,7 @@ interface DeveloperListItem {
     name: string;
   } | null;
   activityCount?: number;
-  createdAt: Date;
+  createdAt: string | Date;
 }
 
 /**
@@ -52,18 +52,24 @@ export function DeveloperTable({
   onSort,
 }: DeveloperTableProps) {
   // Generate initials from display name for avatar fallback
-  const getInitials = (name: string) =>
-    name
+  // Falls back to email or "Developer" if displayName is null
+  const getInitials = (name: string | null, email: string) => {
+    const displayText = name || email || 'Developer';
+    return displayText
       .split(' ')
       .map((n) => n[0])
       .join('')
       .toUpperCase()
       .slice(0, 2);
+  };
 
   // Format date to human-readable string
-  const formatDate = (date: Date) => {
-    const d = new Date(date);
-    return d.toLocaleDateString('en-US', {
+  // Handles both Date objects and ISO string dates
+  // Uses user's locale if available, falls back to navigator.language or 'en-US'
+  const formatDate = (date: string | Date) => {
+    const d = typeof date === 'string' ? new Date(date) : date;
+    const locale = typeof navigator !== 'undefined' ? navigator.language || 'en-US' : 'en-US';
+    return d.toLocaleDateString(locale, {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
@@ -103,25 +109,49 @@ export function DeveloperTable({
             {/* Developer column (with avatar) */}
             <th
               scope="col"
-              className="px-6 py-3 text-left cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
-              onClick={() => onSort('name')}
+              className="px-6 py-3 text-left"
+              aria-sort={sortBy === 'name' ? (sortOrder === 'asc' ? 'ascending' : 'descending') : 'none'}
             >
-              <div className="flex items-center gap-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+              <button
+                type="button"
+                className="flex items-center gap-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider
+                           hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded px-2 py-1 -mx-2 -my-1"
+                onClick={() => onSort('name')}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onSort('name');
+                  }
+                }}
+                aria-label={`Sort by developer name ${sortBy === 'name' ? (sortOrder === 'asc' ? 'descending' : 'ascending') : 'ascending'}`}
+              >
                 Developer
                 <SortIcon column="name" />
-              </div>
+              </button>
             </th>
 
             {/* Email column */}
             <th
               scope="col"
-              className="px-6 py-3 text-left cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
-              onClick={() => onSort('email')}
+              className="px-6 py-3 text-left"
+              aria-sort={sortBy === 'email' ? (sortOrder === 'asc' ? 'ascending' : 'descending') : 'none'}
             >
-              <div className="flex items-center gap-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+              <button
+                type="button"
+                className="flex items-center gap-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider
+                           hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded px-2 py-1 -mx-2 -my-1"
+                onClick={() => onSort('email')}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onSort('email');
+                  }
+                }}
+                aria-label={`Sort by email ${sortBy === 'email' ? (sortOrder === 'asc' ? 'descending' : 'ascending') : 'ascending'}`}
+              >
                 Email
                 <SortIcon column="email" />
-              </div>
+              </button>
             </th>
 
             {/* Organization column (not sortable) */}
@@ -135,25 +165,49 @@ export function DeveloperTable({
             {/* Activity count column */}
             <th
               scope="col"
-              className="px-6 py-3 text-left cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
-              onClick={() => onSort('activityCount')}
+              className="px-6 py-3 text-left"
+              aria-sort={sortBy === 'activityCount' ? (sortOrder === 'asc' ? 'ascending' : 'descending') : 'none'}
             >
-              <div className="flex items-center gap-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+              <button
+                type="button"
+                className="flex items-center gap-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider
+                           hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded px-2 py-1 -mx-2 -my-1"
+                onClick={() => onSort('activityCount')}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onSort('activityCount');
+                  }
+                }}
+                aria-label={`Sort by activity count ${sortBy === 'activityCount' ? (sortOrder === 'asc' ? 'descending' : 'ascending') : 'ascending'}`}
+              >
                 Activities
                 <SortIcon column="activityCount" />
-              </div>
+              </button>
             </th>
 
             {/* Created date column */}
             <th
               scope="col"
-              className="px-6 py-3 text-left cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
-              onClick={() => onSort('createdAt')}
+              className="px-6 py-3 text-left"
+              aria-sort={sortBy === 'createdAt' ? (sortOrder === 'asc' ? 'ascending' : 'descending') : 'none'}
             >
-              <div className="flex items-center gap-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+              <button
+                type="button"
+                className="flex items-center gap-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider
+                           hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded px-2 py-1 -mx-2 -my-1"
+                onClick={() => onSort('createdAt')}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onSort('createdAt');
+                  }
+                }}
+                aria-label={`Sort by creation date ${sortBy === 'createdAt' ? (sortOrder === 'asc' ? 'descending' : 'ascending') : 'ascending'}`}
+              >
                 Created
                 <SortIcon column="createdAt" />
-              </div>
+              </button>
             </th>
           </tr>
         </thead>
@@ -174,7 +228,7 @@ export function DeveloperTable({
                   {developer.avatarUrl ? (
                     <img
                       src={developer.avatarUrl}
-                      alt={developer.displayName}
+                      alt={developer.displayName || developer.primaryEmail}
                       className="w-10 h-10 rounded-full object-cover"
                       loading="lazy"
                     />
@@ -183,12 +237,13 @@ export function DeveloperTable({
                       className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900
                                  flex items-center justify-center text-blue-600 dark:text-blue-300
                                  font-semibold text-sm"
+                      aria-label={`Avatar for ${developer.displayName || developer.primaryEmail}`}
                     >
-                      {getInitials(developer.displayName)}
+                      {getInitials(developer.displayName, developer.primaryEmail)}
                     </div>
                   )}
                   <span className="text-sm font-medium text-gray-900 dark:text-white">
-                    {developer.displayName}
+                    {developer.displayName || developer.primaryEmail}
                   </span>
                 </Link>
               </td>

@@ -35,9 +35,11 @@ export function Pagination({
   const [searchParams] = useSearchParams();
 
   // Generate URL with updated page parameter
+  // Clamp page to valid range [1, totalPages]
   const getPageUrl = (page: number) => {
+    const clampedPage = Math.max(1, Math.min(page, totalPages));
     const params = new URLSearchParams(searchParams);
-    params.set('page', String(page));
+    params.set('page', String(clampedPage));
     return `?${params.toString()}`;
   };
 
@@ -93,30 +95,44 @@ export function Pagination({
     <div className="flex items-center justify-between px-4 py-3 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 sm:px-6">
       {/* Mobile: Simple prev/next */}
       <div className="flex flex-1 justify-between sm:hidden">
-        <Link
-          to={getPageUrl(currentPage - 1)}
-          className={`relative inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600
-                     text-sm font-medium rounded-md
-                     ${
-                       currentPage === 1
-                         ? 'pointer-events-none bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500'
-                         : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
-                     }`}
-        >
-          Previous
-        </Link>
-        <Link
-          to={getPageUrl(currentPage + 1)}
-          className={`relative ml-3 inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600
-                     text-sm font-medium rounded-md
-                     ${
-                       currentPage === totalPages
-                         ? 'pointer-events-none bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500'
-                         : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
-                     }`}
-        >
-          Next
-        </Link>
+        {currentPage > 1 ? (
+          <Link
+            to={getPageUrl(currentPage - 1)}
+            className="relative inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600
+                       text-sm font-medium rounded-md bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300
+                       hover:bg-gray-50 dark:hover:bg-gray-700"
+            aria-label="Previous page"
+          >
+            Previous
+          </Link>
+        ) : (
+          <span
+            className="relative inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600
+                       text-sm font-medium rounded-md bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500"
+            aria-disabled="true"
+          >
+            Previous
+          </span>
+        )}
+        {currentPage < totalPages ? (
+          <Link
+            to={getPageUrl(currentPage + 1)}
+            className="relative ml-3 inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600
+                       text-sm font-medium rounded-md bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300
+                       hover:bg-gray-50 dark:hover:bg-gray-700"
+            aria-label="Next page"
+          >
+            Next
+          </Link>
+        ) : (
+          <span
+            className="relative ml-3 inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600
+                       text-sm font-medium rounded-md bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500"
+            aria-disabled="true"
+          >
+            Next
+          </span>
+        )}
       </div>
 
       {/* Desktop: Full pagination */}
@@ -138,19 +154,28 @@ export function Pagination({
             aria-label="Pagination"
           >
             {/* Previous button */}
-            <Link
-              to={getPageUrl(currentPage - 1)}
-              className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 dark:border-gray-600
-                         text-sm font-medium
-                         ${
-                           currentPage === 1
-                             ? 'pointer-events-none bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500'
-                             : 'bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
-                         }`}
-            >
-              <span className="sr-only">Previous</span>
-              <Icon icon="heroicons:chevron-left" className="h-5 w-5" />
-            </Link>
+            {currentPage > 1 ? (
+              <Link
+                to={getPageUrl(currentPage - 1)}
+                className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 dark:border-gray-600
+                           text-sm font-medium bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400
+                           hover:bg-gray-50 dark:hover:bg-gray-700"
+                aria-label="Previous page"
+              >
+                <span className="sr-only">Previous</span>
+                <Icon icon="heroicons:chevron-left" className="h-5 w-5" />
+              </Link>
+            ) : (
+              <span
+                className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 dark:border-gray-600
+                           text-sm font-medium bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500"
+                aria-disabled="true"
+                aria-label="Previous page (disabled)"
+              >
+                <span className="sr-only">Previous</span>
+                <Icon icon="heroicons:chevron-left" className="h-5 w-5" />
+              </span>
+            )}
 
             {/* Page numbers */}
             {pageNumbers.map((page, index) => {
@@ -177,6 +202,8 @@ export function Pagination({
                                  ? 'z-10 bg-blue-50 dark:bg-blue-900 border-blue-500 dark:border-blue-600 text-blue-600 dark:text-blue-300'
                                  : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
                              }`}
+                  aria-current={isCurrentPage ? 'page' : undefined}
+                  aria-label={isCurrentPage ? `Current page, page ${page}` : `Go to page ${page}`}
                 >
                   {page}
                 </Link>
@@ -184,19 +211,28 @@ export function Pagination({
             })}
 
             {/* Next button */}
-            <Link
-              to={getPageUrl(currentPage + 1)}
-              className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 dark:border-gray-600
-                         text-sm font-medium
-                         ${
-                           currentPage === totalPages
-                             ? 'pointer-events-none bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500'
-                             : 'bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
-                         }`}
-            >
-              <span className="sr-only">Next</span>
-              <Icon icon="heroicons:chevron-right" className="h-5 w-5" />
-            </Link>
+            {currentPage < totalPages ? (
+              <Link
+                to={getPageUrl(currentPage + 1)}
+                className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 dark:border-gray-600
+                           text-sm font-medium bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400
+                           hover:bg-gray-50 dark:hover:bg-gray-700"
+                aria-label="Next page"
+              >
+                <span className="sr-only">Next</span>
+                <Icon icon="heroicons:chevron-right" className="h-5 w-5" />
+              </Link>
+            ) : (
+              <span
+                className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 dark:border-gray-600
+                           text-sm font-medium bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500"
+                aria-disabled="true"
+                aria-label="Next page (disabled)"
+              >
+                <span className="sr-only">Next</span>
+                <Icon icon="heroicons:chevron-right" className="h-5 w-5" />
+              </span>
+            )}
           </nav>
         </div>
       </div>

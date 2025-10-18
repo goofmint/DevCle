@@ -7,8 +7,8 @@
  * - getFunnelTimeSeries(): Time series aggregation
  */
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import { setTenantContext, clearTenantContext, closeDb, getDb } from '../db/connection';
+import { describe, it, expect, afterAll } from 'vitest';
+import { setTenantContext, closeDb, getDb } from '../db/connection';
 import * as schema from '../db/schema/index';
 import { eq } from 'drizzle-orm';
 import {

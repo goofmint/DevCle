@@ -28,54 +28,24 @@ interface ActivityTimelineProps {
 
 /**
  * Get icon name for activity action
+ * TODO: This should be configurable via settings UI and stored in DB
+ * See tasks.md for implementation task
  */
-function getActivityIconName(action: string): string {
-  const icons: Record<string, string> = {
-    // Awareness
-    click: 'heroicons:eye',
-    view: 'heroicons:eye',
-    visit: 'heroicons:eye',
-    // Engagement
-    attend: 'heroicons:user-group',
-    post: 'heroicons:chat-bubble-left',
-    comment: 'heroicons:chat-bubble-left',
-    star: 'heroicons:star',
-    follow: 'heroicons:user-plus',
-    // Adoption
-    signup: 'heroicons:user-circle',
-    login: 'heroicons:arrow-right-on-rectangle',
-    api_call: 'heroicons:code-bracket',
-    // Advocacy
-    share: 'heroicons:share',
-    speak: 'heroicons:microphone',
-    blog: 'heroicons:document-text',
-    contribute: 'heroicons:calendar',
-  };
-
-  return icons[action] || 'heroicons:information-circle';
+function getActivityIconName(_action: string): string {
+  // All activities use the same icon for now
+  // Will be configurable via settings UI in future task
+  return 'heroicons:bolt';
 }
 
 /**
- * Get color for activity action (based on funnel stage)
+ * Get color for activity action
+ * TODO: This should be configurable via settings UI and stored in DB
+ * Activity type → funnel stage mapping should be in database, not hardcoded here
+ * See tasks.md for implementation task
  */
-function getActivityColor(action: string): string {
-  // Awareness (blue)
-  if (['click', 'view', 'visit'].includes(action)) {
-    return 'text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800';
-  }
-  // Engagement (green)
-  if (['attend', 'post', 'comment', 'star', 'follow'].includes(action)) {
-    return 'text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/30 border-green-200 dark:border-green-800';
-  }
-  // Adoption (yellow)
-  if (['signup', 'login', 'api_call'].includes(action)) {
-    return 'text-yellow-600 dark:text-yellow-400 bg-yellow-100 dark:bg-yellow-900/30 border-yellow-200 dark:border-yellow-800';
-  }
-  // Advocacy (purple)
-  if (['share', 'speak', 'blog', 'contribute'].includes(action)) {
-    return 'text-purple-600 dark:text-purple-400 bg-purple-100 dark:bg-purple-900/30 border-purple-200 dark:border-purple-800';
-  }
-  // Default (gray)
+function getActivityColor(_action: string): string {
+  // All activities use gray for now
+  // Will be configurable via settings UI in future task
   return 'text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 border-gray-200 dark:border-gray-600';
 }
 
