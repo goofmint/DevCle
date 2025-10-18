@@ -16,103 +16,122 @@
 
 ## 実装内容
 
-### 1. データベーススキーマ（既存のsystem_settingsテーブルを使用）
+### 1. データベーススキーマ（system_settingsテーブルの拡張）
 
-既存の`system_settings`テーブル（`core/db/schema/admin.ts`）を使用します。
+既存の`system_settings`テーブル（`core/db/schema/admin.ts`）に新しいカラムを追加します。
 
+**既存のスキーマ:**
 ```typescript
 // core/db/schema/admin.ts（既存）
 export const systemSettings = pgTable('system_settings', {
-  settingId: uuid('setting_id').defaultRandom().primaryKey(),
-  tenantId: uuid('tenant_id').notNull().references(() => tenants.tenantId, { onDelete: 'cascade' }),
-  key: text('key').notNull(),
-  value: jsonb('value').notNull(),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-}, (table) => ({
-  uniqueKey: uniqueIndex('system_settings_tenant_key_idx').on(table.tenantId, table.key),
-}));
+  tenantId: text('tenant_id').primaryKey().references(() => tenants.tenantId, { onDelete: 'cascade' }),
+  baseUrl: text('base_url'),
+  smtpSettings: jsonb('smtp_settings'),
+  aiSettings: jsonb('ai_settings'),
+  shortlinkDomain: text('shortlink_domain'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+```
+
+**追加するカラム:**
+```typescript
+// core/db/schema/admin.ts（追加）
+export const systemSettings = pgTable('system_settings', {
+  tenantId: text('tenant_id').primaryKey().references(() => tenants.tenantId, { onDelete: 'cascade' }),
+  baseUrl: text('base_url'),
+  smtpSettings: jsonb('smtp_settings'),
+  aiSettings: jsonb('ai_settings'),
+  shortlinkDomain: text('shortlink_domain'),
+  // 新規追加カラム
+  serviceName: text('service_name'),           // サービス名（例: "DevCle"）
+  logoUrl: text('logo_url'),                   // ロゴ画像URL（公開URLまたはdata URI）
+  fiscalYearStart: text('fiscal_year_start'),  // 期初（MM-DD形式、例: "04-01"）
+  fiscalYearEnd: text('fiscal_year_end'),      // 期末（MM-DD形式、例: "03-31"）
+  timezone: text('timezone'),                  // タイムゾーン（IANA形式、例: "Asia/Tokyo"）
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+```
+
+**マイグレーションSQL:**
+```sql
+-- Migration: Add settings columns to system_settings table
+ALTER TABLE system_settings
+  ADD COLUMN service_name TEXT,
+  ADD COLUMN logo_url TEXT,
+  ADD COLUMN fiscal_year_start TEXT,
+  ADD COLUMN fiscal_year_end TEXT,
+  ADD COLUMN timezone TEXT;
 ```
 
 ### 2. 設定項目の定義
 
 以下の設定項目をサポートします：
 
-| key | value型 | 説明 |
-|-----|---------|------|
-| `service_name` | `string` | サービス名（例: "DevCle"） |
-| `logo_url` | `string` | ロゴ画像のURL（公開URLまたはdata URI） |
-| `fiscal_year_start` | `string` | 期初の月日（"MM-DD"形式、例: "04-01"） |
-| `fiscal_year_end` | `string` | 期末の月日（"MM-DD"形式、例: "03-31"） |
-| `timezone` | `string` | タイムゾーン（例: "Asia/Tokyo"） |
+| カラム名 | 型 | 説明 | デフォルト値 |
+|----------|-----|------|-------------|
+| `service_name` | `text` | サービス名（例: "DevCle"） | NULL |
+| `logo_url` | `text` | ロゴ画像のURL（公開URLまたはdata URI） | NULL |
+| `fiscal_year_start` | `text` | 期初の月日（"MM-DD"形式、例: "04-01"） | NULL |
+| `fiscal_year_end` | `text` | 期末の月日（"MM-DD"形式、例: "03-31"） | NULL |
+| `timezone` | `text` | タイムゾーン（IANA形式、例: "Asia/Tokyo"） | NULL |
 
 ### 3. サービスレイヤー
 
 ```typescript
 // core/services/system-settings.service.ts
 
-interface SystemSetting {
-  settingId: string;
+interface SystemSettings {
   tenantId: string;
-  key: string;
-  value: unknown;
+  baseUrl: string | null;
+  smtpSettings: unknown | null;
+  aiSettings: unknown | null;
+  shortlinkDomain: string | null;
+  serviceName: string | null;
+  logoUrl: string | null;
+  fiscalYearStart: string | null;
+  fiscalYearEnd: string | null;
+  timezone: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
 
-interface ServiceNameSetting {
-  service_name: string;
-}
-
-interface LogoSetting {
-  logo_url: string;
-}
-
-interface FiscalYearSetting {
-  fiscal_year_start: string; // "MM-DD"
-  fiscal_year_end: string;   // "MM-DD"
-}
-
-interface TimezoneSetting {
-  timezone: string; // IANA timezone
+interface UpdateSystemSettingsInput {
+  serviceName?: string;
+  logoUrl?: string;
+  fiscalYearStart?: string;
+  fiscalYearEnd?: string;
+  timezone?: string;
 }
 
 /**
- * Get system setting by key
+ * Get system settings for a tenant
  */
-export async function getSystemSetting(
-  tenantId: string,
-  key: string
-): Promise<SystemSetting | null>;
-
-/**
- * Set system setting
- */
-export async function setSystemSetting(
-  tenantId: string,
-  key: string,
-  value: unknown
-): Promise<SystemSetting>;
-
-/**
- * Get all system settings for a tenant
- */
-export async function getAllSystemSettings(
+export async function getSystemSettings(
   tenantId: string
-): Promise<SystemSetting[]>;
+): Promise<SystemSettings | null>;
 
 /**
- * Delete system setting by key
+ * Update system settings (partial update)
  */
-export async function deleteSystemSetting(
+export async function updateSystemSettings(
   tenantId: string,
-  key: string
-): Promise<void>;
+  settings: UpdateSystemSettingsInput
+): Promise<SystemSettings>;
+
+/**
+ * Create initial system settings for a new tenant
+ */
+export async function createSystemSettings(
+  tenantId: string
+): Promise<SystemSettings>;
 ```
 
 **実装の詳細:**
 - `withTenantContext()`を使用してRLS対応
-- UPSERT処理で設定を更新（key重複時は上書き）
+- UPSERT処理で設定を更新（tenant_idが主キーなので1レコードのみ）
+- 部分更新をサポート（指定されたフィールドのみ更新）
 - バリデーションはZodスキーマで実施
 
 ### 4. API Routes
@@ -121,30 +140,35 @@ export async function deleteSystemSetting(
 // app/routes/api/settings.ts
 
 /**
- * GET /api/settings?keys=service_name,logo_url
- * Query all or specific settings
+ * GET /api/settings
+ * Get system settings for the current tenant
  */
 export async function loader({ request }: LoaderFunctionArgs): Promise<Response>;
 
 /**
  * PUT /api/settings
- * Body: { key: string, value: unknown }
+ * Body: UpdateSystemSettingsInput
+ * {
+ *   serviceName?: string,
+ *   logoUrl?: string,
+ *   fiscalYearStart?: string,
+ *   fiscalYearEnd?: string,
+ *   timezone?: string
+ * }
  */
 export async function action({ request }: ActionFunctionArgs): Promise<Response>;
 ```
 
 **エラーハンドリング:**
-- 400: Invalid request body
-- 401: Unauthorized
-- 404: Setting not found
+- 400: Invalid request body（バリデーションエラー）
+- 401: Unauthorized（認証エラー）
+- 404: Settings not found（初期化されていない場合は自動作成）
 - 500: Internal server error
 
 ### 5. UI実装
 
 ```typescript
 // app/routes/dashboard.settings.tsx
-
-interface SettingsPageProps {}
 
 export default function SettingsPage(): JSX.Element;
 
@@ -154,35 +178,29 @@ export default function SettingsPage(): JSX.Element;
  * - 基本設定セクション
  *   - サービス名入力フィールド
  *   - ロゴアップロード（File input + プレビュー）
- *   - 期初期末設定（MM-DD形式の日付入力）
- *   - タイムゾーン選択（ドロップダウン）
- * - 保存ボタン
+ *   - 期初設定（MM-DD形式の日付入力）
+ *   - 期末設定（MM-DD形式の日付入力）
+ *   - タイムゾーン選択（ドロップダウン、Intl.supportedValuesOf('timeZone')から取得）
+ * - 保存ボタン（Remix Form使用）
  */
 ```
 
 **UIコンポーネント:**
 
 ```typescript
-// app/components/settings/BasicSettings.tsx
+// app/components/settings/BasicSettingsForm.tsx
 
-interface BasicSettingsProps {
-  serviceName: string;
-  logoUrl: string;
-  fiscalYearStart: string;
-  fiscalYearEnd: string;
-  timezone: string;
-  onSave: (settings: BasicSettingsData) => void;
+interface BasicSettingsFormProps {
+  settings: {
+    serviceName: string | null;
+    logoUrl: string | null;
+    fiscalYearStart: string | null;
+    fiscalYearEnd: string | null;
+    timezone: string | null;
+  };
 }
 
-interface BasicSettingsData {
-  service_name: string;
-  logo_url: string;
-  fiscal_year_start: string;
-  fiscal_year_end: string;
-  timezone: string;
-}
-
-export function BasicSettings(props: BasicSettingsProps): JSX.Element;
+export function BasicSettingsForm(props: BasicSettingsFormProps): JSX.Element;
 ```
 
 **デザイン要件:**
@@ -190,6 +208,7 @@ export function BasicSettings(props: BasicSettingsProps): JSX.Element;
 - モバイル対応（レスポンシブデザイン）
 - フォームバリデーション表示（エラーメッセージ）
 - 保存成功時のトースト通知
+- ロゴプレビュー表示（画像アップロード後）
 
 ### 6. バリデーションスキーマ
 
@@ -198,42 +217,30 @@ export function BasicSettings(props: BasicSettingsProps): JSX.Element;
 
 import { z } from 'zod';
 
-export const ServiceNameSettingSchema = z.object({
-  service_name: z.string().min(1).max(100),
+// Helper: Validate MM-DD format
+const mmddValidator = z.string().refine((val) => {
+  const parts = val.split('-');
+  if (parts.length !== 2) return false;
+  const month = Number(parts[0]);
+  const day = Number(parts[1]);
+  return month >= 1 && month <= 12 && day >= 1 && day <= 31;
+}, {
+  message: 'Invalid MM-DD format (month 01-12, day 01-31)',
 });
 
-export const LogoSettingSchema = z.object({
-  logo_url: z.string().url().or(z.string().startsWith('data:image/')),
-});
-
-export const FiscalYearSettingSchema = z.object({
-  fiscal_year_start: z.string().refine((val) => {
-    const parts = val.split('-');
-    if (parts.length !== 2) return false;
-    const month = Number(parts[0]);
-    const day = Number(parts[1]);
-    return month >= 1 && month <= 12 && day >= 1 && day <= 31;
-  }, {
-    message: 'Invalid MM-DD format (month 01-12, day 01-31)',
-  }),
-  fiscal_year_end: z.string().refine((val) => {
-    const parts = val.split('-');
-    if (parts.length !== 2) return false;
-    const month = Number(parts[0]);
-    const day = Number(parts[1]);
-    return month >= 1 && month <= 12 && day >= 1 && day <= 31;
-  }, {
-    message: 'Invalid MM-DD format (month 01-12, day 01-31)',
-  }),
-});
-
-// Get valid IANA timezones
+// Helper: Validate IANA timezone
 const validTimezones = Intl.supportedValuesOf('timeZone');
+const timezoneValidator = z.string().refine((val) => validTimezones.includes(val), {
+  message: 'Invalid IANA timezone',
+});
 
-export const TimezoneSettingSchema = z.object({
-  timezone: z.string().refine((val) => validTimezones.includes(val), {
-    message: 'Invalid IANA timezone',
-  }),
+// Update system settings input schema
+export const UpdateSystemSettingsSchema = z.object({
+  serviceName: z.string().min(1).max(100).optional(),
+  logoUrl: z.string().url().or(z.string().startsWith('data:image/')).optional(),
+  fiscalYearStart: mmddValidator.optional(),
+  fiscalYearEnd: mmddValidator.optional(),
+  timezone: timezoneValidator.optional(),
 });
 ```
 
