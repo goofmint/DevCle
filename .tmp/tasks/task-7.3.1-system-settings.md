@@ -207,12 +207,33 @@ export const LogoSettingSchema = z.object({
 });
 
 export const FiscalYearSettingSchema = z.object({
-  fiscal_year_start: z.string().regex(/^\d{2}-\d{2}$/), // MM-DD
-  fiscal_year_end: z.string().regex(/^\d{2}-\d{2}$/),   // MM-DD
+  fiscal_year_start: z.string().refine((val) => {
+    const parts = val.split('-');
+    if (parts.length !== 2) return false;
+    const month = Number(parts[0]);
+    const day = Number(parts[1]);
+    return month >= 1 && month <= 12 && day >= 1 && day <= 31;
+  }, {
+    message: 'Invalid MM-DD format (month 01-12, day 01-31)',
+  }),
+  fiscal_year_end: z.string().refine((val) => {
+    const parts = val.split('-');
+    if (parts.length !== 2) return false;
+    const month = Number(parts[0]);
+    const day = Number(parts[1]);
+    return month >= 1 && month <= 12 && day >= 1 && day <= 31;
+  }, {
+    message: 'Invalid MM-DD format (month 01-12, day 01-31)',
+  }),
 });
 
+// Get valid IANA timezones
+const validTimezones = Intl.supportedValuesOf('timeZone');
+
 export const TimezoneSettingSchema = z.object({
-  timezone: z.string().min(1), // IANA timezone
+  timezone: z.string().refine((val) => validTimezones.includes(val), {
+    message: 'Invalid IANA timezone',
+  }),
 });
 ```
 
