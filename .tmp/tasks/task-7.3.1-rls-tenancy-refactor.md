@@ -16,11 +16,29 @@ RLS（Row Level Security）のコンテキスト設定を安全なトランザ�
 2. すべての API ルートとサービス層を調査し、`setTenantContext()` を使用している箇所を `withTenantContext()` に置き換えるための変換手順をまとめる。
 3. テストコードではテナント境界の検証を `withTenantContext()` 経由で行うようにテストヘルパーを整理し、接続のクリーンアップを標準化する。
 
-## 修正対象
+## 修正対象と優先順位
 
-- `core/db/connection.ts`：テスト用プール設定の見直しと `withTenantContext()` の補助関数を追加。
-- `core/app/routes/api/*`：キャンペーン、ファネル関連ルートのテナントコンテキスト処理を `withTenantContext()` に統一。
-- `core/services/**/*.test.ts`・`core/app/routes/**/*.test.ts`：テストヘルパーを `withTenantContext()` ベースに切り替え。
+2025-10-18 時点で `rg` と簡易スクリプトによる自動調査を実施し、`setTenantContext()` 使用箇所を以下の通り抽出した（`withTenantContext()` は 39 ファイルで既利用）。
+
+- **API Routes（5ファイル）**  
+  - `core/app/routes/api/campaigns.ts`  
+  - `core/app/routes/api/campaigns.$id.ts`  
+  - `core/app/routes/api/campaigns.$id.roi.ts`  
+  - `core/app/routes/api/funnel.ts`  
+  - `core/app/routes/api/funnel.timeline.ts`
+- **Service Layer（1ファイル）**  
+  - `core/services/drm.service.ts`
+- **Infrastructure（2ファイル）**  
+  - `core/db/connection.ts`  
+  - `core/app/middleware/tenant-context.ts`
+- **Test Suites（18ファイル）**  
+  - `core/app/middleware/tenant-context.test.ts` ほか 17 件（サービス系 8 件、API ルート系 8 件、DB 初期化 1 件）
+
+### フェーズ別作業順序
+
+1. **高優先度（API ルート + インフラ）**: 5 つの API ルートと `core/db/connection.ts`・`core/app/middleware/tenant-context.ts` を最優先で `withTenantContext()` に移行し、RLS 漏洩リスクを遮断する。
+2. **サービス層**: `core/services/drm.service.ts` を `withTenantContext()` 利用へリファクタし、他サービスからの参照パターンを提示する。
+3. **テストスイート再編**: 18 件のテストファイルを一括でヘルパー化し、並列実行でもテナント隔離が成り立つことを確認する。
 
 ## インタフェース方針
 
@@ -48,4 +66,6 @@ interface TestDatabaseOptions {
 
 ## 受け入れ条件
 
-- [ ] すべての RLS 処理が `withTenantContext()` に統一され、`NODE_ENV=test` でのテスト実行時にデッドロックが発生しない。
+- [ ] Connection pool settings verified and tested（`DATABASE_POOL_MAX`/`MIN` の可変化、`idle_timeout` の検証、複数テナント並列実行でリークが発生しないことを Vitest + Playwright で確認）
+- [ ] All API routes and services migrated to `withTenantContext()`（上記 5 ルートと `core/services/drm.service.ts` が修正され、関連統合テストがパスする）
+- [ ] Test helpers reorganized and passing with new pool configuration（新しいテストヘルパー経由で 18 件のテストが `withTenantContext()` を使用し、ユニット/統合/E2E テストが全て成功する）
