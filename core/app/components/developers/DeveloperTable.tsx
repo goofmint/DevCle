@@ -7,6 +7,7 @@
  */
 
 import { Link } from '@remix-run/react';
+import { Icon } from '@iconify/react';
 
 /**
  * Developer type for table display
@@ -73,50 +74,23 @@ export function DeveloperTable({
   const SortIcon = ({ column }: { column: string }) => {
     if (sortBy !== column) {
       return (
-        <svg
+        <Icon
+          icon="heroicons:arrows-up-down"
           className="w-4 h-4 text-gray-400"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"
-          />
-        </svg>
+        />
       );
     }
 
     return sortOrder === 'asc' ? (
-      <svg
+      <Icon
+        icon="heroicons:chevron-up"
         className="w-4 h-4 text-blue-600 dark:text-blue-400"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M5 15l7-7 7 7"
-        />
-      </svg>
+      />
     ) : (
-      <svg
+      <Icon
+        icon="heroicons:chevron-down"
         className="w-4 h-4 text-blue-600 dark:text-blue-400"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M19 9l-7 7-7-7"
-        />
-      </svg>
+      />
     );
   };
 
@@ -259,19 +233,10 @@ export function DeveloperTable({
       {/* Empty state */}
       {developers.length === 0 && (
         <div className="text-center py-12 bg-white dark:bg-gray-800">
-          <svg
+          <Icon
+            icon="heroicons:users"
             className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
-            />
-          </svg>
+          />
           <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">
             No developers found
           </h3>

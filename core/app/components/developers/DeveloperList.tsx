@@ -94,7 +94,7 @@ export function DeveloperList({
   const [filters, setFilters] = useState<FilterValues>(initialFilters);
 
   // Fetch developers from API
-  const fetchDevelopers = async (newFilters: FilterValues, page: number = 1) => {
+  const fetchDevelopers = async (newFilters: FilterValues, page: number = 1, updateHistory: boolean = true) => {
     try {
       const params = new URLSearchParams({
         limit: String(pagination.limit),
@@ -111,6 +111,20 @@ export function DeveloperList({
       }
       if (newFilters.consentAnalytics !== null) {
         params.set('consentAnalytics', String(newFilters.consentAnalytics));
+      }
+
+      // Update browser history (for back/forward navigation)
+      if (updateHistory) {
+        const urlParams = new URLSearchParams();
+        if (newFilters.query) urlParams.set('query', newFilters.query);
+        if (newFilters.organizationId) urlParams.set('organizationId', newFilters.organizationId);
+        if (newFilters.consentAnalytics !== null) urlParams.set('consentAnalytics', String(newFilters.consentAnalytics));
+        if (newFilters.sortBy !== 'name') urlParams.set('sortBy', newFilters.sortBy);
+        if (newFilters.sortOrder !== 'asc') urlParams.set('sortOrder', newFilters.sortOrder);
+        if (page > 1) urlParams.set('page', String(page));
+
+        const newUrl = urlParams.toString() ? `?${urlParams.toString()}` : window.location.pathname;
+        window.history.pushState({}, '', newUrl);
       }
 
       const response = await fetch(`/api/developers?${params.toString()}`);
@@ -131,11 +145,12 @@ export function DeveloperList({
     }
   };
 
-  // Handle filter changes
+  // Handle query change after debounce (called after user stops typing)
   const handleQueryChange = (query: string) => {
     const newFilters = { ...filters, query };
     setFilters(newFilters);
-    fetchDevelopers(newFilters);
+    // Update history after debounce (not during typing)
+    fetchDevelopers(newFilters, 1, true);
   };
 
   const handleOrganizationChange = (organizationId: string | null) => {

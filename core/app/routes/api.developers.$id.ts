@@ -21,6 +21,7 @@ import {
   deleteDeveloper,
   type UpdateDeveloperInput,
 } from '../../services/drm.service.js';
+import { getAllOrganizations } from '../../services/organization.service.js';
 import { z } from 'zod';
 
 /**
@@ -85,8 +86,15 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
       return json({ error: 'Developer not found' }, { status: 404 });
     }
 
-    // 6. Return success response with developer data
-    return json(result, { status: 200 });
+    // 6. Fetch organization data if developer has orgId
+    let organization = null;
+    if (result.orgId) {
+      const organizations = await getAllOrganizations(tenantId);
+      organization = organizations.find(org => org.organizationId === result.orgId) || null;
+    }
+
+    // 7. Return success response with developer data and organization
+    return json({ ...result, organization }, { status: 200 });
   } catch (error) {
     // 9. Handle errors and return appropriate HTTP status codes
 

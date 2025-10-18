@@ -33,7 +33,7 @@ interface DeveloperFiltersProps {
   consentAnalytics: boolean | null;
   /** List of organizations for dropdown */
   organizations: Organization[];
-  /** Callback when query changes */
+  /** Callback when query changes (debounced) */
   onQueryChange: (query: string) => void;
   /** Callback when organization filter changes */
   onOrganizationChange: (organizationId: string | null) => void;
