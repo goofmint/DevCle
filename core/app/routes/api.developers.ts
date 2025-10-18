@@ -27,6 +27,10 @@ import {
   type CreateDeveloperInput,
   type ListDevelopersInput,
 } from '../../services/drm.service.js';
+import { getAllOrganizations } from '../../services/organization.service.js';
+import { withTenantContext } from '../../db/connection.js';
+import * as schema from '../../db/schema/index.js';
+import { eq, count as drizzleCount } from 'drizzle-orm';
 import { z } from 'zod';
 
 /**
@@ -79,8 +83,36 @@ export async function loader({ request }: LoaderFunctionArgs) {
     // Service layer will validate params using Zod schema and apply defaults
     const result = await listDevelopers(tenantId, rawParams as ListDevelopersInput);
 
-    // 4. Return success response with developers list
-    return json(result, { status: 200 });
+    // 4. Fetch organizations and map to developers
+    const organizations = await getAllOrganizations(tenantId);
+    const orgMap = new Map(organizations.map(org => [org.organizationId, org]));
+
+    // 5. Fetch activity counts for all developers
+    const activityCounts = await withTenantContext(tenantId, async (tx) => {
+      const counts = await tx
+        .select({
+          developerId: schema.activities.developerId,
+          count: drizzleCount(),
+        })
+        .from(schema.activities)
+        .where(eq(schema.activities.tenantId, tenantId))
+        .groupBy(schema.activities.developerId);
+
+      return new Map(counts.map(c => [c.developerId, c.count]));
+    });
+
+    // 6. Add organization info and activity count to developers
+    const developersWithData = result.developers.map(dev => ({
+      ...dev,
+      organization: dev.orgId ? orgMap.get(dev.orgId) || null : null,
+      activityCount: activityCounts.get(dev.developerId) || 0,
+    }));
+
+    // 7. Return success response with developers list
+    return json(
+      { developers: developersWithData, total: result.total },
+      { status: 200 }
+    );
   } catch (error) {
     // 7. Handle errors and return appropriate HTTP status codes
 

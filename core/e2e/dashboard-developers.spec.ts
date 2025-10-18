@@ -88,10 +88,8 @@ test.describe('Developers Page', () => {
     // Enter search query
     await page.fill('input[name="query"]', 'Alice');
 
-    // Submit search form
-    await page.click('button[type="submit"]');
-
-    // Wait for results to load
+    // Wait for debounce (300ms) and API call
+    await page.waitForTimeout(500);
     await page.waitForLoadState('networkidle');
 
     // Check that results contain search term
@@ -112,10 +110,8 @@ test.describe('Developers Page', () => {
     if (orgValue) {
       await orgSelect.selectOption(orgValue);
 
-      // Submit filter form
-      await page.click('button[type="submit"]');
-
-      // Wait for results
+      // Wait for filter to apply (automatic via onChange)
+      await page.waitForTimeout(500);
       await page.waitForLoadState('networkidle');
 
       // Verify filtered results (all should belong to selected org)
@@ -261,7 +257,7 @@ test.describe('Developers Page', () => {
     await checkColorContrast(page, 'h1');
     await checkColorContrast(page, 'table th');
     await checkColorContrast(page, 'tbody tr td');
-    await checkColorContrast(page, 'button[type="submit"]');
+    await checkColorContrast(page, 'button[type="button"]'); // Reset button
   });
 
   test('responsive design - mobile view', async ({ page }) => {

@@ -11,7 +11,6 @@
  * All inputs are controlled and synced with URL parameters via Form submission.
  */
 
-import { Form } from '@remix-run/react';
 import { useState, useEffect } from 'react';
 
 /**
@@ -81,7 +80,7 @@ export function DeveloperFilters({
 
   return (
     <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6 mb-6">
-      <Form method="get" className="space-y-4">
+      <div className="space-y-4">
         {/* Search input */}
         <div>
           <label
@@ -180,16 +179,9 @@ export function DeveloperFilters({
             >
               Reset
             </button>
-            <button
-              type="submit"
-              className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg
-                       transition-colors font-medium"
-            >
-              Search
-            </button>
           </div>
         </div>
-      </Form>
+      </div>
     </div>
   );
 }
