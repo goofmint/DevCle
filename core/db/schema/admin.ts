@@ -11,7 +11,7 @@
  * All tables include tenant_id for multi-tenant isolation via PostgreSQL RLS.
  */
 
-import { pgTable, text, timestamp, uuid, boolean, jsonb, unique } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, uuid, boolean, jsonb, unique, integer } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
 /**
@@ -105,24 +105,49 @@ export const apiKeys = pgTable('api_keys', {
  * System Settings Table
  *
  * Per-tenant configuration settings.
- * Stores SMTP config, AI settings (for forward compatibility), and custom domains.
+ * Stores all system-wide settings including basic config, SMTP, AI, and S3 settings.
  *
  * Fields:
  * - tenant_id: Primary key and foreign key to tenants (cascade delete)
  * - base_url: Base URL for this tenant's deployment
- * - smtp_settings: JSONB containing SMTP connection info (host, port, user, pass)
- * - ai_settings: JSONB for future AI features (unused in OSS)
  * - shortlink_domain: Custom domain for shortlinks (e.g., "go.example.com")
+ * - service_name: Custom service name (e.g., "DevCle")
+ * - logo_url: Logo image URL (public URL or data URI)
+ * - fiscal_year_start/end: Fiscal year boundaries (MM-DD format)
+ * - timezone: IANA timezone (e.g., "Asia/Tokyo")
+ * - smtp_*: SMTP server settings (flattened from JSONB)
+ * - ai_*: AI provider settings (flattened from JSONB)
+ * - s3_*: S3 storage settings (flattened from JSONB)
  * - created_at/updated_at: Timestamp tracking
  *
- * Note: Sensitive data in JSONB should be encrypted at application level.
+ * Note: Sensitive fields (smtp_password, ai_api_key, s3_secret_access_key)
+ * must be encrypted at application level using AES-256-GCM.
  */
 export const systemSettings = pgTable('system_settings', {
   tenantId: text('tenant_id').primaryKey().references(() => tenants.tenantId, { onDelete: 'cascade' }),
   baseUrl: text('base_url'),
-  smtpSettings: jsonb('smtp_settings'),
-  aiSettings: jsonb('ai_settings'),
   shortlinkDomain: text('shortlink_domain'),
+  // Basic settings
+  serviceName: text('service_name'),
+  logoUrl: text('logo_url'),
+  fiscalYearStart: text('fiscal_year_start'),
+  fiscalYearEnd: text('fiscal_year_end'),
+  timezone: text('timezone'),
+  // SMTP settings (flattened)
+  smtpHost: text('smtp_host'),
+  smtpPort: integer('smtp_port'),
+  smtpUsername: text('smtp_username'),
+  smtpPassword: text('smtp_password'), // ENCRYPTED
+  // AI settings (flattened)
+  aiProvider: text('ai_provider'),
+  aiApiKey: text('ai_api_key'), // ENCRYPTED
+  aiModel: text('ai_model'),
+  // S3 settings (flattened)
+  s3Bucket: text('s3_bucket'),
+  s3Region: text('s3_region'),
+  s3AccessKeyId: text('s3_access_key_id'), // ENCRYPTED (recommended)
+  s3SecretAccessKey: text('s3_secret_access_key'), // ENCRYPTED
+  s3Endpoint: text('s3_endpoint'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
