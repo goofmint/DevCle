@@ -532,7 +532,36 @@
 - **ドキュメント**: [.tmp/tasks/task-7.3-developers-page.md](.tmp/tasks/task-7.3-developers-page.md)
 - **完了日**: 2025-10-18
 
-### Task 7.3.1: システム設定画面の実装
+### Task 7.3.1: RLS実装の修正とテスト環境の改善（技術的負債解消）
+
+- [ ] **NODE_ENV=test環境でのテスト実行対応**
+  - 現在の問題: `connection.ts`で`NODE_ENV=test`時に`max: 1`制限があり、E2E環境でデッドロック発生
+  - 解決策: VITESTのみで`max: 1`を使用、NODE_ENV=testでは通常のpoolingを許可
+- [ ] **withTenantContext()への統一**
+  - 現在の問題: Production codeとTestコードが`setTenantContext()`（セッションスコープ、`SET`）を使用
+  - Connection poolingで接続が再利用されると、tenant contextが漏洩する危険性
+  - 正しい実装: `withTenantContext()`（トランザクションスコープ、`SET LOCAL`）を使用
+  - 影響範囲:
+    - Production API routes: `app/routes/api/campaigns.ts`, `app/routes/api/campaigns.$id.ts`, `app/routes/api/funnel.ts`
+    - Test code: `app/middleware/tenant-context.test.ts`, `app/routes/api/campaigns.$id.test.ts`、その他すべてのRLSテスト
+  - 実装手順:
+    1. `setTenantContext()`/`clearTenantContext()`を@deprecatedとしてマーク
+    2. すべてのProduction codeを`withTenantContext()`に書き換え
+    3. すべてのTest codeを`withTenantContext()`に書き換え
+    4. RLS integration testsが全てパスすることを確認
+- **完了条件**:
+  - 統合テスト（Vitest）が全てパスする
+  - E2Eテスト（Playwright）が全てパスする（NODE_ENV=test環境）
+  - すべてのコードが`withTenantContext()`を使用している
+- **依存**: なし（独立した技術的負債解消タスク）
+- **推定時間**: 8時間
+- **優先度**: 高（現在のRLS実装は本質的に危険）
+- **注意**:
+  - このタスクは大規模なリファクタリングを含む
+  - すべてのAPI routesとservice functionsに影響
+  - 慎重なテストとレビューが必要
+
+### Task 7.3.2: システム設定画面の実装
 
 - [ ] `app/routes/dashboard.settings.tsx`作成（システム設定画面）
 - [ ] 基本設定（管理するサービス名、ロゴアップロード、期初期末設定、タイムゾーン）
@@ -542,7 +571,7 @@
 - **推定時間**: 4時間
 - **ドキュメント**: [.tmp/tasks/task-7.3.1-system-settings.md](.tmp/tasks/task-7.3.1-system-settings.md)
 
-### Task 7.3.2: アクティビティカラーとアイコンの設定画面実装（システム設定画面の一部）
+### Task 7.3.3: アクティビティカラーとアイコンの設定画面実装（システム設定画面の一部）
 
 - [ ] `app/routes/dashboard.settings.activity-types.tsx`作成（アクティビティタイプ設定画面）
 - [ ] `app/routes/api/activity-types.ts`作成（アクティビティタイプCRUD API）
@@ -566,14 +595,14 @@
 - **完了条件**: 設定画面でアクティビティタイプごとにアイコンとカラーを設定でき、ActivityTimelineに反映される
 - **依存**: Task 7.3
 - **推定時間**: 5時間
-- **ドキュメント**: [.tmp/tasks/task-7.3.2-activity-type-settings.md](.tmp/tasks/task-7.3.2-activity-type-settings.md)
+- **ドキュメント**: [.tmp/tasks/task-7.3.3-activity-type-settings.md](.tmp/tasks/task-7.3.3-activity-type-settings.md)
 - **注意**:
   - 実装は2段階に分割：
-    1. このタスク（7.3.2）: 設定画面とテーブル作成
-    2. 次のタスク（7.3.3）: `getActivityColor()`と`getActivityIconName()`の実装（データベースから取得）
+    1. このタスク（7.3.3）: 設定画面とテーブル作成
+    2. 次のタスク（7.3.4）: `getActivityColor()`と`getActivityIconName()`の実装（データベースから取得）
   - ActivityTimeline.tsx内のTODOコメントを参照
 
-### Task 7.3.3: ActivityTimeline動的カラー・アイコン適用
+### Task 7.3.4: ActivityTimeline動的カラー・アイコン適用
 
 - [ ] `getActivityColor()`実装（データベースから設定を取得）
 - [ ] `getActivityIconName()`実装（データベースから設定を取得）
@@ -581,9 +610,9 @@
 - [ ] キャッシング実装（同一テナント内で設定を再利用）
 - [ ] E2Eテスト作成（カラー・アイコンの動的表示確認）
 - **完了条件**: ActivityTimelineがデータベースの設定に基づいてカラーとアイコンを動的に表示する
-- **依存**: Task 7.3.2
+- **依存**: Task 7.3.3
 - **推定時間**: 3時間
-- **ドキュメント**: [.tmp/tasks/task-7.3.3-activity-timeline-dynamic.md](.tmp/tasks/task-7.3.3-activity-timeline-dynamic.md)
+- **ドキュメント**: [.tmp/tasks/task-7.3.4-activity-timeline-dynamic.md](.tmp/tasks/task-7.3.4-activity-timeline-dynamic.md)
 
 ### Task 7.4: Campaignsページ実装
 
