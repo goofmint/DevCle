@@ -9,7 +9,6 @@
 
 import { json, type LoaderFunctionArgs } from '@remix-run/node';
 import { requireAuth } from '~/auth.middleware.js';
-import { setTenantContext, clearTenantContext } from '../../../db/connection.js';
 import { calculateROI } from '../../../services/roi.service.js';
 import { z } from 'zod';
 
@@ -71,31 +70,19 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
       return json({ error: 'Invalid campaign ID format' }, { status: 400 });
     }
 
-    // 4. Set tenant context for RLS
-    await setTenantContext(tenantId);
+    // 4. Call ROI service to calculate ROI for the campaign
+    // This function returns null if the campaign is not found
+    const result = await calculateROI(tenantId, campaignId);
 
-    try {
-      // 5. Call ROI service to calculate ROI for the campaign
-      // This function returns null if the campaign is not found
-      const result = await calculateROI(tenantId, campaignId);
-
-      // 6. Clear tenant context after successful operation
-      await clearTenantContext();
-
-      // 7. If campaign not found, return 404
-      if (!result) {
-        return json({ error: 'Campaign not found' }, { status: 404 });
-      }
-
-      // 8. Return success response with ROI data
-      return json(result, { status: 200 });
-    } catch (serviceError) {
-      // Ensure tenant context is cleared even if service call fails
-      await clearTenantContext();
-      throw serviceError; // Re-throw to outer catch block
+    // 5. If campaign not found, return 404
+    if (!result) {
+      return json({ error: 'Campaign not found' }, { status: 404 });
     }
+
+    // 6. Return success response with ROI data
+    return json(result, { status: 200 });
   } catch (error) {
-    // 8. Handle errors and return appropriate HTTP status codes
+    // Handle errors and return appropriate HTTP status codes
 
     // Handle requireAuth() redirect
     if (error instanceof Response && error.status === 302) {

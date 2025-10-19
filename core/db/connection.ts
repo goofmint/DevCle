@@ -43,6 +43,12 @@ import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { sql as drizzleSql } from 'drizzle-orm';
 import * as schema from './schema';
 
+export type TenantTransactionClient = Parameters<
+  Parameters<ReturnType<typeof getDb>['transaction']>[0]
+>[0];
+
+export type TenantContextCallback<T> = (tx: TenantTransactionClient) => Promise<T>;
+
 /**
  * Database connection options interface
  *
@@ -69,6 +75,8 @@ interface DatabaseConfig {
   ssl?: boolean;
   /** Maximum number of connections in the pool (default: 20) */
   max?: number;
+  /** Minimum number of warm connections to keep ready (default: 1 for test, 2 for others) */
+  min?: number;
   /** Time (seconds) before idle connections are closed (default: 30) */
   idle_timeout?: number;
   /** Time (seconds) to wait for initial connection (default: 10) */
@@ -128,33 +136,54 @@ function getDatabaseConfig(): DatabaseConfig {
   const port = Number(process.env['DATABASE_PORT']) || 5432;
   const ssl = process.env['DATABASE_SSL'] === 'true';
 
-  // RLS Context Management with Connection Pooling:
-  //
-  // In test environment, use max: 1 to ensure SET commands work correctly.
-  // This ensures all queries use the same connection, so SET app.current_tenant_id
-  // persists across queries within the same test.
-  //
-  // IMPORTANT: For production with connection pooling, consider implementing
-  // transaction-scoped RLS context using SET LOCAL within transactions:
-  // - Each service operation should wrap queries in a transaction
-  // - Issue SET LOCAL app.current_tenant_id = '...' within the transaction
-  // - All queries in that transaction will use the correct tenant context
-  //
-  // Example pattern (future enhancement):
-  //   await withTenantContext(tenantId, async (tx) => {
-  //     // tx is a transaction-scoped db client
-  //     // All queries use tx instead of db
-  //     const result = await tx.select().from(schema.developers);
-  //     return result;
-  //   });
-  //
-  // Current implementation (max: 1 in test) is sufficient for single-connection
-  // scenarios but may not be optimal for high-concurrency production workloads.
-  const isTestEnv = process.env['NODE_ENV'] === 'test' || process.env['VITEST'] === 'true';
-  const max = isTestEnv ? 1 : (Number(process.env['DATABASE_POOL_MAX']) || 20);
+  const parsePositiveInteger = (
+    value: string | undefined | null,
+    fallback: number,
+    label: string
+  ): number => {
+    if (value === undefined || value === null || value.trim() === '') {
+      return fallback;
+    }
 
-  const idle_timeout = Number(process.env['DATABASE_IDLE_TIMEOUT']) || 30;
-  const connect_timeout = Number(process.env['DATABASE_CONNECT_TIMEOUT']) || 10;
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      throw new Error(`${label} must be a positive integer. Received: ${value}`);
+    }
+
+    return Math.floor(parsed);
+  };
+
+  const isTestEnv =
+    process.env['NODE_ENV'] === 'test' || process.env['VITEST'] === 'true';
+
+  // Allow environment overrides while keeping sensible defaults per environment.
+  const max = parsePositiveInteger(
+    process.env['DATABASE_POOL_MAX'],
+    isTestEnv ? 4 : 20,
+    'DATABASE_POOL_MAX'
+  );
+  const min = parsePositiveInteger(
+    process.env['DATABASE_POOL_MIN'],
+    isTestEnv ? 1 : Math.min(2, max),
+    'DATABASE_POOL_MIN'
+  );
+
+  if (min > max) {
+    throw new Error(
+      `DATABASE_POOL_MIN (${min}) cannot be greater than DATABASE_POOL_MAX (${max}).`
+    );
+  }
+
+  const idle_timeout = parsePositiveInteger(
+    process.env['DATABASE_IDLE_TIMEOUT'],
+    30,
+    'DATABASE_IDLE_TIMEOUT'
+  );
+  const connect_timeout = parsePositiveInteger(
+    process.env['DATABASE_CONNECT_TIMEOUT'],
+    10,
+    'DATABASE_CONNECT_TIMEOUT'
+  );
 
   const config: DatabaseConfig = {
     host,
@@ -164,6 +193,7 @@ function getDatabaseConfig(): DatabaseConfig {
     password,
     ssl,
     max,
+    min,
     idle_timeout,
     connect_timeout,
   };
@@ -203,6 +233,7 @@ export function createConnection(): postgres.Sql {
     password: config.password,
     ssl: config.ssl === true ? true : false,
     max: config.max ?? 20,
+    min: config.min ?? 0,
     idle_timeout: config.idle_timeout ?? 30,
     connect_timeout: config.connect_timeout ?? 10,
     // Automatically convert column names from snake_case to camelCase
@@ -212,7 +243,21 @@ export function createConnection(): postgres.Sql {
 
   const sql = postgres(options);
 
+  if (config.min && config.min > 0) {
+    void warmPoolConnections(sql, config.min).catch((error) => {
+      console.warn('Failed to warm database connections:', error);
+    });
+  }
+
   return sql;
+}
+
+async function warmPoolConnections(client: postgres.Sql, warmCount: number): Promise<void> {
+  const total = Math.max(0, warmCount);
+  const tasks = Array.from({ length: total }, async () => {
+    await client`select 1`;
+  });
+  await Promise.all(tasks);
 }
 
 /**
@@ -404,184 +449,6 @@ export async function testConnection(): Promise<boolean> {
 }
 
 /**
- * Set tenant context for current database session
- *
- * This function sets the PostgreSQL session variable `app.current_tenant_id`
- * which is used by Row Level Security (RLS) policies to filter data by tenant.
- *
- * All subsequent queries in the same session will only access data
- * belonging to the specified tenant.
- *
- * Security Note:
- * Uses parameterized query (template literal) to prevent SQL injection.
- * The tenantId is automatically escaped by postgres.js.
- *
- * Usage in Remix loaders/actions:
- * ```typescript
- * export async function loader({ request }: LoaderFunctionArgs) {
- *   const tenantId = getTenantIdFromRequest(request); // from session/auth
- *   await setTenantContext(tenantId);
- *
- *   const db = getDb();
- *   const developers = await db.select().from(schema.developers);
- *   // Returns only developers for the specified tenant
- * }
- * ```
- *
- * Usage in seed scripts:
- * ```typescript
- * await setTenantContext('default');
- * await seedTenant();
- * await seedDevelopers();
- * ```
- *
- * @param tenantId - Tenant ID to set (e.g., 'default', 'acme-corp')
- * @throws {Error} If tenantId is empty or SQL execution fails
- */
-export async function setTenantContext(tenantId: string): Promise<void> {
-  // Validate tenantId is not empty
-  // This prevents security issues and ensures RLS policies work correctly
-  if (!tenantId || tenantId.trim() === '') {
-    throw new Error('Tenant ID cannot be empty');
-  }
-
-  // Validate tenantId contains only safe characters to prevent SQL injection
-  // Allow: alphanumeric, hyphen, underscore (common tenant ID formats)
-  // This is CRITICAL security check since SET command cannot use parameter binding
-  const safePattern = /^[a-zA-Z0-9_-]+$/;
-  if (!safePattern.test(tenantId)) {
-    throw new Error(
-      `Tenant ID contains invalid characters. Only alphanumeric, hyphen, and underscore are allowed. Got: ${tenantId}`
-    );
-  }
-
-  // Get raw SQL client (initialize if needed)
-  // We need the raw client to execute SET command
-  const sql = getSql();
-
-  if (!sql) {
-    throw new Error('SQL client not initialized');
-  }
-
-  try {
-    // Execute SET command
-    // Note: PostgreSQL's SET command does not support parameterized queries ($1, $2, etc.)
-    // We use sql.unsafe() BUT with strict validation above to prevent SQL injection
-    // The tenantId has been validated to contain only safe characters
-    await sql.unsafe(`SET app.current_tenant_id = '${tenantId}'`);
-  } catch (error) {
-    // Log error for debugging (includes tenant ID for troubleshooting)
-    console.error(
-      `Failed to set tenant context to '${tenantId}':`,
-      error
-    );
-
-    // Re-throw with context for caller
-    const message =
-      error instanceof Error ? error.message : 'Unknown error';
-    throw new Error(
-      `Failed to set tenant context to '${tenantId}': ${message}`
-    );
-  }
-}
-
-/**
- * Get current tenant context from database session
- *
- * This function retrieves the current value of the PostgreSQL session variable
- * `app.current_tenant_id`. Useful for debugging and testing.
- *
- * Usage:
- * ```typescript
- * await setTenantContext('default');
- * const current = await getTenantContext();
- * console.log(current); // 'default'
- * ```
- *
- * @returns Current tenant ID, or null if not set
- * @throws {Error} If SQL execution fails
- */
-export async function getTenantContext(): Promise<string | null> {
-  // Get raw SQL client (initialize if needed)
-  const sql = getSql();
-
-  if (!sql) {
-    throw new Error('SQL client not initialized');
-  }
-
-  try {
-    // Execute query to get current_setting
-    // Second argument 'true' prevents error if variable is not set (returns NULL instead)
-    // This is safe - no user input involved
-    const result = await sql`
-      SELECT current_setting('app.current_tenant_id', true) as tenant_id
-    `;
-
-    // Extract tenant_id from result
-    // postgres.js returns array of rows
-    // Use bracket notation because TypeScript's exactOptionalPropertyTypes requires it for index signatures
-    if (result.length > 0 && result[0]) {
-      const tenantId = result[0]['tenantId'];
-      // PostgreSQL returns empty string when variable is not set with second arg true
-      // We normalize this to null for consistency
-      return tenantId && tenantId !== '' ? tenantId : null;
-    }
-
-    return null;
-  } catch (error) {
-    // Log error for debugging
-    console.error('Failed to get tenant context:', error);
-
-    // Re-throw with context for caller
-    const message =
-      error instanceof Error ? error.message : 'Unknown error';
-    throw new Error(`Failed to get tenant context: ${message}`);
-  }
-}
-
-/**
- * Clear tenant context from database session
- *
- * This function clears the PostgreSQL session variable `app.current_tenant_id`.
- * Primarily used in test cleanup to ensure isolated tests.
- *
- * After clearing, queries will fail with RLS policy violations unless
- * the database user is a superuser.
- *
- * Usage in tests:
- * ```typescript
- * afterEach(async () => {
- *   await clearTenantContext();
- * });
- * ```
- *
- * @throws {Error} If SQL execution fails
- */
-export async function clearTenantContext(): Promise<void> {
-  // Get raw SQL client (initialize if needed)
-  const sql = getSql();
-
-  if (!sql) {
-    throw new Error('SQL client not initialized');
-  }
-
-  try {
-    // Execute RESET to clear session variable
-    // Note: RESET command, like SET, does not support parameterized queries
-    // This is safe because there is no user input involved (hardcoded command)
-    await sql.unsafe('RESET app.current_tenant_id');
-  } catch (error) {
-    // Log error for debugging
-    console.error('Failed to clear tenant context:', error);
-
-    // Re-throw with context for caller
-    const message =
-      error instanceof Error ? error.message : 'Unknown error';
-    throw new Error(`Failed to clear tenant context: ${message}`);
-  }
-}
-
-/**
  * Execute callback within a transaction with tenant context
  *
  * This is the CORRECT way to use RLS with connection pooling.
@@ -627,9 +494,9 @@ export async function clearTenantContext(): Promise<void> {
  */
 export async function withTenantContext<T>(
   tenantId: string,
-  callback: (tx: Parameters<Parameters<ReturnType<typeof getDb>['transaction']>[0]>[0]) => Promise<T>
+  callback: TenantContextCallback<T>
 ): Promise<T> {
-  // Validate tenantId (same validation as setTenantContext)
+  // Validate tenantId to ensure RLS policies receive safe input
   if (!tenantId || tenantId.trim() === '') {
     throw new Error('Tenant ID cannot be empty');
   }
@@ -670,4 +537,20 @@ export async function withTenantContext<T>(
     // Re-throw original error (don't wrap, preserves stack trace)
     throw error;
   }
+}
+
+export function getPoolSettings(): {
+  max: number;
+  min: number;
+  idleTimeout: number;
+  connectTimeout: number;
+} {
+  const config = getDatabaseConfig();
+
+  return {
+    max: config.max ?? 20,
+    min: config.min ?? 0,
+    idleTimeout: config.idle_timeout ?? 30,
+    connectTimeout: config.connect_timeout ?? 10,
+  };
 }

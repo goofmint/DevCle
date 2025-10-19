@@ -15,7 +15,6 @@ import {
   type ActionFunctionArgs,
 } from '@remix-run/node';
 import { requireAuth } from '~/auth.middleware.js';
-import { setTenantContext, clearTenantContext } from '../../../db/connection.js';
 import {
   getCampaign,
   updateCampaign,
@@ -72,28 +71,16 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
       return json({ error: 'Invalid campaign ID format' }, { status: 400 });
     }
 
-    // 4. Set tenant context for RLS
-    await setTenantContext(tenantId);
+    // 4. Call service layer to get campaign (tenant isolation handled internally)
+    const result = await getCampaign(tenantId, campaignId);
 
-    try {
-      // 5. Call service layer to get campaign
-      const result = await getCampaign(tenantId, campaignId);
-
-      // 6. Clear tenant context after successful operation
-      await clearTenantContext();
-
-      // 7. If campaign not found, return 404
-      if (!result) {
-        return json({ error: 'Campaign not found' }, { status: 404 });
-      }
-
-      // 8. Return success response with campaign data
-      return json(result, { status: 200 });
-    } catch (serviceError) {
-      // Ensure tenant context is cleared even if service call fails
-      await clearTenantContext();
-      throw serviceError; // Re-throw to outer catch block
+    // 5. If campaign not found, return 404
+    if (!result) {
+      return json({ error: 'Campaign not found' }, { status: 404 });
     }
+
+    // 6. Return success response with campaign data
+    return json(result, { status: 200 });
   } catch (error) {
     // 9. Handle errors and return appropriate HTTP status codes
 
@@ -203,31 +190,18 @@ async function handleUpdate(
       );
     }
 
-    // 5. Set tenant context for RLS
-    await setTenantContext(tenantId);
+    // 5. Call service layer to update campaign (tenant isolation handled internally)
+    const result = await updateCampaign(tenantId, campaignId, requestData);
 
-    try {
-      // 6. Call service layer to update campaign
-      // Service layer will validate input using Zod schema
-      const result = await updateCampaign(tenantId, campaignId, requestData);
-
-      // 7. Clear tenant context after successful operation
-      await clearTenantContext();
-
-      // 8. If campaign not found, return 404
-      if (!result) {
-        return json({ error: 'Campaign not found' }, { status: 404 });
-      }
-
-      // 9. Return success response with updated campaign data
-      return json(result, { status: 200 });
-    } catch (serviceError) {
-      // Ensure tenant context is cleared even if service call fails
-      await clearTenantContext();
-      throw serviceError; // Re-throw to outer catch block
+    // 6. If campaign not found, return 404
+    if (!result) {
+      return json({ error: 'Campaign not found' }, { status: 404 });
     }
+
+    // 7. Return success response with updated campaign data
+    return json(result, { status: 200 });
   } catch (error) {
-    // 10. Handle errors and return appropriate HTTP status codes
+    // Handle errors and return appropriate HTTP status codes
 
     // Handle requireAuth() redirect
     if (error instanceof Response && error.status === 302) {
@@ -316,30 +290,18 @@ async function handleDelete(
       return json({ error: 'Invalid campaign ID format' }, { status: 400 });
     }
 
-    // 4. Set tenant context for RLS
-    await setTenantContext(tenantId);
+    // 4. Call service layer to delete campaign (tenant isolation handled internally)
+    const success = await deleteCampaign(tenantId, campaignId);
 
-    try {
-      // 5. Call service layer to delete campaign
-      const success = await deleteCampaign(tenantId, campaignId);
-
-      // 6. Clear tenant context after successful operation
-      await clearTenantContext();
-
-      // 7. If campaign not found, return 404
-      if (!success) {
-        return json({ error: 'Campaign not found' }, { status: 404 });
-      }
-
-      // 8. Return 204 No Content (successful deletion with no response body)
-      return new Response(null, { status: 204 });
-    } catch (serviceError) {
-      // Ensure tenant context is cleared even if service call fails
-      await clearTenantContext();
-      throw serviceError; // Re-throw to outer catch block
+    // 5. If campaign not found, return 404
+    if (!success) {
+      return json({ error: 'Campaign not found' }, { status: 404 });
     }
+
+    // 6. Return 204 No Content (successful deletion with no response body)
+    return new Response(null, { status: 204 });
   } catch (error) {
-    // 9. Handle errors and return appropriate HTTP status codes
+    // Handle errors and return appropriate HTTP status codes
 
     // Handle requireAuth() redirect
     if (error instanceof Response && error.status === 302) {

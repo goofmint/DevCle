@@ -25,7 +25,6 @@
 
 import { json, type LoaderFunctionArgs } from '@remix-run/node';
 import { requireAuth } from '~/auth.middleware.js';
-import { setTenantContext, clearTenantContext } from '../../../db/connection.js';
 import { getFunnelTimeSeries } from '../../../services/funnel.service.js';
 import { z } from 'zod';
 
@@ -121,32 +120,19 @@ export async function loader({ request }: LoaderFunctionArgs) {
     // Extract validated parameters
     const { fromDate, toDate, granularity } = validationResult.data;
 
-    // 4. Set tenant context for RLS (Row Level Security)
-    // This ensures all database queries are filtered by tenant_id
-    await setTenantContext(tenantId);
+    // 4. Call service layer to get time series funnel data
+    // Convert date strings to Date objects for service layer
+    const timeSeries = await getFunnelTimeSeries(
+      tenantId,
+      new Date(fromDate),
+      new Date(toDate),
+      granularity
+    );
 
-    try {
-      // 5. Call service layer to get time series funnel data
-      // Convert date strings to Date objects for service layer
-      const timeSeries = await getFunnelTimeSeries(
-        tenantId,
-        new Date(fromDate),
-        new Date(toDate),
-        granularity
-      );
-
-      // 6. Clear tenant context after successful operation
-      await clearTenantContext();
-
-      // 7. Return success response with time series data
-      return json(timeSeries, { status: 200 });
-    } catch (serviceError) {
-      // Ensure tenant context is cleared even if service call fails
-      await clearTenantContext();
-      throw serviceError; // Re-throw to outer catch block
-    }
+    // 5. Return success response with time series data
+    return json(timeSeries, { status: 200 });
   } catch (error) {
-    // 8. Handle errors and return appropriate HTTP status codes
+    // Handle errors and return appropriate HTTP status codes
 
     // Handle requireAuth() redirect (API should return 401 instead of redirect)
     // requireAuth() throws a Response with status 302 when user is not authenticated

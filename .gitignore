@@ -50,3 +50,4 @@ core/*.swo
 # Remix
 core/build
 core/playwright-report
+.env.test

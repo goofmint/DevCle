@@ -9,9 +9,7 @@
  * - All functions are async and return Promise
  * - Validation is done using Zod schemas
  * - RLS (Row Level Security) is enforced at database level
- *
- * IMPORTANT: Before calling any service function, setTenantContext(tenantId)
- * must be called to set up RLS policy context. See Task 3.7 for details.
+ * Tenant isolation is enforced internally via withTenantContext().
  */
 
 import { withTenantContext } from '../db/connection.js';
@@ -205,7 +203,12 @@ export async function getDeveloper(
       const result = await tx
         .select()
         .from(schema.developers)
-        .where(eq(schema.developers.developerId, developerId))
+        .where(
+          and(
+            eq(schema.developers.developerId, developerId),
+            eq(schema.developers.tenantId, tenantId)
+          )
+        )
         .limit(1);
 
       // Return null if not found (this is expected behavior, not an error)
@@ -275,7 +278,9 @@ export async function listDevelopers(
   return await withTenantContext(tenantId, async (tx) => {
     try {
       // 2. Build WHERE conditions
-      const whereConditions: SQL[] = [];
+      const whereConditions: SQL[] = [
+        eq(schema.developers.tenantId, tenantId),
+      ];
 
       // Filter by organization ID if provided
       if (validated.orgId) {

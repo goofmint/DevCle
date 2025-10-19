@@ -25,7 +25,6 @@
 
 import { json, type LoaderFunctionArgs } from '@remix-run/node';
 import { requireAuth } from '~/auth.middleware.js';
-import { setTenantContext, clearTenantContext } from '../../../db/connection.js';
 import {
   getFunnelStats,
   getFunnelDropRates,
@@ -75,51 +74,38 @@ export async function loader({ request }: LoaderFunctionArgs) {
     const user = await requireAuth(request);
     const tenantId = user.tenantId;
 
-    // 2. Set tenant context for RLS (Row Level Security)
-    // This ensures all database queries are filtered by tenant_id
-    await setTenantContext(tenantId);
+    // 2. Call service layer to get funnel statistics and drop rates
+    // These are two separate queries, but they use the same underlying data
+    // Future optimization: combine into single query
+    const stats = await getFunnelStats(tenantId);
+    const dropRates = await getFunnelDropRates(tenantId);
 
-    try {
-      // 3. Call service layer to get funnel statistics and drop rates
-      // These are two separate queries, but they use the same underlying data
-      // Future optimization: combine into single query
-      const stats = await getFunnelStats(tenantId);
-      const dropRates = await getFunnelDropRates(tenantId);
-
-      // 4. Clear tenant context after successful operation
-      await clearTenantContext();
-
-      // 5. Merge statistics and drop rates
-      // Each stage needs: basic stats (from getFunnelStats) + drop rate data (from getFunnelDropRates)
-      const mergedStages = stats.stages.map((stage) => {
-        // Find corresponding drop rate data for this stage
-        const dropRateData = dropRates.stages.find(
-          (d) => d.stageKey === stage.stageKey
-        );
-
-        // Merge the two data structures
-        return {
-          ...stage,
-          previousStageCount: dropRateData?.previousStageCount ?? null,
-          dropRate: dropRateData?.dropRate ?? null,
-        };
-      });
-
-      // 6. Return success response with merged data
-      return json(
-        {
-          stages: mergedStages,
-          overallConversionRate: dropRates.overallConversionRate,
-        },
-        { status: 200 }
+    // 3. Merge statistics and drop rates
+    // Each stage needs: basic stats (from getFunnelStats) + drop rate data (from getFunnelDropRates)
+    const mergedStages = stats.stages.map((stage) => {
+      // Find corresponding drop rate data for this stage
+      const dropRateData = dropRates.stages.find(
+        (d) => d.stageKey === stage.stageKey
       );
-    } catch (serviceError) {
-      // Ensure tenant context is cleared even if service call fails
-      await clearTenantContext();
-      throw serviceError; // Re-throw to outer catch block
-    }
+
+      // Merge the two data structures
+      return {
+        ...stage,
+        previousStageCount: dropRateData?.previousStageCount ?? null,
+        dropRate: dropRateData?.dropRate ?? null,
+      };
+    });
+
+    // 4. Return success response with merged data
+    return json(
+      {
+        stages: mergedStages,
+        overallConversionRate: dropRates.overallConversionRate,
+      },
+      { status: 200 }
+    );
   } catch (error) {
-    // 7. Handle errors and return appropriate HTTP status codes
+    // Handle errors and return appropriate HTTP status codes
 
     // Handle requireAuth() redirect (API should return 401 instead of redirect)
     // requireAuth() throws a Response with status 302 when user is not authenticated
