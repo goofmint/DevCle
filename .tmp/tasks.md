@@ -568,9 +568,9 @@
 - **完了条件**: システム設定画面が表示され、設定が保存できる
 - **依存**: Task 7.1
 - **推定時間**: 4時間
-- **ドキュメント**: [.tmp/tasks/task-7.3.1-system-settings.md](.tmp/tasks/task-7.3.1-system-settings.md)
+- **ドキュメント**: [.tmp/tasks/task-7.3.2-system-settings.md](.tmp/tasks/task-7.3.2-system-settings.md)
 
-### Task 7.3.2: アクティビティカラーとアイコンの設定画面実装（システム設定画面の一部）
+### Task 7.3.3: アクティビティカラーとアイコンの設定画面実装（システム設定画面の一部）
 
 - [ ] `app/routes/dashboard.settings.activity-types.tsx`作成（アクティビティタイプ設定画面）
 - [ ] `app/routes/api/activity-types.ts`作成（アクティビティタイプCRUD API）
