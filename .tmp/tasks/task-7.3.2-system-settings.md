@@ -2,8 +2,23 @@
 
 **Status:** ドキュメント作成完了（実装待ち）
 **Priority:** 中
-**Estimated Time:** 6時間
+**Estimated Time:** 8時間
 **Dependencies:** Task 7.1（ダッシュボードレイアウト）
+
+**推定時間の内訳:**
+- データベーススキーマ更新: 0.5時間
+- 暗号化実装（encryption.ts + env.ts）: 1.5時間
+- S3クライアント実装: 1時間
+- アップロードミドルウェア実装: 0.5時間
+- システム設定サービス実装: 1.5時間
+- API実装（settings + upload-logo）: 1時間
+- UI実装（設定画面 + アップロード）: 1.5時間
+- 接続テスト機能実装: 0.5時間
+- E2Eテスト作成（16テスト）: 1時間
+
+**注意:**
+- 初期見積もり6時間から8時間に増加
+- 理由: 暗号化キー管理（起動時バリデーション、キーローテーション対応）とロゴアップロード機能（multipart/form-data、S3連携、エラーハンドリング）の追加
 
 ---
 
@@ -453,6 +468,129 @@ export async function action({ request }: ActionFunctionArgs): Promise<Response>
 
 ---
 
+## ロゴアップロード機能
+
+### ファイルアップロードフロー
+
+**概要:**
+S3設定が完了している場合のみ、ロゴファイルのアップロードが可能。ファイルは直接S3にアップロードされ、URLがデータベースに保存される。
+
+**実装手順:**
+
+1. **フロントエンド（`dashboard.settings.tsx`）:**
+   - S3設定済みの場合、ファイル入力要素を表示
+   - ファイル選択時、クライアント側でファイルタイプ（image/*）とサイズ（2MB以下）を事前検証
+   - バリデーション通過後、`multipart/form-data` として `/api/system-settings/upload-logo` にPOST
+
+2. **ミドルウェア（Request parsing）:**
+   - Remix の `unstable_parseMultipartFormData` を使用
+   - 共通アップロードミドルウェア（`core/middleware/upload.ts`）で以下を検証:
+     - `Content-Type: multipart/form-data` チェック
+     - ファイルタイプ: `image/png`, `image/jpeg`, `image/svg+xml` のみ許可
+     - ファイルサイズ: 最大2MB
+   - バリデーション失敗時は `400 Bad Request` を返し、処理を中断
+
+3. **サービス層（`core/services/system-settings.service.ts`）:**
+   ```typescript
+   /**
+    * Upload logo to S3 and update system settings
+    *
+    * @param tenantId - Tenant ID
+    * @param file - Uploaded file (validated by middleware)
+    * @returns Updated settings with new logo URL
+    */
+   export async function uploadLogo(
+     tenantId: string,
+     file: { name: string; type: string; buffer: Buffer }
+   ): Promise<SystemSettingsRow>;
+   ```
+   - S3クライアント（`core/utils/s3-client.ts`）を使用してファイルをアップロード
+   - オブジェクトキー: `tenants/{tenantId}/logo.{ext}`（拡張子はファイルタイプから決定）
+   - アップロード成功後、S3オブジェクトURLを取得
+   - `updateSystemSettings()` でURLをデータベースに保存
+   - **エラーハンドリング:**
+     - S3アップロード失敗時: `500 Internal Server Error` を返す
+     - データベース保存失敗時: 既にアップロードしたS3オブジェクトを削除（rollback）
+
+4. **S3クライアント（`core/utils/s3-client.ts`）:**
+   ```typescript
+   import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+
+   /**
+    * Upload file to S3
+    *
+    * @param settings - S3 settings from system_settings
+    * @param key - Object key (e.g., "tenants/default/logo.png")
+    * @param buffer - File buffer
+    * @param contentType - MIME type
+    * @returns S3 object URL
+    */
+   export async function uploadToS3(
+     settings: S3Settings,
+     key: string,
+     buffer: Buffer,
+     contentType: string
+   ): Promise<string>;
+
+   /**
+    * Delete file from S3
+    *
+    * @param settings - S3 settings
+    * @param key - Object key
+    */
+   export async function deleteFromS3(
+     settings: S3Settings,
+     key: string
+   ): Promise<void>;
+   ```
+
+5. **エラーハンドリング:**
+   - **バリデーション失敗（400）:**
+     - 不正なファイルタイプ: "Invalid file type. Only PNG, JPEG, and SVG are allowed."
+     - ファイルサイズ超過: "File size exceeds 2MB limit."
+   - **S3アップロード失敗（500）:**
+     - S3未設定: "S3 is not configured. Please configure S3 settings first."
+     - 接続エラー: "Failed to upload file to S3. Please check S3 settings."
+   - **ロールバック処理:**
+     - S3アップロード成功後にDB保存失敗した場合、アップロードしたオブジェクトを削除
+
+6. **セキュリティ:**
+   - ファイルタイプ検証: MIMEタイプ + マジックバイト検証（`file-type` ライブラリ使用）
+   - ファイル名サニタイズ: テナントIDとファイルタイプから自動生成（ユーザー入力を使わない）
+   - S3バケット設定: パブリックアクセス制限、署名付きURL（オプション）
+
+**API エンドポイント:**
+
+```typescript
+/**
+ * POST /api/system-settings/upload-logo
+ *
+ * Upload logo file to S3 and update system settings
+ *
+ * Request: multipart/form-data
+ * - file: File (image/*, max 2MB)
+ *
+ * Response:
+ * {
+ *   "logoUrl": "https://s3.amazonaws.com/bucket/tenants/default/logo.png"
+ * }
+ *
+ * Error codes:
+ * - 400: Invalid file type or size
+ * - 401: Unauthorized
+ * - 403: Forbidden (not admin)
+ * - 500: S3 upload failed or not configured
+ */
+export async function action({ request }: ActionFunctionArgs): Promise<Response>;
+```
+
+**参考実装:**
+- 共通アップロードミドルウェア: `core/middleware/upload.ts`
+- S3クライアント: `core/utils/s3-client.ts`
+- AWS SDK v3: `@aws-sdk/client-s3`
+
+---
+
 ## テスト要件
 
 ### E2Eテスト (`e2e/dashboard-settings.spec.ts`)
@@ -553,12 +691,16 @@ test.describe('System Settings - Validation', () => {
 
 - [x] ドキュメント作成完了
 - [ ] データベーススキーマ更新（migration作成）
-- [ ] `core/utils/encryption.ts` 実装（機密情報の暗号化/復号化）
-- [ ] `core/services/system-settings.service.ts` 実装
-- [ ] `app/routes/api/system-settings.ts` 実装
-- [ ] `app/routes/dashboard.settings.tsx` 実装
+- [ ] `core/config/env.ts` 実装（ENCRYPTION_KEY起動時バリデーション）
+- [ ] `core/utils/encryption.ts` 実装（機密情報の暗号化/復号化、キーローテーション対応）
+- [ ] `core/utils/s3-client.ts` 実装（S3アップロード/削除）
+- [ ] `core/middleware/upload.ts` 実装（multipart/form-dataパース、ファイルバリデーション）
+- [ ] `core/services/system-settings.service.ts` 実装（CRUD、ロゴアップロード）
+- [ ] `app/routes/api/system-settings.ts` 実装（GET/PUT、admin権限）
+- [ ] `app/routes/api/system-settings.upload-logo.ts` 実装（POST、ロゴアップロード）
+- [ ] `app/routes/dashboard.settings.tsx` 実装（Basic/S3/SMTP/AI設定画面、ロゴアップロードUI）
 - [ ] 接続テスト機能実装（S3, SMTP, AI）
-- [ ] E2Eテスト作成（15テスト）
+- [ ] E2Eテスト作成（16テスト：Basic 6 + S3 3 + SMTP 2 + AI 2 + Validation 3）
 - [ ] 全テストがパス（統合テスト + E2Eテスト）
 - [ ] TypeScript type check エラーなし
 - [ ] ESLint エラーなし
@@ -604,6 +746,131 @@ export function decrypt(ciphertext: string): string;
 - `ENCRYPTION_KEY`: 32バイトのランダムキー（base64エンコード）
   - 生成方法: `openssl rand -base64 32`
   - `.env.example` に記載
+
+### 暗号化キー管理とバリデーション
+
+**起動時バリデーション（Fail-Fast）:**
+
+アプリケーション起動時に `ENCRYPTION_KEY` の妥当性を検証し、不正な場合は起動を中断する。
+
+**実装場所:** `core/config/env.ts`（中央集権的な環境変数バリデーション）
+
+```typescript
+import crypto from 'node:crypto';
+
+/**
+ * Validate ENCRYPTION_KEY at application startup
+ *
+ * Checks:
+ * 1. Environment variable exists
+ * 2. Value is valid base64 string
+ * 3. Decoded value is exactly 32 bytes (256 bits for AES-256)
+ *
+ * @throws Error if validation fails (fail-fast)
+ */
+export function validateEncryptionKey(): void {
+  const key = process.env.ENCRYPTION_KEY;
+
+  // Check 1: Exists
+  if (!key) {
+    console.error('FATAL: ENCRYPTION_KEY is not set in environment variables.');
+    console.error('Generate a key with: openssl rand -base64 32');
+    process.exit(1);
+  }
+
+  // Check 2: Valid base64
+  let decoded: Buffer;
+  try {
+    decoded = Buffer.from(key, 'base64');
+  } catch (error) {
+    console.error('FATAL: ENCRYPTION_KEY is not valid base64.');
+    console.error('Generate a key with: openssl rand -base64 32');
+    process.exit(1);
+  }
+
+  // Check 3: Exactly 32 bytes
+  if (decoded.length !== 32) {
+    console.error(
+      `FATAL: ENCRYPTION_KEY must be exactly 32 bytes (256 bits), got ${decoded.length} bytes.`
+    );
+    console.error('Generate a key with: openssl rand -base64 32');
+    process.exit(1);
+  }
+
+  console.log('✓ ENCRYPTION_KEY validated successfully');
+}
+```
+
+**ブートストラップ（`core/index.ts` または `server.ts`）:**
+
+```typescript
+import { validateEncryptionKey } from './config/env.js';
+
+// Validate environment variables before starting server
+validateEncryptionKey();
+
+// ... start Remix server
+```
+
+**本番環境でのキー管理:**
+
+1. **安全な生成:**
+   ```bash
+   openssl rand -base64 32
+   ```
+
+2. **安全な配信（Secrets Manager使用）:**
+   - AWS Secrets Manager
+   - Google Cloud Secret Manager
+   - HashiCorp Vault
+   - Kubernetes Secrets
+
+3. **キーローテーション手順:**
+
+   **ステップ1: 新しいキーを生成**
+   ```bash
+   NEW_KEY=$(openssl rand -base64 32)
+   ```
+
+   **ステップ2: Secrets Managerに追加**
+   - 現在のキー: `encryption-key` (version 1)
+   - 新しいキー: `encryption-key` (version 2)
+
+   **ステップ3: 複数キー対応（オプション）**
+   ```typescript
+   // core/utils/encryption.ts に追加
+   const CURRENT_KEY_ID = 'v2';
+   const KEYS = {
+     v1: process.env.ENCRYPTION_KEY_V1, // 古いキー（復号専用）
+     v2: process.env.ENCRYPTION_KEY_V2, // 新しいキー（暗号化・復号）
+   };
+
+   export function encrypt(plaintext: string): string {
+     // 新しいキー（v2）で暗号化
+     // 暗号化データに "v2:" プレフィックスを付与
+   }
+
+   export function decrypt(ciphertext: string): string {
+     // プレフィックスからキーバージョンを判定
+     // 対応するキーで復号化
+   }
+   ```
+
+   **ステップ4: 段階的ロールアウト**
+   - Day 1: 新キー（v2）をSecrets Managerに追加、アプリで読み込み（復号のみ対応）
+   - Day 2: 暗号化を新キー（v2）に切り替え
+   - Day 7: 古いキー（v1）で暗号化されたデータを再暗号化（バッチ処理）
+   - Day 14: 古いキー（v1）を削除
+
+4. **監視とアラート:**
+   - 復号化失敗率を監視
+   - キーローテーション後の異常を検知
+
+**セキュリティベストプラクティス:**
+- `.env` ファイルはgitignore（`.env.example`のみコミット）
+- 本番環境ではSecrets Manager使用（環境変数にハードコードしない）
+- キーは定期的にローテーション（90日推奨）
+- 開発環境と本番環境で異なるキーを使用
 
 ---
 
