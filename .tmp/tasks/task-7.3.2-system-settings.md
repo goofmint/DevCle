@@ -156,7 +156,7 @@ export async function action({ request }: ActionFunctionArgs): Promise<Response>
 システム設定画面のUIコンポーネント。
 
 **レイアウト:**
-```
+```text
 ┌─────────────────────────────────────────┐
 │ System Settings                         │
 ├─────────────────────────────────────────┤
