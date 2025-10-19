@@ -18,7 +18,7 @@ import rehypeHighlight from 'rehype-highlight';
  * - Testing configuration with Vitest
  */
 export default defineConfig(({ command, mode }): UserConfig => {
-  const isVitest = command === 'test';
+  const isVitest = process.env['VITEST'] === 'true' || mode === 'test';
 
   return {
     plugins: isVitest

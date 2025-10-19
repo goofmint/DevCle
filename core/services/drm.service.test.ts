@@ -4,7 +4,6 @@ import {
   expect,
   beforeEach,
   afterEach,
-  afterAll,
 } from 'vitest';
 import {
   ensureTenantExists,
@@ -17,7 +16,6 @@ import {
   deleteDeveloper,
 } from './drm.service.js';
 import * as schema from '../db/schema/index.js';
-import { closeDb } from '../db/connection.js';
 
 const PRIMARY_TENANT = 'test-drm-primary';
 const OTHER_TENANT = 'test-drm-other';
@@ -49,10 +47,6 @@ describe('drm.service', () => {
     for (const entry of createdDevelopers.splice(0)) {
       await deleteDeveloper(entry.tenantId, entry.developerId);
     }
-  });
-
-  afterAll(async () => {
-    await closeDb();
   });
 
   it('creates and retrieves developer within the same tenant', async () => {

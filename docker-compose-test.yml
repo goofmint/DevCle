@@ -1,5 +1,7 @@
 version: '3.9'
 
+env_file: .env.test
+
 services:
   nginx:
     container_name: devcle-nginx-test
@@ -23,6 +25,8 @@ services:
       - ./core:/app
       - core-node-modules-test:/app/node_modules
     command: sh -c "pnpm install --frozen-lockfile && pnpm dev"
+    networks:
+      - devcle-network
     ports:
       - "3001:3000"
 
@@ -76,3 +80,7 @@ volumes:
   core-node-modules-test:
   postgres-data-test:
   redis-data-test:
+
+networks:
+  devcle-network:
+    driver: bridge
