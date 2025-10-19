@@ -562,13 +562,23 @@
 
 ### Task 7.3.2: システム設定画面の実装
 
-- [ ] `app/routes/dashboard.settings.tsx`作成（システム設定画面）
-- [ ] 基本設定（管理するサービス名、ロゴアップロード、期初期末設定、タイムゾーン）
-- [ ] E2Eテスト作成（設定画面の動作確認）
-- **完了条件**: システム設定画面が表示され、設定が保存できる
+- [ ] データベーススキーマ更新（`service_name`, `logo_url`, `fiscal_year_start_month`, `timezone`, `s3_settings`追加）
+- [ ] `core/utils/encryption.ts`実装（AES-256-GCM暗号化/復号化）
+- [ ] `core/services/system-settings.service.ts`実装（CRUD、暗号化、S3/SMTP/AI設定チェック）
+- [ ] `app/routes/api/system-settings.ts`実装（GET/PUT、admin権限チェック）
+- [ ] `app/routes/dashboard.settings.tsx`作成（Basic/S3/SMTP/AI設定画面）
+- [ ] 接続テスト機能実装（S3/SMTP/AI接続確認API）
+- [ ] E2Eテスト作成（15テスト：Basic/S3/SMTP/AI/Validation）
+- **完了条件**: システム設定画面が表示され、S3/SMTP/AI設定が保存・テストできる
 - **依存**: Task 7.1
-- **推定時間**: 4時間
+- **推定時間**: 6時間
 - **ドキュメント**: [.tmp/tasks/task-7.3.2-system-settings.md](.tmp/tasks/task-7.3.2-system-settings.md)
+- **注意**:
+  - 会計年度は期初月のみ（1-12、デフォルト: 4）
+  - S3未設定時はロゴアップロード無効化（URL入力のみ）
+  - 機密情報（API keys, passwords）は暗号化してDB保存
+  - GET APIでは機密情報を返さない（boolean flagのみ）
+  - 設定変更はadminロールのみ許可
 
 ### Task 7.3.3: アクティビティカラーとアイコンの設定画面実装（システム設定画面の一部）
 
