@@ -35,7 +35,19 @@ export const S3SettingsSchema = z.object({
   bucket: z.string().min(1).max(255),
   region: z.string().min(1).max(100),
   accessKeyId: z.string().min(1).max(255),
-  secretAccessKey: z.string().min(1).max(255),
+  secretAccessKey: z
+    .string()
+    .min(1)
+    .max(255)
+    .refine(
+      (val) => {
+        // Forbid client-submitted strings that match encrypted envelope pattern (v*:*:*:*)
+        // This prevents callers from bypassing encryption by passing pseudo-ciphertext
+        const encryptedPattern = /^v[^:]*:[^:]*:[^:]*:[^:]*$/;
+        return !encryptedPattern.test(val);
+      },
+      { message: 'secretAccessKey must be plaintext, not encrypted format' }
+    ),
   endpoint: z.string().url().optional(),
 });
 
@@ -83,7 +95,19 @@ export const SmtpSettingsSchema = z.object({
   port: z.number().int().min(1).max(65535),
   secure: z.boolean(),
   user: z.string().min(1).max(255),
-  password: z.string().min(1).max(255),
+  password: z
+    .string()
+    .min(1)
+    .max(255)
+    .refine(
+      (val) => {
+        // Forbid client-submitted strings that match encrypted envelope pattern (v*:*:*:*)
+        // This prevents callers from bypassing encryption by passing pseudo-ciphertext
+        const encryptedPattern = /^v[^:]*:[^:]*:[^:]*:[^:]*$/;
+        return !encryptedPattern.test(val);
+      },
+      { message: 'password must be plaintext, not encrypted format' }
+    ),
   from: z
     .string()
     .min(1)
@@ -189,8 +213,15 @@ export interface SystemSettings {
  *
  * Fields:
  * - buffer: File buffer (1 byte to 5MB)
- * - contentType: MIME type (must be image/png, image/jpeg, image/svg+xml, or image/webp)
+ * - contentType: MIME type (only raster images: PNG, JPEG, WebP)
  * - filename: Original filename (used for S3 key generation)
+ *
+ * Security Note:
+ * SVG (image/svg+xml) is explicitly excluded because SVGs can contain:
+ * - JavaScript code (via <script> tags or event handlers)
+ * - External resource references (potential data exfiltration)
+ * - CSS injection vectors
+ * Only raster image formats (PNG, JPEG, WebP) are allowed.
  *
  * Example:
  * ```typescript
@@ -205,7 +236,7 @@ export const UploadLogoSchema = z.object({
   buffer: z.instanceof(Buffer).refine((buf) => buf.length > 0 && buf.length <= 5 * 1024 * 1024, {
     message: 'File size must be between 1 byte and 5MB',
   }),
-  contentType: z.enum(['image/png', 'image/jpeg', 'image/svg+xml', 'image/webp']),
+  contentType: z.enum(['image/png', 'image/jpeg', 'image/webp']),
   filename: z.string().min(1).max(255),
 });
 

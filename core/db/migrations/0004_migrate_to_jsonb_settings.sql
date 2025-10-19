@@ -14,7 +14,15 @@ ALTER TABLE "system_settings" DROP COLUMN IF EXISTS "s3_access_key_id";--> state
 ALTER TABLE "system_settings" DROP COLUMN IF EXISTS "s3_secret_access_key";--> statement-breakpoint
 ALTER TABLE "system_settings" DROP COLUMN IF EXISTS "s3_endpoint";--> statement-breakpoint
 
--- Add new columns with proper defaults
+-- Add new columns if they don't exist (must come before ALTER operations)
+ALTER TABLE "system_settings" ADD COLUMN IF NOT EXISTS "service_name" text;--> statement-breakpoint
+ALTER TABLE "system_settings" ADD COLUMN IF NOT EXISTS "timezone" text;--> statement-breakpoint
+
+-- Populate existing rows with defaults (prevents NOT NULL constraint violations)
+UPDATE "system_settings" SET "service_name" = 'DevCle' WHERE "service_name" IS NULL;--> statement-breakpoint
+UPDATE "system_settings" SET "timezone" = 'Asia/Tokyo' WHERE "timezone" IS NULL;--> statement-breakpoint
+
+-- Now safe to set defaults and NOT NULL constraints
 ALTER TABLE "system_settings" ALTER COLUMN "service_name" SET DEFAULT 'DevCle';--> statement-breakpoint
 ALTER TABLE "system_settings" ALTER COLUMN "service_name" SET NOT NULL;--> statement-breakpoint
 ALTER TABLE "system_settings" ALTER COLUMN "timezone" SET DEFAULT 'Asia/Tokyo';--> statement-breakpoint

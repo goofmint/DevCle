@@ -26,22 +26,25 @@ export function validateEncryptionKey(): void {
     process.exit(1);
   }
 
-  // Check 2: Valid base64 string
-  let decoded: Buffer;
-  try {
-    decoded = Buffer.from(key, 'base64');
-  } catch (error) {
-    console.error('❌ FATAL: ENCRYPTION_KEY is not valid base64.');
+  // Check 2: Valid base64 string (explicit format validation)
+  // Base64 pattern: A-Z a-z 0-9 + / with optional padding (=)
+  const base64Pattern = /^[A-Za-z0-9+/]+={0,2}$/;
+  if (!base64Pattern.test(key)) {
+    console.error('❌ FATAL: ENCRYPTION_KEY is not valid base64 format.');
+    console.error('   Valid characters: A-Z a-z 0-9 + / (with optional = padding)');
     console.error('💡 Generate a key with: openssl rand -base64 32');
+    console.error('💡 Add it to your .env file: ENCRYPTION_KEY=<generated-key>');
     process.exit(1);
   }
 
-  // Check 3: Exactly 32 bytes (256 bits)
-  if (decoded.length !== 32) {
+  // Check 3: Decode and verify length (32 bytes = 256 bits for AES-256-GCM)
+  const decoded = Buffer.from(key, 'base64');
+  if (decoded.byteLength !== 32) {
     console.error(
-      `❌ FATAL: ENCRYPTION_KEY must be exactly 32 bytes (256 bits), got ${decoded.length} bytes.`
+      `❌ FATAL: ENCRYPTION_KEY must be exactly 32 bytes (256 bits), got ${decoded.byteLength} bytes.`
     );
     console.error('💡 Generate a key with: openssl rand -base64 32');
+    console.error('💡 Add it to your .env file: ENCRYPTION_KEY=<generated-key>');
     process.exit(1);
   }
 

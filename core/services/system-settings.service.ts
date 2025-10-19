@@ -46,17 +46,39 @@ const DEFAULT_SETTINGS = {
 /**
  * Encrypt sensitive fields in S3 settings
  *
- * Encrypts secretAccessKey if not already encrypted.
+ * Always normalizes and re-encrypts secretAccessKey at write boundary.
+ * If value looks encrypted, attempt to decrypt it first (fail on error).
+ * Then encrypt the plaintext with current key/version.
+ *
+ * Security: This prevents callers from bypassing encryption by passing
+ * pseudo-ciphertext or stale encrypted values.
  *
  * @param settings - S3 settings object
  * @returns S3 settings with encrypted secretAccessKey
+ * @throws {Error} If incoming value appears encrypted but decryption fails
  */
 function encryptS3Settings(settings: S3Settings): S3Settings {
+  let plaintext: string;
+
+  if (isEncrypted(settings.secretAccessKey)) {
+    // Value matches encrypted envelope - attempt to decrypt
+    // If decryption fails, this is invalid/tampered data
+    try {
+      plaintext = decrypt(settings.secretAccessKey);
+    } catch (error) {
+      throw new Error(
+        `Invalid encrypted secretAccessKey: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  } else {
+    // Value is plaintext
+    plaintext = settings.secretAccessKey;
+  }
+
+  // Always re-encrypt with current key/version
   return {
     ...settings,
-    secretAccessKey: isEncrypted(settings.secretAccessKey)
-      ? settings.secretAccessKey
-      : encrypt(settings.secretAccessKey),
+    secretAccessKey: encrypt(plaintext),
   };
 }
 
@@ -80,15 +102,39 @@ function decryptS3Settings(settings: S3Settings): S3Settings {
 /**
  * Encrypt sensitive fields in SMTP settings
  *
- * Encrypts password if not already encrypted.
+ * Always normalizes and re-encrypts password at write boundary.
+ * If value looks encrypted, attempt to decrypt it first (fail on error).
+ * Then encrypt the plaintext with current key/version.
+ *
+ * Security: This prevents callers from bypassing encryption by passing
+ * pseudo-ciphertext or stale encrypted values.
  *
  * @param settings - SMTP settings object
  * @returns SMTP settings with encrypted password
+ * @throws {Error} If incoming value appears encrypted but decryption fails
  */
 function encryptSmtpSettings(settings: SmtpSettings): SmtpSettings {
+  let plaintext: string;
+
+  if (isEncrypted(settings.password)) {
+    // Value matches encrypted envelope - attempt to decrypt
+    // If decryption fails, this is invalid/tampered data
+    try {
+      plaintext = decrypt(settings.password);
+    } catch (error) {
+      throw new Error(
+        `Invalid encrypted password: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  } else {
+    // Value is plaintext
+    plaintext = settings.password;
+  }
+
+  // Always re-encrypt with current key/version
   return {
     ...settings,
-    password: isEncrypted(settings.password) ? settings.password : encrypt(settings.password),
+    password: encrypt(plaintext),
   };
 }
 

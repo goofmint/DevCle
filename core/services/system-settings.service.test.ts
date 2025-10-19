@@ -6,7 +6,7 @@
  * Tests encryption/decryption, UPSERT behavior, and S3 upload rollback.
  */
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import {
   getSystemSettings,
   updateSystemSettings,
@@ -14,10 +14,10 @@ import {
   isSmtpConfigured,
   uploadLogo,
 } from './system-settings.service.js';
-import { getDb } from '../db/connection.js';
 import * as schema from '../db/schema/index.js';
-import { eq, sql } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import type { S3Settings, SmtpSettings } from './system-settings.schemas.js';
+import { ensureTenantExists } from '../db/tenant-test-utils.js';
 
 const TEST_TENANT_ID = 'default';
 const OTHER_TENANT_ID = 'other-tenant';
@@ -41,39 +41,33 @@ const MOCK_SMTP_SETTINGS: SmtpSettings = {
   from: 'DevCle <noreply@example.com>',
 };
 
-// Test data setup and cleanup
+// Test data setup - use tenant helpers instead of direct DB inserts
 beforeAll(async () => {
-  const db = getDb();
-
-  // Ensure test tenants exist
-  await db
-    .insert(schema.tenants)
-    .values({ tenantId: TEST_TENANT_ID, name: 'Test Tenant' })
-    .onConflictDoNothing();
-
-  await db
-    .insert(schema.tenants)
-    .values({ tenantId: OTHER_TENANT_ID, name: 'Other Tenant' })
-    .onConflictDoNothing();
+  // Ensure test tenants exist using tenant helper
+  await ensureTenantExists(TEST_TENANT_ID, 'Test Tenant');
+  await ensureTenantExists(OTHER_TENANT_ID, 'Other Tenant');
 });
 
 // Clean up system_settings before each test to ensure isolation
 beforeEach(async () => {
-  // Use TRUNCATE to clear all data (bypasses RLS)
-  const db = getDb();
-  await db.execute(sql`TRUNCATE TABLE system_settings CASCADE`);
+  // Use scoped DELETE with RLS context for each tenant to support parallel tests
+  // Note: Must use withTenantContext for RLS-protected tables
+  const { runInTenant } = await import('../db/tenant-test-utils.js');
+
+  await runInTenant(TEST_TENANT_ID, async (tx) => {
+    await tx
+      .delete(schema.systemSettings)
+      .where(eq(schema.systemSettings.tenantId, TEST_TENANT_ID));
+  });
+
+  await runInTenant(OTHER_TENANT_ID, async (tx) => {
+    await tx
+      .delete(schema.systemSettings)
+      .where(eq(schema.systemSettings.tenantId, OTHER_TENANT_ID));
+  });
 });
 
-afterAll(async () => {
-  const db = getDb();
-
-  // Clean up test data
-  await db.delete(schema.systemSettings).where(eq(schema.systemSettings.tenantId, TEST_TENANT_ID));
-
-  await db
-    .delete(schema.systemSettings)
-    .where(eq(schema.systemSettings.tenantId, OTHER_TENANT_ID));
-});
+// Note: afterAll cleanup removed - tenant helpers manage cleanup automatically
 
 describe('System Settings Service - getSystemSettings()', () => {
   it('should return default settings when no record exists', async () => {
