@@ -92,10 +92,14 @@ export const systemSettings = pgTable('system_settings', {
   ```
 
 **制約:**
-- `tenant_id` はプライマリキー（各テナントに1レコードのみ）
-- `fiscal_year_start_month` は 1-12 の範囲
+- `tenant_id` はプライマリキー（各テナントに1レコードのみ保証）
+- `fiscal_year_start_month` は 1-12 の範囲（CHECK constraint）
 - `timezone` は IANA timezone database 形式
 - JSONBフィールドの機密情報（API keys, passwords）は暗号化推奨
+
+**注意:**
+- `tenantId` が PRIMARY KEY のため、重複レコードは自動的に防止される
+- マイグレーションでCHECK constraint追加により、`fiscal_year_start_month`の範囲を強制
 
 **マイグレーション:**
 
@@ -221,12 +225,15 @@ export async function isAiConfigured(tenantId: string): Promise<boolean>;
 
 **実装の注意点:**
 - `getSystemSettings()` は設定が存在しない場合、デフォルト値を返す（DBに保存はしない）
-- `updateSystemSettings()` は UPSERT 操作（ON CONFLICT DO UPDATE）
+- `updateSystemSettings()` は UPSERT 操作（ON CONFLICT(tenant_id) DO UPDATE）
 - RLS対応: `withTenantContext()` を使用
 - バリデーション: Zodスキーマで入力検証
-  - `fiscalYearStartMonth` は 1-12 の範囲チェック
-  - `timezone` は `Intl.supportedValuesOf('timeZone')` で検証
+  - `fiscalYearStartMonth`: 整数型で 1-12 の範囲チェック（`.int().min(1).max(12)`）
+  - `timezone`: `Intl.supportedValuesOf('timeZone')` で有効なタイムゾーンか検証
   - S3/SMTP/AI設定のJSONB構造をZodで検証
+    - S3: bucket/region/accessKeyId/secretAccessKey必須、endpoint任意
+    - SMTP: host/port/user/pass/from必須、secure boolean
+    - AI: provider/apiKey必須、model/endpoint任意
 - **暗号化**: `s3Settings.secretAccessKey`, `smtpSettings.pass`, `aiSettings.apiKey` は暗号化してDB保存
   - 暗号化処理は別モジュール（`core/utils/encryption.ts`）で実装
   - 復号化は取得時に自動実行
