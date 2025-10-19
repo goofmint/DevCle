@@ -21,7 +21,6 @@ import {
   type ActionFunctionArgs,
 } from '@remix-run/node';
 import { requireAuth } from '~/auth.middleware.js';
-import { setTenantContext, clearTenantContext } from '../../../db/connection.js';
 import {
   createCampaign,
   listCampaigns,
@@ -75,30 +74,16 @@ export async function loader({ request }: LoaderFunctionArgs) {
       orderDirection: url.searchParams.get('orderDirection') || undefined,
     };
 
-    // 3. Set tenant context for RLS (Row Level Security)
-    // This ensures all database queries are filtered by tenant_id
-    await setTenantContext(tenantId);
+    // 3. Call service layer to list campaigns (tenant isolation handled inside)
+    const result = await listCampaigns(
+      tenantId,
+      rawParams as ListCampaignsInput
+    );
 
-    try {
-      // 4. Call service layer to list campaigns
-      // Service layer will validate params using Zod schema and apply defaults
-      const result = await listCampaigns(
-        tenantId,
-        rawParams as ListCampaignsInput
-      );
-
-      // 5. Clear tenant context after successful operation
-      await clearTenantContext();
-
-      // 6. Return success response with campaigns list
-      return json(result, { status: 200 });
-    } catch (serviceError) {
-      // Ensure tenant context is cleared even if service call fails
-      await clearTenantContext();
-      throw serviceError; // Re-throw to outer catch block
-    }
+    // 4. Return success response with campaigns list
+    return json(result, { status: 200 });
   } catch (error) {
-    // 7. Handle errors and return appropriate HTTP status codes
+    // Handle errors and return appropriate HTTP status codes
 
     // Handle requireAuth() redirect (API should return 401 instead of redirect)
     // requireAuth() throws a Response with status 302 when user is not authenticated
@@ -185,26 +170,13 @@ export async function action({ request }: ActionFunctionArgs) {
       );
     }
 
-    // 3. Set tenant context for RLS
-    await setTenantContext(tenantId);
+    // 3. Call service layer to create campaign (handles tenant scoping)
+    const result = await createCampaign(tenantId, requestData);
 
-    try {
-      // 4. Call service layer to create campaign
-      // Service layer will validate input using Zod schema
-      const result = await createCampaign(tenantId, requestData);
-
-      // 5. Clear tenant context after successful operation
-      await clearTenantContext();
-
-      // 6. Return success response with 201 Created status
-      return json(result, { status: 201 });
-    } catch (serviceError) {
-      // Ensure tenant context is cleared even if service call fails
-      await clearTenantContext();
-      throw serviceError; // Re-throw to outer catch block
-    }
+    // 4. Return success response with 201 Created status
+    return json(result, { status: 201 });
   } catch (error) {
-    // 7. Handle errors and return appropriate HTTP status codes
+    // Handle errors and return appropriate HTTP status codes
 
     // Handle requireAuth() redirect
     if (error instanceof Response && error.status === 302) {

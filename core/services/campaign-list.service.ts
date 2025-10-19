@@ -71,7 +71,9 @@ export async function listCampaigns(
   return await withTenantContext(tenantId, async (tx) => {
     try {
       // 2. Build WHERE conditions
-      const whereConditions: SQL[] = [];
+      const whereConditions: SQL[] = [
+        eq(schema.campaigns.tenantId, tenantId),
+      ];
 
       // Filter by channel if provided (exact match)
       if (validated.channel) {

@@ -1,0 +1,78 @@
+version: '3.9'
+
+services:
+  nginx:
+    container_name: devcle-nginx-test
+    volumes:
+      - ./certs/devcle.test+3.pem:/etc/nginx/certs/server.crt:ro
+      - ./certs/devcle.test+3-key.pem:/etc/nginx/certs/server.key:ro
+
+  core:
+    container_name: devcle-core-test
+    build:
+      target: development
+      dockerfile: ../docker/Dockerfile.core
+    environment:
+      NODE_ENV: test
+      CI: "true"
+      POSTGRES_DB: ${POSTGRES_DB:-devcle}
+      POSTGRES_USER: ${POSTGRES_USER:-devcle}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      DATABASE_HOST: postgres
+    volumes:
+      - ./core:/app
+      - core-node-modules-test:/app/node_modules
+    command: sh -c "pnpm install --frozen-lockfile && pnpm dev"
+    ports:
+      - "3001:3000"
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: devcle-postgres-test
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-devcle}
+      POSTGRES_USER: ${POSTGRES_USER:-devcle}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data-test:/var/lib/postgresql/data
+      - ./infra/postgres/init.sh:/docker-entrypoint-initdb.d/01-init.sh:ro
+      - ./infra/postgres/rls.sql:/docker-entrypoint-initdb.d/02-rls.sql:ro
+    networks:
+      - devcle-network
+    restart: unless-stopped
+    ports:
+      - "55432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-devcle}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  redis:
+    image: redis:7-alpine
+    container_name: devcle-redis-test
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    command: >
+      redis-server /usr/local/etc/redis/redis.conf
+      --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - ./infra/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+      - redis-data-test:/data
+    networks:
+      - devcle-network
+    restart: unless-stopped
+    ports:
+      - "56379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "PING"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  core-node-modules-test:
+  postgres-data-test:
+  redis-data-test:

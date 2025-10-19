@@ -13,7 +13,7 @@
     "format:check": "prettier --check .",
     "test": "pnpm db:seed && vitest run",
     "test:watch": "vitest",
-    "test:e2e": "pnpm db:seed && playwright test",
+    "test:e2e": "tsx scripts/run-e2e.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",

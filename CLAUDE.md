@@ -60,7 +60,7 @@ This is an **early-stage project** with specification documents in `.tmp/` but m
 
 ### ALWAYS Use `withTenantContext()` for RLS
 
-**NEVER use `setTenantContext()` / `clearTenantContext()` directly** - they don't work with connection pooling!
+**NEVER rely on session-scoped helpers** - always wrap work inside `withTenantContext()` (or `runWithTenantContext()`/`createTenantContextRunner()` in Remix middleware/tests).
 
 **CORRECT Pattern:**
 ```typescript
@@ -83,16 +83,15 @@ export async function getOverviewStats(tenantId: string) {
 **WRONG Pattern (causes random data loss):**
 ```typescript
 // ❌ DON'T DO THIS - session variables leak between requests!
-await setTenantContext(tenantId);
-const result = await db.select().from(schema.developers);
-await clearTenantContext();
+const db = getDb();
+await db.select().from(schema.developers);
 ```
 
 **Why:**
 - PostgreSQL connection pooling reuses connections
-- `SET app.current_tenant_id` persists across requests on same connection
-- `withTenantContext()` uses `SET LOCAL` within transaction (safe)
-- `setTenantContext()` uses `SET` globally (unsafe with pooling)
+- Session variables persist across requests on reused connections
+- `withTenantContext()` (and helpers built on top of it) uses `SET LOCAL` within a transaction (safe)
+- Direct queries without the helper risk leaking tenant state
 
 **Symptoms of Wrong Pattern:**
 - Data randomly appears/disappears on page reload
@@ -107,6 +106,23 @@ export async function loader({ request }) {
   const stats = await getOverviewStats(user.tenantId); // Service handles context
   return json({ stats });
 }
+```
+
+**In Tests:**
+```typescript
+import { runInTenant } from '~/db/tenant-test-utils.js';
+
+await runInTenant('default', async (tx) => {
+  await tx.insert(schema.developers).values({
+    developerId: crypto.randomUUID(),
+    tenantId: 'default',
+    displayName: 'QA Dev',
+    primaryEmail: 'qa@example.com',
+    orgId: null,
+    consentAnalytics: true,
+    tags: [],
+  });
+});
 ```
 
 ## Entity Relationships
