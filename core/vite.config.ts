@@ -17,11 +17,11 @@ import rehypeHighlight from 'rehype-highlight';
  * - TypeScript path aliases
  * - Testing configuration with Vitest
  */
-export default defineConfig(({ mode }): UserConfig => {
-  const isTest = mode === 'test';
+export default defineConfig(({ command, mode }): UserConfig => {
+  const isVitest = command === 'test';
 
   return {
-    plugins: isTest
+    plugins: isVitest
       ? [react()]
       : [
           // IMPORTANT: MDX plugin must be placed BEFORE Remix plugin

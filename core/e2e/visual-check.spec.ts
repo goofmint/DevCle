@@ -13,12 +13,12 @@ import { test, expect } from '@playwright/test';
 test.describe('Visual Check', () => {
   test.beforeEach(async ({ page }) => {
     // Clear localStorage before each test to ensure consistent state
-    await page.goto('http://localhost:3000/');
+    await page.goto('/');
     await page.evaluate(() => localStorage.clear());
   });
 
   test('Landing page - dark mode text contrast', async ({ page }) => {
-    await page.goto('http://localhost:3000/');
+    await page.goto('/');
 
     // Toggle to dark mode
     const darkModeToggle = page.getByRole('button', { name: /Switch to dark mode/i });
@@ -64,7 +64,7 @@ test.describe('Visual Check', () => {
   });
 
   test('Terms page - dark mode text contrast', async ({ page }) => {
-    await page.goto('http://localhost:3000/terms');
+    await page.goto('/terms');
 
     // Toggle to dark mode
     const darkModeToggle = page.getByRole('button', { name: /Switch to dark mode/i });
@@ -109,14 +109,14 @@ test.describe('Visual Check', () => {
 
   test('Header design consistency', async ({ page }) => {
     // Get header styles from landing page
-    await page.goto('http://localhost:3000/');
+    await page.goto('/');
     const landingHeader = page.getByRole('banner');
     const landingHeaderClasses = await landingHeader.getAttribute('class');
     const landingLogo = page.getByRole('link', { name: /DevCle Home/i });
     const landingLogoExists = await landingLogo.count();
 
     // Get header styles from terms page
-    await page.goto('http://localhost:3000/terms');
+    await page.goto('/terms');
     const termsHeader = page.getByRole('banner');
     const termsHeaderClasses = await termsHeader.getAttribute('class');
     const termsLogo = page.getByRole('link', { name: /DevCle Home/i });
@@ -135,7 +135,7 @@ test.describe('Visual Check', () => {
 
     // Both should have dark mode toggle
     const landingToggle = await page.getByRole('button', { name: /Switch to (dark|light) mode/i }).count();
-    await page.goto('http://localhost:3000/terms');
+    await page.goto('/terms');
     const termsToggle = await page.getByRole('button', { name: /Switch to (dark|light) mode/i }).count();
 
     expect(landingToggle).toBeGreaterThan(0);
@@ -144,13 +144,13 @@ test.describe('Visual Check', () => {
 
   test('Footer design consistency', async ({ page }) => {
     // Get footer from landing page
-    await page.goto('http://localhost:3000/');
+    await page.goto('/');
     const landingFooter = page.getByRole('contentinfo');
     const landingFooterClasses = await landingFooter.getAttribute('class');
     const landingTermsLink = await page.getByRole('link', { name: /Terms of Service/i }).count();
 
     // Get footer from terms page
-    await page.goto('http://localhost:3000/terms');
+    await page.goto('/terms');
     const termsFooter = page.getByRole('contentinfo');
     const termsFooterClasses = await termsFooter.getAttribute('class');
     const termsTermsLink = await page.getByRole('link', { name: /Terms of Service/i }).count();
@@ -168,7 +168,7 @@ test.describe('Visual Check', () => {
   });
 
   test('Dark mode toggle persistence', async ({ page }) => {
-    await page.goto('http://localhost:3000/');
+    await page.goto('/');
 
     // Toggle to dark mode
     const darkModeToggle = page.getByRole('button', { name: /Switch to dark mode/i });
@@ -176,7 +176,7 @@ test.describe('Visual Check', () => {
     await page.waitForTimeout(500);
 
     // Navigate to terms page
-    await page.goto('http://localhost:3000/terms');
+    await page.goto('/terms');
     await page.waitForTimeout(500);
 
     // Check if still in dark mode by checking localStorage

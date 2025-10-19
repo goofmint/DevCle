@@ -1,7 +1,7 @@
 import { test } from '@playwright/test';
 
 test('Debug DOM structure', async ({ page }) => {
-  await page.goto('http://localhost:3000/terms');
+  await page.goto('/terms');
 
   // Toggle to dark mode
   const darkModeToggle = page.getByRole('button', { name: /Switch to dark mode/i });

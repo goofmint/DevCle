@@ -184,18 +184,29 @@ docker compose exec core pnpm typecheck
 ```
 
 ### E2E Tests (Playwright) - ON HOST
-```bash
-# Dev server must be running first
-docker compose -f docker-compose.yml -f docker-compose-dev.yml up -d
 
-# Run on host (not in docker)
-cd core && pnpm exec playwright test
+**🚨 CRITICAL: MUST use BASE_URL=https://devcle.test for ALL E2E tests! 🚨**
+
+```bash
+# Start test environment first
+docker compose -f docker-compose.yml -f docker-compose-test.yml up -d
+
+# Run E2E tests with pnpm test:e2e (includes db:seed)
+pnpm test:e2e
+
+# Or run Playwright directly (MUST specify BASE_URL)
+BASE_URL=https://devcle.test pnpm --filter @drm/core exec playwright test --reporter=list
 ```
+
+**Why BASE_URL is required:**
+- Tests use `https://devcle.test` (configured in docker-compose-test.yml)
+- Without `BASE_URL`, tests will try `http://localhost:3000` and fail
+- `pnpm test:e2e` script loads `.env.test` automatically
 
 ### Before Commit
 1. `docker compose exec core pnpm test` - ALL tests must pass
 2. `docker compose exec core pnpm typecheck` - No errors
-3. `cd core && pnpm exec playwright test` - All E2E pass
+3. `pnpm test:e2e` (or `BASE_URL=https://devcle.test pnpm --filter @drm/core exec playwright test`) - All E2E pass
 4. **NEVER skip failing tests**
 
 ## When Implementation Begins
