@@ -23,15 +23,13 @@ Main service file implementing CRUD operations.
 - `updateSystemSettings(tenantId, data)`: UPSERT operation with encryption
 - `isS3Configured(tenantId)`: Check if S3 is configured
 - `isSmtpConfigured(tenantId)`: Check if SMTP is configured
-- `isAiConfigured(tenantId)`: Check if AI is configured
 - `uploadLogo(tenantId, file)`: Upload logo to S3 and update settings
 
 **Key Requirements:**
 - Use `withTenantContext()` for RLS
 - Encrypt sensitive fields before DB save:
   - `s3Settings.secretAccessKey`
-  - `smtpSettings.pass`
-  - `aiSettings.apiKey`
+  - `smtpSettings.password`
 - Decrypt on read automatically
 - Handle UPSERT with `ON CONFLICT(tenant_id) DO UPDATE`
 - Validate input with Zod schemas
@@ -50,7 +48,6 @@ Main service file implementing CRUD operations.
   baseUrl: string | null,
   s3Settings: S3SettingsSchema | null,
   smtpSettings: SmtpSettingsSchema | null,
-  aiSettings: AiSettingsSchema | null,
   shortlinkDomain: string | null
 }
 ```
@@ -73,18 +70,8 @@ Main service file implementing CRUD operations.
   port: number (required),
   secure: boolean (required),
   user: string (required),
-  pass: string (required),
+  password: string (required),
   from: string (email format, required)
-}
-```
-
-**AiSettingsSchema:**
-```typescript
-{
-  provider: 'openai' | 'anthropic' | 'azure-openai' (required),
-  apiKey: string (required),
-  model?: string (optional),
-  endpoint?: string (optional, for Azure)
 }
 ```
 

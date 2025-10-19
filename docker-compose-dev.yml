@@ -29,6 +29,8 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       # Database host points to postgres service in docker network
       DATABASE_HOST: postgres
+      # Encryption key for sensitive data (from .env)
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
     volumes:
       # Mount source code for hot reloading from core directory
       - ./core:/app

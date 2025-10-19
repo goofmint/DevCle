@@ -55,6 +55,8 @@ services:
       REDIS_URL: ${REDIS_URL}
       # Session secret for cookie signing (from .env)
       SESSION_SECRET: ${SESSION_SECRET}
+      # Encryption key for sensitive data (from .env)
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
     networks:
       - devcle-network
     restart: unless-stopped
