@@ -44,13 +44,7 @@ System settings page with tabbed interface.
    - Status indicator
    - Test Connection button
 
-4. **AI Settings:**
-   - Provider (dropdown: OpenAI/Anthropic/Azure OpenAI)
-   - API Key (password input)
-   - Model (text input, optional)
-   - Endpoint (text input, optional for Azure)
-   - Status indicator
-   - Test Connection button
+**Note:** AI settings section removed - AI features are not included in OSS version.
 
 **UI Requirements:**
 - Use Iconify for all icons (NO inline SVG)
@@ -81,7 +75,6 @@ export async function action({ request })
 - `app/components/settings/BasicSettingsForm.tsx`
 - `app/components/settings/S3SettingsForm.tsx`
 - `app/components/settings/SmtpSettingsForm.tsx`
-- `app/components/settings/AiSettingsForm.tsx`
 
 ---
 
@@ -114,12 +107,6 @@ test('should save SMTP settings')
 test('should test SMTP connection')
 ```
 
-### 4. AI Settings (2 tests)
-```typescript
-test('should save AI settings')
-test('should test AI connection')
-```
-
 ### 5. Validation (3 tests)
 ```typescript
 test('should show validation error for invalid fiscal year')
@@ -133,7 +120,7 @@ Each form section should verify:
 - Background color differs between light/dark mode
 - No design issues (alignment, overflow, etc.)
 
-**Total Test Count:** 16 tests
+**Total Test Count:** 14 tests (AI settings tests removed)
 
 **Test Requirements:**
 - NO Safari browser (Chromium only)
