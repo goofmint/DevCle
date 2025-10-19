@@ -1,0 +1,701 @@
+# Task 7.3.1: システム設定画面の実装
+
+**Status:** Pending
+**Estimated Time:** 4時間
+**Dependencies:** Task 7.1
+
+## 概要
+
+システム全体の基本設定を管理する画面を実装します。管理するサービス名、ロゴ、会計期間、タイムゾーンなどの設定を行えるようにします。
+
+## 目的
+
+- システム全体の設定を一元管理する画面を提供
+- サービス名やロゴのカスタマイズを可能にする
+- 会計期間とタイムゾーンの設定を可能にする
+
+## 実装内容
+
+### 1. データベーススキーマ（system_settingsテーブルの拡張）
+
+既存の`system_settings`テーブル（`core/db/schema/admin.ts`）に新しいカラムを追加します。
+
+**既存のスキーマ:**
+```typescript
+// core/db/schema/admin.ts（既存）
+export const systemSettings = pgTable('system_settings', {
+  tenantId: text('tenant_id').primaryKey().references(() => tenants.tenantId, { onDelete: 'cascade' }),
+  baseUrl: text('base_url'),
+  smtpSettings: jsonb('smtp_settings'),
+  aiSettings: jsonb('ai_settings'),
+  shortlinkDomain: text('shortlink_domain'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+```
+
+**変更後のスキーマ:**
+```typescript
+// core/db/schema/admin.ts（変更後）
+export const systemSettings = pgTable('system_settings', {
+  tenantId: text('tenant_id').primaryKey().references(() => tenants.tenantId, { onDelete: 'cascade' }),
+  baseUrl: text('base_url'),
+  shortlinkDomain: text('shortlink_domain'),
+  // 基本設定
+  serviceName: text('service_name'),             // サービス名（例: "DevCle"）
+  logoUrl: text('logo_url'),                     // ロゴ画像URL（公開URLまたはdata URI）
+  fiscalYearStart: text('fiscal_year_start'),    // 期初（MM-DD形式、例: "04-01"）
+  fiscalYearEnd: text('fiscal_year_end'),        // 期末（MM-DD形式、例: "03-31"）
+  timezone: text('timezone'),                    // タイムゾーン（IANA形式、例: "Asia/Tokyo"）デフォルト: ブラウザ設定
+  // SMTP設定（フラット化）
+  smtpHost: text('smtp_host'),                   // SMTPホスト（例: "smtp.gmail.com"）
+  smtpPort: integer('smtp_port'),                // SMTPポート（例: 587）
+  smtpUsername: text('smtp_username'),           // SMTPユーザー名
+  smtpPassword: text('smtp_password'),           // SMTPパスワード（暗号化必須）
+  // AI設定（フラット化）
+  aiProvider: text('ai_provider'),               // AIプロバイダー（例: "openai", "anthropic"）
+  aiApiKey: text('ai_api_key'),                  // AI APIキー（暗号化必須）
+  aiModel: text('ai_model'),                     // AIモデル（例: "gpt-4", "claude-3"）
+  // S3設定（フラット化）
+  s3Bucket: text('s3_bucket'),                   // S3バケット名
+  s3Region: text('s3_region'),                   // AWSリージョン（例: "ap-northeast-1"）
+  s3AccessKeyId: text('s3_access_key_id'),       // アクセスキーID（暗号化推奨）
+  s3SecretAccessKey: text('s3_secret_access_key'), // シークレットアクセスキー（暗号化必須）
+  s3Endpoint: text('s3_endpoint'),               // カスタムエンドポイント（MinIO等、オプション）
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+```
+
+**マイグレーションSQL:**
+```sql
+-- Migration: Flatten SMTP/AI/S3 settings and add new columns
+ALTER TABLE system_settings
+  DROP COLUMN smtp_settings,
+  DROP COLUMN ai_settings,
+  ADD COLUMN service_name TEXT,
+  ADD COLUMN logo_url TEXT,
+  ADD COLUMN fiscal_year_start TEXT,
+  ADD COLUMN fiscal_year_end TEXT,
+  ADD COLUMN timezone TEXT,
+  ADD COLUMN smtp_host TEXT,
+  ADD COLUMN smtp_port INTEGER,
+  ADD COLUMN smtp_username TEXT,
+  ADD COLUMN smtp_password TEXT,
+  ADD COLUMN ai_provider TEXT,
+  ADD COLUMN ai_api_key TEXT,
+  ADD COLUMN ai_model TEXT,
+  ADD COLUMN s3_bucket TEXT,
+  ADD COLUMN s3_region TEXT,
+  ADD COLUMN s3_access_key_id TEXT,
+  ADD COLUMN s3_secret_access_key TEXT,
+  ADD COLUMN s3_endpoint TEXT;
+```
+
+### 2. 設定項目の定義
+
+以下の設定項目をサポートします：
+
+#### 基本設定
+| カラム名 | 型 | 説明 | デフォルト値 |
+|----------|-----|------|-------------|
+| `service_name` | `text` | サービス名（例: "DevCle"） | NULL |
+| `logo_url` | `text` | ロゴ画像のURL（公開URLまたはdata URI） | NULL |
+| `fiscal_year_start` | `text` | 期初の月日（"MM-DD"形式、例: "04-01"） | NULL |
+| `fiscal_year_end` | `text` | 期末の月日（"MM-DD"形式、例: "03-31"） | NULL |
+| `timezone` | `text` | タイムゾーン（IANA形式、例: "Asia/Tokyo"） | ブラウザ設定（`Intl.DateTimeFormat().resolvedOptions().timeZone`） |
+
+#### SMTP設定
+| カラム名 | 型 | 説明 | デフォルト値 |
+|----------|-----|------|-------------|
+| `smtp_host` | `text` | SMTPホスト（例: "smtp.gmail.com"） | NULL |
+| `smtp_port` | `integer` | SMTPポート（例: 587） | NULL |
+| `smtp_username` | `text` | SMTPユーザー名 | NULL |
+| `smtp_password` | `text` | SMTPパスワード（暗号化必須） | NULL |
+
+#### AI設定
+| カラム名 | 型 | 説明 | デフォルト値 |
+|----------|-----|------|-------------|
+| `ai_provider` | `text` | AIプロバイダー（"openai", "anthropic"等） | NULL |
+| `ai_api_key` | `text` | AI APIキー（暗号化必須） | NULL |
+| `ai_model` | `text` | AIモデル（"gpt-4", "claude-3"等） | NULL |
+
+#### S3設定
+| カラム名 | 型 | 説明 | デフォルト値 |
+|----------|-----|------|-------------|
+| `s3_bucket` | `text` | S3バケット名 | NULL |
+| `s3_region` | `text` | AWSリージョン（例: "ap-northeast-1"） | NULL |
+| `s3_access_key_id` | `text` | アクセスキーID（暗号化推奨） | NULL |
+| `s3_secret_access_key` | `text` | シークレットアクセスキー（暗号化必須） | NULL |
+| `s3_endpoint` | `text` | カスタムエンドポイント（MinIO等、オプション） | NULL |
+
+### 3. サービスレイヤー
+
+```typescript
+// core/services/system-settings.service.ts
+
+interface SystemSettings {
+  tenantId: string;
+  baseUrl: string | null;
+  shortlinkDomain: string | null;
+  // 基本設定
+  serviceName: string | null;
+  logoUrl: string | null;
+  fiscalYearStart: string | null;
+  fiscalYearEnd: string | null;
+  timezone: string | null;
+  // SMTP設定
+  smtpHost: string | null;
+  smtpPort: number | null;
+  smtpUsername: string | null;
+  smtpPassword: string | null;
+  // AI設定
+  aiProvider: string | null;
+  aiApiKey: string | null;
+  aiModel: string | null;
+  // S3設定
+  s3Bucket: string | null;
+  s3Region: string | null;
+  s3AccessKeyId: string | null;
+  s3SecretAccessKey: string | null;
+  s3Endpoint: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+interface UpdateSystemSettingsInput {
+  // 基本設定
+  serviceName?: string;
+  logoUrl?: string;
+  fiscalYearStart?: string;
+  fiscalYearEnd?: string;
+  timezone?: string;
+  // SMTP設定
+  smtpHost?: string;
+  smtpPort?: number;
+  smtpUsername?: string;
+  smtpPassword?: string;
+  // AI設定
+  aiProvider?: string;
+  aiApiKey?: string;
+  aiModel?: string;
+  // S3設定
+  s3Bucket?: string;
+  s3Region?: string;
+  s3AccessKeyId?: string;
+  s3SecretAccessKey?: string;
+  s3Endpoint?: string;
+}
+
+/**
+ * Get system settings for a tenant
+ */
+export async function getSystemSettings(
+  tenantId: string
+): Promise<SystemSettings | null>;
+
+/**
+ * Update system settings (partial update)
+ */
+export async function updateSystemSettings(
+  tenantId: string,
+  settings: UpdateSystemSettingsInput
+): Promise<SystemSettings>;
+
+/**
+ * Create initial system settings for a new tenant
+ */
+export async function createSystemSettings(
+  tenantId: string
+): Promise<SystemSettings>;
+```
+
+**実装の詳細:**
+- `withTenantContext()`を使用してRLS対応
+- UPSERT処理で設定を更新（tenant_idが主キーなので1レコードのみ）
+- 部分更新をサポート（指定されたフィールドのみ更新）
+- バリデーションはZodスキーマで実施
+
+### 4. API Routes
+
+```typescript
+// app/routes/api/settings.ts
+
+/**
+ * GET /api/settings
+ * Get system settings for the current tenant
+ */
+export async function loader({ request }: LoaderFunctionArgs): Promise<Response>;
+
+/**
+ * PUT /api/settings
+ * Body: UpdateSystemSettingsInput
+ * {
+ *   // 基本設定
+ *   serviceName?: string,
+ *   logoUrl?: string,
+ *   fiscalYearStart?: string,
+ *   fiscalYearEnd?: string,
+ *   timezone?: string,
+ *   // SMTP設定
+ *   smtpHost?: string,
+ *   smtpPort?: number,
+ *   smtpUsername?: string,
+ *   smtpPassword?: string,
+ *   // AI設定
+ *   aiProvider?: string,
+ *   aiApiKey?: string,
+ *   aiModel?: string,
+ *   // S3設定
+ *   s3Bucket?: string,
+ *   s3Region?: string,
+ *   s3AccessKeyId?: string,
+ *   s3SecretAccessKey?: string,
+ *   s3Endpoint?: string
+ * }
+ */
+export async function action({ request }: ActionFunctionArgs): Promise<Response>;
+```
+
+**エラーハンドリング:**
+- 400: Invalid request body（バリデーションエラー）
+- 401: Unauthorized（認証エラー）
+- 404: Settings not found（初期化されていない場合は自動作成）
+- 413: Payload too large（>2MB）
+- 500: Internal server error
+
+**Handler-Level Validation (PUT /api/settings):**
+
+ハンドラーで実施する必須バリデーション項目：
+
+1. **認証・認可チェック**
+   - `requireAuth(request)` - ユーザー認証
+   - `user.role === 'admin'` - 管理者権限チェック
+
+2. **CSRF保護**
+   - RemixのCSRFトークン検証（自動）
+
+3. **Content-Length チェック**
+   ```typescript
+   const contentLength = request.headers.get('content-length');
+   if (contentLength && parseInt(contentLength) > 2 * 1024 * 1024) {
+     return json({ error: 'Payload too large' }, { status: 413 });
+   }
+   ```
+
+4. **logoUrl のハンドラーレベルバリデーション**
+
+   スキーマバリデーション（Zod）は形式のみチェック済み:
+   - Valid URL format OR starts with `data:image/`
+
+   ハンドラーで追加実施:
+   - **data URI の場合:**
+     - ペイロード長チェック（≤2MB）
+     - MIME タイプ検証（`data:image/png`, `data:image/jpeg`, `data:image/svg+xml`のみ）
+   - **URL の場合:**
+     - XSS対策: `javascript:`, `data:text/html` 等の危険なスキームを拒否
+     - （オプション）ドメインホワイトリスト検証
+     - （オプション）URL先のContent-Typeヘッダー検証
+
+5. **ファイルアップロードフロー（multipart/form-data）**
+
+   logoUrlをファイルアップロードで受け取る場合:
+   ```
+   Step 1: リクエスト受信
+     → Content-Type: multipart/form-data を確認
+
+   Step 2: Content-Length チェック
+     → ヘッダーから取得、>2MB なら即座に 413 Payload Too Large
+
+   Step 3: 最初のバイト読み込み
+     → ファイルの先頭バイトを読み、MIME タイプを検証
+     → PNGなら 89 50 4E 47 (PNG signature)
+     → JPEGなら FF D8 FF (JPEG signature)
+     → SVGなら <?xml or <svg (テキストベース)
+
+   Step 4: Content-Type ヘッダー検証
+     → image/png, image/jpeg, image/svg+xml のみ許可
+
+   Step 5: data URI 変換
+     → File → Base64エンコード → data:image/{type};base64,{data}
+
+   Step 6: 変換後のペイロード長チェック
+     → data URI 全体が ≤2MB であることを再確認
+
+   Step 7: ストア or リジェクト
+     → 全チェック通過 → データベース保存
+     → いずれか失敗 → 400 Bad Request
+   ```
+
+6. **機密情報の暗号化**
+
+   保存前に以下を暗号化:
+   ```typescript
+   import { encrypt } from '~/lib/crypto.server';
+
+   const encrypted = {
+     smtpPassword: settings.smtpPassword ? encrypt(settings.smtpPassword) : null,
+     aiApiKey: settings.aiApiKey ? encrypt(settings.aiApiKey) : null,
+     s3SecretAccessKey: settings.s3SecretAccessKey ? encrypt(settings.s3SecretAccessKey) : null,
+     s3AccessKeyId: settings.s3AccessKeyId ? encrypt(settings.s3AccessKeyId) : null,
+   };
+   ```
+
+### 5. UI実装
+
+```typescript
+// app/routes/dashboard.settings.tsx
+
+export default function SettingsPage(): JSX.Element;
+
+/**
+ * ページ構成:
+ * - ヘッダー（"System Settings"）
+ * - 基本設定セクション
+ *   - サービス名入力フィールド
+ *   - ロゴアップロード（File input + プレビュー）
+ *   - 期初設定（MM-DD形式の日付入力）
+ *   - 期末設定（MM-DD形式の日付入力）
+ *   - タイムゾーン選択（ドロップダウン、Intl.supportedValuesOf('timeZone')から取得）
+ *     - デフォルト値: Intl.DateTimeFormat().resolvedOptions().timeZone（ブラウザ設定）
+ * - SMTP設定セクション
+ *   - SMTPホスト入力フィールド
+ *   - SMTPポート入力フィールド（数値）
+ *   - SMTPユーザー名入力フィールド
+ *   - SMTPパスワード入力フィールド（パスワード形式）
+ * - AI設定セクション
+ *   - AIプロバイダー選択（ドロップダウン: openai, anthropic等）
+ *   - AI APIキー入力フィールド（パスワード形式）
+ *   - AIモデル入力フィールド
+ * - S3設定セクション
+ *   - バケット名入力フィールド
+ *   - リージョン選択（ドロップダウン）
+ *   - アクセスキーID入力フィールド
+ *   - シークレットアクセスキー入力フィールド（パスワード形式）
+ *   - カスタムエンドポイント入力フィールド（オプション）
+ * - 保存ボタン（Remix Form使用）
+ */
+```
+
+**UIコンポーネント:**
+
+```typescript
+// app/components/settings/BasicSettingsForm.tsx
+
+interface SystemSettingsFormProps {
+  settings: {
+    // 基本設定
+    serviceName: string | null;
+    logoUrl: string | null;
+    fiscalYearStart: string | null;
+    fiscalYearEnd: string | null;
+    timezone: string | null;
+    // SMTP設定
+    smtpHost: string | null;
+    smtpPort: number | null;
+    smtpUsername: string | null;
+    smtpPassword: string | null;
+    // AI設定
+    aiProvider: string | null;
+    aiApiKey: string | null;
+    aiModel: string | null;
+    // S3設定
+    s3Bucket: string | null;
+    s3Region: string | null;
+    s3AccessKeyId: string | null;
+    s3SecretAccessKey: string | null;
+    s3Endpoint: string | null;
+  };
+  defaultTimezone: string; // Intl.DateTimeFormat().resolvedOptions().timeZone
+}
+
+export function SystemSettingsForm(props: SystemSettingsFormProps): JSX.Element;
+```
+
+**デザイン要件:**
+- ダークモード対応（既存のDarkModeProvider使用）
+- モバイル対応（レスポンシブデザイン）
+- フォームバリデーション表示（エラーメッセージ）
+- 保存成功時のトースト通知
+- ロゴプレビュー表示（画像アップロード後）
+
+### 6. バリデーションスキーマ
+
+```typescript
+// core/services/system-settings.schemas.ts
+
+import { z } from 'zod';
+
+/**
+ * SCHEMA-LEVEL VALIDATION
+ *
+ * These Zod schemas validate REQUEST SHAPE only:
+ * - logoUrl: Valid URL format OR starts with "data:image/" prefix
+ *   (does NOT validate file size, MIME type, or data-URI payload)
+ * - timezone: IANA timezone via Intl.supportedValuesOf('timeZone')
+ * - fiscalYearStart/End: MM-DD format with month 01-12, day 01-31
+ * - smtpPort: Integer 1-65535
+ * - aiProvider: Enum whitelist (openai, anthropic, google)
+ * - s3Endpoint: Valid URL format
+ *
+ * HANDLER-LEVEL VALIDATION (see API Routes section):
+ * - Content-Length check (reject >2MB)
+ * - MIME whitelist (image/png, image/jpeg, image/svg+xml)
+ * - XSS sanitization for non-data URIs
+ * - CSRF token enforcement (Remix)
+ */
+
+// Helper: Validate MM-DD format
+const mmddValidator = z.string().refine((val) => {
+  const parts = val.split('-');
+  if (parts.length !== 2) return false;
+  const month = Number(parts[0]);
+  const day = Number(parts[1]);
+  return month >= 1 && month <= 12 && day >= 1 && day <= 31;
+}, {
+  message: 'Invalid MM-DD format (month 01-12, day 01-31)',
+});
+
+// Helper: Validate IANA timezone
+const validTimezones = Intl.supportedValuesOf('timeZone');
+const timezoneValidator = z.string().refine((val) => validTimezones.includes(val), {
+  message: 'Invalid IANA timezone',
+});
+
+// Update system settings input schema
+export const UpdateSystemSettingsSchema = z.object({
+  // 基本設定
+  serviceName: z.string().min(1).max(100).optional(),
+  logoUrl: z.string().url().or(z.string().startsWith('data:image/')).optional(),
+  fiscalYearStart: mmddValidator.optional(),
+  fiscalYearEnd: mmddValidator.optional(),
+  timezone: timezoneValidator.optional(),
+  // SMTP設定
+  smtpHost: z.string().min(1, 'SMTP host is required').optional(),
+  smtpPort: z.number().int().min(1).max(65535, 'Invalid port number').optional(),
+  smtpUsername: z.string().min(1, 'SMTP username is required').optional(),
+  smtpPassword: z.string().min(1, 'SMTP password is required').optional(),
+  // AI設定
+  aiProvider: z.enum(['openai', 'anthropic', 'google'], { message: 'Invalid AI provider' }).optional(),
+  aiApiKey: z.string().min(1, 'AI API key is required').optional(),
+  aiModel: z.string().min(1, 'AI model is required').optional(),
+  // S3設定
+  s3Bucket: z.string().min(1, 'Bucket name is required').optional(),
+  s3Region: z.string().min(1, 'Region is required').optional(),
+  s3AccessKeyId: z.string().min(1, 'Access Key ID is required').optional(),
+  s3SecretAccessKey: z.string().min(1, 'Secret Access Key is required').optional(),
+  s3Endpoint: z.string().url('Invalid endpoint URL').optional(),
+});
+```
+
+### 7. E2Eテスト
+
+```typescript
+// core/e2e/settings.spec.ts
+
+import { test, expect } from '@playwright/test';
+
+test.describe('Settings Page', () => {
+  test('should display settings page', async ({ page }) => {
+    // ログイン後、設定ページにアクセス
+    // "System Settings"ヘッダーが表示されることを確認
+  });
+
+  test('should save service name', async ({ page }) => {
+    // サービス名を入力
+    // 保存ボタンをクリック
+    // 成功メッセージが表示されることを確認
+    // リロード後も設定が保持されることを確認
+  });
+
+  test('should upload and display logo', async ({ page }) => {
+    // ロゴ画像をアップロード
+    // プレビューが表示されることを確認
+    // 保存後、ダッシュボードにロゴが反映されることを確認
+  });
+
+  test('should save fiscal year settings', async ({ page }) => {
+    // 期初期末を入力
+    // 保存ボタンをクリック
+    // 設定が保存されることを確認
+  });
+
+  test('should save timezone', async ({ page }) => {
+    // タイムゾーンを選択
+    // 保存ボタンをクリック
+    // 設定が保存されることを確認
+  });
+
+  test('should default timezone to browser setting', async ({ page }) => {
+    // 設定ページにアクセス
+    // タイムゾーンドロップダウンのデフォルト値がブラウザ設定と一致することを確認
+    // (Intl.DateTimeFormat().resolvedOptions().timeZone)
+  });
+
+  test('should save S3 settings', async ({ page }) => {
+    // S3設定（バケット名、リージョン、アクセスキー等）を入力
+    // 保存ボタンをクリック
+    // 設定が保存されることを確認
+    // シークレットアクセスキーがマスク表示されることを確認
+  });
+
+  test('should validate S3 settings', async ({ page }) => {
+    // 必須フィールドを空にして保存
+    // バリデーションエラーが表示されることを確認
+  });
+
+  test('should save SMTP settings', async ({ page }) => {
+    // SMTP設定（ホスト、ポート、ユーザー名、パスワード）を入力
+    // 保存ボタンをクリック
+    // 設定が保存されることを確認
+    // SMTPパスワードがマスク表示されることを確認
+  });
+
+  test('should save AI settings', async ({ page }) => {
+    // AI設定（プロバイダー、APIキー、モデル）を入力
+    // 保存ボタンをクリック
+    // 設定が保存されることを確認
+    // AI APIキーがマスク表示されることを確認
+  });
+});
+```
+
+## 完了条件
+
+- [ ] `app/routes/dashboard.settings.tsx`が実装され、ブラウザで表示できる
+- [ ] 基本設定（サービス名、ロゴ、期初期末、タイムゾーン）が保存できる
+- [ ] SMTP設定（ホスト、ポート、ユーザー名、パスワード）が保存できる
+- [ ] AI設定（プロバイダー、APIキー、モデル）が保存できる
+- [ ] S3設定（バケット、リージョン、アクセスキー、シークレットキー、エンドポイント）が保存できる
+- [ ] タイムゾーンのデフォルト値がブラウザ設定（`Intl.DateTimeFormat().resolvedOptions().timeZone`）になる
+- [ ] 保存した設定が画面リロード後も保持される
+- [ ] パスワード/キー類（smtpPassword, aiApiKey, s3SecretAccessKey）がパスワード形式で表示される
+- [ ] E2Eテストが全て通過する
+- [ ] TypeScriptエラーがない（`pnpm typecheck`成功）
+- [ ] Lintエラーがない（`pnpm lint`成功）
+
+## セキュリティ考慮事項
+
+### Schema-Level Validation（Zodスキーマ）
+
+Zodスキーマで実施するバリデーション:
+
+1. **フィールド形式チェック**
+   - `logoUrl`: Valid URL format OR starts with `data:image/` prefix
+     - ⚠️ ファイルサイズ、MIME type、data-URIペイロードは検証しない
+   - `timezone`: IANA timezone (`Intl.supportedValuesOf('timeZone')`)
+   - `fiscalYearStart/End`: MM-DD format (month 01-12, day 01-31)
+   - `smtpPort`: Integer 1-65535
+   - `aiProvider`: Enum (`openai`, `anthropic`, `google`)
+   - `s3Endpoint`: Valid URL format
+
+2. **文字列長チェック**
+   - `serviceName`: 1-100文字
+   - その他必須フィールド: 最小1文字
+
+### Handler-Level Validation（APIハンドラー）
+
+APIハンドラー（`PUT /api/settings`）で実施する必須バリデーション:
+
+1. **認証・認可**
+   - `requireAuth(request)` - ユーザー認証必須
+   - `user.role === 'admin'` - 管理者権限チェック
+
+2. **リクエストサイズ制限**
+   - Content-Length ヘッダーチェック
+   - >2MB のリクエストは即座に 413 Payload Too Large でリジェクト
+
+3. **CSRF保護**
+   - Remix CSRF トークン検証（フレームワーク組み込み）
+
+4. **logoUrl ハンドラーバリデーション**
+   - **data URI の場合:**
+     - MIME type whitelist: `data:image/png`, `data:image/jpeg`, `data:image/svg+xml`
+     - ペイロード長 ≤2MB
+   - **URL の場合:**
+     - Scheme denylist: `javascript:`, `data:text/html`, `vbscript:` 等を拒否
+     - （オプション）ドメインホワイトリスト検証
+
+5. **ファイルアップロード処理**
+   - Content-Type ヘッダー検証（`image/png`, `image/jpeg`, `image/svg+xml`）
+   - ファイル先頭バイト検証（magic number）:
+     - PNG: `89 50 4E 47`
+     - JPEG: `FF D8 FF`
+     - SVG: `<?xml` or `<svg`
+   - Base64エンコード → data URI 変換
+   - 変換後の全長チェック（≤2MB）
+
+6. **XSS/インジェクション対策**
+   - logoUrl: 危険なスキーム（`javascript:`, `data:text/html`）を拒否
+   - serviceName: HTMLエスケープ（フロントエンドで自動）
+   - 外部URL: （オプション）Content-Security-Policy ヘッダー設定
+
+7. **機密情報の暗号化（必須）**
+   - 以下のフィールドは保存前に暗号化:
+     - `smtpPassword` （AES-256-GCM）
+     - `aiApiKey` （AES-256-GCM）
+     - `s3SecretAccessKey` （AES-256-GCM）
+     - `s3AccessKeyId` （推奨）
+   - 暗号化キー: 環境変数 `ENCRYPTION_KEY` で管理
+   - フロントエンド: パスワード形式で表示（マスク）
+
+### Security Flow Summary
+
+**ファイルアップロードフロー:**
+```
+1. リクエスト受信
+   ↓
+2. Content-Length チェック (>2MB → 413)
+   ↓
+3. Content-Type ヘッダー検証 (whitelist)
+   ↓
+4. ファイル先頭バイト読み込み (magic number検証)
+   ↓
+5. Base64エンコード → data URI 変換
+   ↓
+6. 変換後のペイロード長チェック (>2MB → 400)
+   ↓
+7. Zodスキーマバリデーション
+   ↓
+8. 機密情報暗号化
+   ↓
+9. データベース保存 or 400 Bad Request
+```
+
+**URLアップロードフロー:**
+```
+1. リクエスト受信
+   ↓
+2. Zodスキーマバリデーション (URL format)
+   ↓
+3. Scheme denylist チェック (javascript:, data:text/html 等)
+   ↓
+4. （オプション）ドメインホワイトリスト検証
+   ↓
+5. 機密情報暗号化
+   ↓
+6. データベース保存 or 400 Bad Request
+```
+
+## 注意事項
+
+- **ロゴアップロード**
+  - 初期実装ではdata URI形式で保存し、後にS3等のストレージに移行予定
+  - S3設定が保存されている場合は、ロゴをS3にアップロードすることも可能
+- **タイムゾーン**
+  - タイムゾーン一覧はIntl APIから取得（`Intl.supportedValuesOf('timeZone')`）
+  - デフォルト値はブラウザ設定（`Intl.DateTimeFormat().resolvedOptions().timeZone`）
+- **会計期間**
+  - 期初期末の設定はROI計算やレポート生成で使用される予定
+- **アクセス権限**
+  - この設定画面はシステム管理者のみアクセス可能（認証チェック）
+- **SMTP設定の用途**
+  - 通知メール送信、レポート送信、招待メール送信等で使用
+- **AI設定の用途**
+  - Activity分類、Developer属性推定、ROI分析等で使用（将来実装）
+- **S3設定の用途**
+  - ロゴアップロード、データエクスポート、バックアップ、レポートPDF保存等で使用
+
+## 次のタスク
+
+Task 7.3.2: アクティビティカラーとアイコンの設定画面実装（システム設定画面の一部）
