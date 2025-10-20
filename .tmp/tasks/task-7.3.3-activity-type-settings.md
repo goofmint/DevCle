@@ -1,6 +1,6 @@
 # Task 7.3.3: アクティビティカラーとアイコンの設定画面実装
 
-**推定時間**: 5時間
+**推定時間**: 6.5時間
 **依存**: Task 7.3（Developersページ実装）
 **優先度**: 中
 
@@ -464,44 +464,113 @@ export default function ActivityTypesSettings() {
  * Props:
  * - mode: 'create' | 'edit'
  * - initialData?: ActivityType
+ * - existingActions: Array<string> (既存のアクション一覧)
  * - funnelStages: Array<FunnelStage>
  * - onSubmit: (data: FormData) => void
  * - onCancel: () => void
  *
  * Fields:
- * - Action (text input, disabled in edit mode)
- * - Icon picker (IconPicker component)
- * - Color palette (ColorPalette component)
+ * - Action (Combobox: 既存データから選択 + 新規入力可能、edit modeでは無効)
+ * - Icon picker (@zunicornshift/mui-iconify-picker)
+ * - Color palette (react-color with preset colors)
  * - Funnel stage (dropdown, optional)
  * - Submit/Cancel buttons
  */
 
 /**
- * IconPicker Component
+ * ActionCombobox Component
  *
  * Props:
- * - value: string (Iconify icon name)
+ * - value: string (current action)
+ * - existingActions: Array<string> (既存アクション一覧)
+ * - onChange: (action: string) => void
+ * - disabled?: boolean (edit mode)
+ *
+ * Features:
+ * - Dropdown showing existing actions
+ * - Allows typing new action
+ * - Autocomplete suggestions
+ * - Validation: 1-100 characters
+ *
+ * Implementation:
+ * - Use MUI Autocomplete with freeSolo prop
+ * - Fetch existing actions from API on mount
+ */
+
+/**
+ * IconPicker Component
+ *
+ * Library: @zunicornshift/mui-iconify-picker
+ * Docs: https://www.npmjs.com/package/@zunicornshift/mui-iconify-picker
+ *
+ * Props:
+ * - value: string (Iconify icon name, e.g., 'heroicons:bolt')
  * - onChange: (iconName: string) => void
  *
  * Features:
  * - Search input for icon name
- * - Icon preview
- * - Popular icons gallery (heroicons, mdi, etc.)
- * - Click to select
+ * - Icon preview with live rendering
+ * - Popular icon sets (heroicons, mdi, material-symbols, etc.)
+ * - Grid layout for browsing
+ * - Recently used icons
+ *
+ * Example:
+ * ```tsx
+ * import { IconifyPicker } from '@zunicornshift/mui-iconify-picker';
+ *
+ * <IconifyPicker
+ *   value={iconName}
+ *   onChange={(icon) => setIconName(icon)}
+ * />
+ * ```
  */
 
 /**
  * ColorPalette Component
+ *
+ * Library: react-color
+ * Docs: https://casesandberg.github.io/react-color/
  *
  * Props:
  * - value: string (Tailwind CSS classes)
  * - onChange: (colorClass: string) => void
  *
  * Features:
- * - Predefined color swatches (blue, green, purple, orange, yellow, etc.)
- * - Preview of selected color
+ * - Use SwatchesPicker or CirclePicker from react-color
+ * - Preset colors with Tailwind CSS class mapping
+ * - Preview badge showing selected color
  * - Click to select
- * - Generates: 'text-{color}-600 bg-{color}-100 border-{color}-200'
+ *
+ * Preset Colors (Tailwind-based):
+ * - Blue: #3B82F6 → 'text-blue-600 bg-blue-100 border-blue-200'
+ * - Green: #10B981 → 'text-green-600 bg-green-100 border-green-200'
+ * - Purple: #8B5CF6 → 'text-purple-600 bg-purple-100 border-purple-200'
+ * - Orange: #F97316 → 'text-orange-600 bg-orange-100 border-orange-200'
+ * - Yellow: #EAB308 → 'text-yellow-600 bg-yellow-100 border-yellow-200'
+ * - Red: #EF4444 → 'text-red-600 bg-red-100 border-red-200'
+ * - Pink: #EC4899 → 'text-pink-600 bg-pink-100 border-pink-200'
+ * - Indigo: #6366F1 → 'text-indigo-600 bg-indigo-100 border-indigo-200'
+ * - Teal: #14B8A6 → 'text-teal-600 bg-teal-100 border-teal-200'
+ * - Gray: #6B7280 → 'text-gray-600 bg-gray-100 border-gray-200'
+ *
+ * Implementation:
+ * ```tsx
+ * import { CirclePicker } from 'react-color';
+ *
+ * const presetColors = [
+ *   { hex: '#3B82F6', tailwind: 'text-blue-600 bg-blue-100 border-blue-200' },
+ *   { hex: '#10B981', tailwind: 'text-green-600 bg-green-100 border-green-200' },
+ *   // ... other colors
+ * ];
+ *
+ * <CirclePicker
+ *   colors={presetColors.map(c => c.hex)}
+ *   onChangeComplete={(color) => {
+ *     const selected = presetColors.find(c => c.hex === color.hex);
+ *     onChange(selected.tailwind);
+ *   }}
+ * />
+ * ```
  */
 ```
 
@@ -519,16 +588,18 @@ export default function ActivityTypesSettings() {
  * 1. Display activity types settings page (admin only)
  * 2. Prevent non-admin access (403)
  * 3. List existing activity types
- * 4. Create new activity type
- * 5. Update activity type (change icon)
- * 6. Update activity type (change color)
- * 7. Update activity type (change funnel stage)
- * 8. Delete activity type
- * 9. Validation: duplicate action error
- * 10. Icon picker functionality
- * 11. Color palette functionality
+ * 4. Create new activity type with ActionCombobox (select existing)
+ * 5. Create new activity type with ActionCombobox (type new action)
+ * 6. Update activity type (change icon with @zunicornshift/mui-iconify-picker)
+ * 7. Update activity type (change color with react-color)
+ * 8. Update activity type (change funnel stage)
+ * 9. Delete activity type
+ * 10. Validation: duplicate action error
+ * 11. ActionCombobox: autocomplete suggestions
+ * 12. IconPicker: search and select icon
+ * 13. ColorPalette: select preset color
  *
- * Total: 11 tests
+ * Total: 13 tests
  */
 ```
 
@@ -568,10 +639,12 @@ test('should update activity type icon', async ({ page }) => {
 - [ ] `activity_types`テーブルがデータベースに作成されている
 - [ ] マイグレーションが正常に実行できる
 - [ ] サービス層のCRUD操作が単体テストでパスする（20+ tests）
-- [ ] API層のCRUD操作が統合テストでパスする（15+ tests）
+- [ ] API層のCRUD操作が統合テストでパスする（18+ tests: CRUD 15 + actions API 3）
 - [ ] 設定画面が表示され、アクティビティタイプの作成・編集・削除ができる
-- [ ] アイコンピッカーとカラーパレットが正常に動作する
-- [ ] E2Eテストが全てパスする（11 tests）
+- [ ] ActionComboboxが既存アクション選択と新規入力の両方で動作する
+- [ ] IconPicker（@zunicornshift/mui-iconify-picker）が正常に動作する
+- [ ] ColorPalette（react-color）がプリセットカラーで動作する
+- [ ] E2Eテストが全てパスする（13 tests）
 - [ ] TypeScriptエラーが0件
 - [ ] Admin以外はアクセスできない（403エラー）
 - [ ] ダークモード対応が完了している
@@ -612,7 +685,84 @@ test('should update activity type icon', async ({ page }) => {
 
 ---
 
-## 9. 実装順序
+## 9. 依存関係
+
+### 9.1 NPMパッケージ追加
+
+実装前に以下のパッケージをインストール：
+
+```bash
+# Icon picker
+pnpm add @zunicornshift/mui-iconify-picker
+
+# Color picker
+pnpm add react-color
+pnpm add -D @types/react-color
+
+# MUI (もし未インストールの場合)
+pnpm add @mui/material @emotion/react @emotion/styled
+```
+
+### 9.2 パッケージ仕様
+
+#### @zunicornshift/mui-iconify-picker
+
+- **Version**: Latest
+- **Repository**: https://www.npmjs.com/package/@zunicornshift/mui-iconify-picker
+- **Features**:
+  - Iconify統合（200,000+アイコン対応）
+  - MUIコンポーネントベース
+  - 検索・フィルタ機能
+  - カスタマイズ可能
+
+#### react-color
+
+- **Version**: ^2.19.3
+- **Repository**: https://casesandberg.github.io/react-color/
+- **Pickers使用**:
+  - CirclePicker（シンプルな円形カラーパレット）
+  - SwatchesPicker（カラーパレット集）
+- **Features**:
+  - プリセットカラー対応
+  - カスタムカラー選択
+  - アクセシビリティ対応
+
+---
+
+## 10. API層追加機能
+
+### 10.1 既存アクション一覧API
+
+`app/routes/api.activity-types.actions.ts`
+
+```typescript
+import { json, type LoaderFunctionArgs } from '@remix-run/node';
+import { requireAuth } from '../middleware/auth.server.js';
+import { listActivityTypes } from '../../services/activity-type.service.js';
+
+/**
+ * GET /api/activity-types/actions
+ *
+ * Get list of existing action names for the current tenant.
+ * Used by ActionCombobox to populate dropdown options.
+ *
+ * Response:
+ * {
+ *   actions: Array<string>
+ * }
+ */
+export async function loader({ request }: LoaderFunctionArgs) {
+  // Implementation:
+  // 1. Require authentication (not admin-only)
+  // 2. Call listActivityTypes(tenantId, { limit: 100, offset: 0 })
+  // 3. Extract action names from results
+  // 4. Return unique actions as string array
+}
+```
+
+---
+
+## 11. 実装順序
 
 1. **データベーススキーマ追加**（30分）
    - `activity_types`テーブル定義
@@ -628,14 +778,27 @@ test('should update activity type icon', async ({ page }) => {
    - CRUD API実装
    - 統合テスト作成（15+ tests）
 
-4. **UI層実装**（2時間）
-   - 設定画面実装
-   - アイコンピッカー実装
-   - カラーパレット実装
-   - フォーム実装
+4. **依存関係インストール**（10分）
+   - `@zunicornshift/mui-iconify-picker`インストール
+   - `react-color`インストール
+   - MUIインストール（未インストールの場合）
 
-5. **E2Eテスト作成**（1時間）
+5. **API層追加実装**（30分）
+   - 既存アクション一覧API実装（`/api/activity-types/actions`）
+   - 統合テスト追加（3+ tests）
+
+6. **UI層実装**（2.5時間）
+   - 設定画面実装
+   - ActionCombobox実装（既存アクション選択 + 新規追加）
+   - IconPicker実装（`@zunicornshift/mui-iconify-picker`統合）
+   - ColorPalette実装（`react-color`統合、プリセットカラー定義）
+   - フォーム実装（全コンポーネント統合）
+
+7. **E2Eテスト作成**（1時間）
    - 11テスト作成・実行
+   - ActionComboboxテスト追加
+   - IconPickerテスト追加
+   - ColorPaletteテスト追加
 
 ---
 
@@ -655,11 +818,22 @@ test('should update activity type icon', async ({ page }) => {
 
 ### 10.2 参考リンク
 
-- [Iconify Icon Sets](https://icon-sets.iconify.design/)
-- [Tailwind CSS Colors](https://tailwindcss.com/docs/customizing-colors)
-- [Heroicons](https://heroicons.com/)
+- [@zunicornshift/mui-iconify-picker](https://www.npmjs.com/package/@zunicornshift/mui-iconify-picker) - Icon picker library
+- [react-color](https://casesandberg.github.io/react-color/) - Color picker library
+- [Iconify Icon Sets](https://icon-sets.iconify.design/) - Available icon sets
+- [Tailwind CSS Colors](https://tailwindcss.com/docs/customizing-colors) - Color palette
+- [Heroicons](https://heroicons.com/) - Icon library
 
 ---
 
-**推定時間**: 5時間
-**完了条件**: 設定画面でアクティビティタイプのCRUDが完全に動作し、E2Eテストが全てパスする
+**推定時間**: 6.5時間（変更前: 5時間）
+**内訳**:
+1. データベーススキーマ追加 - 30分
+2. サービス層実装 - 2時間
+3. API層実装（CRUD） - 1.5時間
+4. 依存関係インストール - 10分
+5. API層追加実装（actions API） - 30分
+6. UI層実装 - 2.5時間（変更前: 2時間）
+7. E2Eテスト作成 - 1時間（13テスト、変更前: 11テスト）
+
+**完了条件**: 設定画面でアクティビティタイプのCRUDが完全に動作し、ActionCombobox/IconPicker/ColorPaletteが正常に機能し、E2Eテストが全てパスする
