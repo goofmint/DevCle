@@ -1,0 +1,1 @@
+ALTER TABLE "system_settings" DROP COLUMN "ai_settings";

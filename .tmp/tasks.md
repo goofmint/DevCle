@@ -562,15 +562,31 @@
 
 ### Task 7.3.2: システム設定画面の実装
 
-- [ ] `app/routes/dashboard.settings.tsx`作成（システム設定画面）
-- [ ] 基本設定（管理するサービス名、ロゴアップロード、期初期末設定、タイムゾーン）
-- [ ] E2Eテスト作成（設定画面の動作確認）
-- **完了条件**: システム設定画面が表示され、設定が保存できる
+- [ ] データベーススキーマ更新（`service_name`, `logo_url`, `fiscal_year_start_month`, `timezone`, `s3_settings`追加）
+- [ ] `core/config/env.ts`実装（ENCRYPTION_KEY起動時バリデーション）
+- [ ] `core/utils/encryption.ts`実装（AES-256-GCM暗号化/復号化、キーローテーション対応）
+- [ ] `core/utils/s3-client.ts`実装（S3アップロード/削除）
+- [ ] `core/middleware/upload.ts`実装（multipart/form-dataパース、ファイルバリデーション）
+- [ ] `core/services/system-settings.service.ts`実装（CRUD、暗号化、S3/SMTP/AI設定チェック、ロゴアップロード）
+- [ ] `app/routes/api/system-settings.ts`実装（GET/PUT、admin権限チェック）
+- [ ] `app/routes/api/system-settings.upload-logo.ts`実装（POST、ロゴアップロード）
+- [ ] `app/routes/dashboard.settings.tsx`作成（Basic/S3/SMTP/AI設定画面、ロゴアップロードUI）
+- [ ] 接続テスト機能実装（S3/SMTP/AI接続確認API）
+- [ ] E2Eテスト作成（16テスト：Basic 6 + S3 3 + SMTP 2 + AI 2 + Validation 3）
+- **完了条件**: システム設定画面が表示され、S3/SMTP/AI設定が保存・テスト・ロゴアップロードできる
 - **依存**: Task 7.1
-- **推定時間**: 4時間
-- **ドキュメント**: [.tmp/tasks/task-7.3.1-system-settings.md](.tmp/tasks/task-7.3.1-system-settings.md)
+- **推定時間**: 8時間（暗号化キー管理、ロゴアップロード機能追加により増加）
+- **ドキュメント**: [.tmp/tasks/task-7.3.2-system-settings.md](.tmp/tasks/task-7.3.2-system-settings.md)
+- **注意**:
+  - 会計年度は期初月のみ（1-12、デフォルト: 4）
+  - S3未設定時はロゴアップロード無効化（URL入力のみ）
+  - 機密情報（API keys, passwords）は暗号化してDB保存
+  - GET APIでは機密情報を返さない（boolean flagのみ）
+  - 設定変更はadminロールのみ許可
+  - ENCRYPTION_KEY起動時バリデーション（Fail-Fast）
+  - ロゴアップロード: multipart/form-data、2MB以下、image/*のみ
 
-### Task 7.3.2: アクティビティカラーとアイコンの設定画面実装（システム設定画面の一部）
+### Task 7.3.3: アクティビティカラーとアイコンの設定画面実装（システム設定画面の一部）
 
 - [ ] `app/routes/dashboard.settings.activity-types.tsx`作成（アクティビティタイプ設定画面）
 - [ ] `app/routes/api/activity-types.ts`作成（アクティビティタイプCRUD API）
@@ -681,36 +697,44 @@
 
 ---
 
-## Phase 9: PostHogプラグイン実装（サンプル）
+## Phase 9: Google Analyticsプラグイン実装（サンプル）
 
-### Task 9.1: PostHog Plugin初期化
+### Task 9.1: Google Analytics Plugin初期化
 
-- [ ] `plugins/posthog/package.json`作成
-- [ ] `plugins/posthog/src/index.ts`作成
+- [ ] `plugins/google_analytics/package.json`作成
+- [ ] `plugins/google_analytics/src/index.ts`作成
 - [ ] `definePlugin()`でプラグイン定義
-- [ ] PostHog Node SDKインストール
+- [ ] Google Analytics SDKインストール
 - **完了条件**: プラグインがビルドできる
 - **依存**: Task 8.1
 - **推定時間**: 2時間
 
-### Task 9.2: PostHog同期ジョブ実装
+### Task 9.2: Google Analytics同期ジョブ実装
 
-- [ ] `syncPostHogData(ctx)`実装
-- [ ] PostHog Capture APIからイベント取得
+ [ ] `syncGoogleAnalyticsData(ctx)`実装
+- [ ] GoogleAnalytics Capture APIからイベント取得
 - [ ] `distinct_id = click_id`で匿名データ識別
 - [ ] DRMのActivityテーブルと統合
 - **完了条件**: 同期ジョブが実行され、データが取得される
 - **依存**: Task 9.1, Task 8.3
 - **推定時間**: 4時間
 
-### Task 9.3: PostHog設定UI実装
+### Task 9.3: GoogleAnalytics設定UI実装
 
-- [ ] プラグイン設定画面（`/dashboard/plugins/posthog`）
+- [ ] プラグイン設定画面（`/dashboard/plugins/google_analytics`）
 - [ ] APIキー・プロジェクトID入力フォーム
-- [ ] 設定保存API（`POST /api/plugins/posthog/config`）
+- [ ] 設定保存API（`POST /api/plugins/google_analytics/config`）
 - **完了条件**: 設定画面からAPIキーを保存できる
 - **依存**: Task 9.1
 - **推定時間**: 3時間
+
+---
+
+## 追加プラグイン開発
+
+- GitHubプラグイン
+- KPIプラグイン
+- Slack通知プラグイン
 
 ---
 
@@ -790,10 +814,10 @@
 - Task 7.1 → Task 7.2 → Task 7.3 → Task 7.4 → Task 7.5
 - **デプロイ確認**: ダッシュボードが表示され、全機能が操作可能
 
-### Sprint 5（Week 5）: プラグインシステムとPostHog統合
+### Sprint 5（Week 5）: プラグインシステムとGoogleAnalytics統合
 - Task 8.1 → Task 8.2 → Task 8.3 → Task 8.4
 - Task 9.1 → Task 9.2 → Task 9.3
-- **デプロイ確認**: プラグインが有効化され、PostHog同期が動作する
+- **デプロイ確認**: プラグインが有効化され、GoogleAnalytics同期が動作する
 
 ### Sprint 6（Week 6）: テストとデプロイ準備
 - Task 10.1 → Task 10.2 → Task 10.3 → Task 10.4 → Task 10.5
@@ -809,7 +833,7 @@
 - **Sprint 1**: Task 2.3（規約）とTask 2.4（プライバシーポリシー）
 - **Sprint 2**: Task 3.2（DRMテーブル）とTask 3.3（ROIテーブル）とTask 3.4（プラグインテーブル）
 - **Sprint 3**: Task 5.1-5.4（ROI機能）とTask 6.1-6.3（Funnel機能）
-- **Sprint 5**: Task 9.2（PostHog同期）とTask 9.3（PostHog設定UI）
+- **Sprint 5**: Task 9.2（GoogleAnalytics同期）とTask 9.3（GoogleAnalytics設定UI）
 
 ---
 
@@ -819,7 +843,7 @@
 |--------|------|
 | **Docker環境の複雑化** | docker-compose-dev.ymlを分離し、開発環境と本番環境を明確に区別 |
 | **データベースマイグレーション失敗** | マイグレーションの前に必ずバックアップ、ロールバックスクリプトを用意 |
-| **プラグインシステムの複雑化** | 最初はPostHogプラグイン1つのみ実装し、動作確認してから拡張 |
+| **プラグインシステムの複雑化** | 最初はGoogleAnalyticsプラグイン1つのみ実装し、動作確認してから拡張 |
 | **UI/UXの複雑化** | MVPではシンプルなデザインに徹し、機能優先で実装 |
 | **テストの不足** | 各Sprintの最後に必ず統合テスト・E2Eテストを実行 |
 

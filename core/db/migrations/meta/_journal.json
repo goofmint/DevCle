@@ -29,6 +29,27 @@
       "when": 1760424738697,
       "tag": "0003_stale_tigra",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1760863797042,
+      "tag": "0004_migrate_to_jsonb_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1760921590553,
+      "tag": "0005_true_blindfold",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1760923076000,
+      "tag": "0006_add_logo_url",
+      "breakpoints": true
     }
   ]
 }

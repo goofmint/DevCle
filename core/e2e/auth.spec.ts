@@ -38,6 +38,7 @@ const BASE_URL = process.env['BASE_URL'] || 'http://localhost:3000';
 test('user can login and logout', async ({ page }) => {
   // 1. Navigate to login page
   await page.goto(`${BASE_URL}/login`);
+  await page.waitForLoadState('networkidle');
 
   // Verify we're on the login page
   await expect(page).toHaveURL(`${BASE_URL}/login`);
@@ -149,6 +150,7 @@ test('login redirects to returnTo URL', async ({ page }) => {
   // Navigate to login page with returnTo parameter
   const returnToUrl = '/dashboard/developers';
   await page.goto(`${BASE_URL}/login?returnTo=${encodeURIComponent(returnToUrl)}`);
+  await page.waitForLoadState('networkidle');
 
   // Login with valid credentials
   await page.fill('input[name="email"]', 'test@example.com');

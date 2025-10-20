@@ -17,7 +17,7 @@ import rehypeHighlight from 'rehype-highlight';
  * - TypeScript path aliases
  * - Testing configuration with Vitest
  */
-export default defineConfig(({ command, mode }): UserConfig => {
+export default defineConfig(({ mode }): UserConfig => {
   const isVitest = process.env['VITEST'] === 'true' || mode === 'test';
 
   return {

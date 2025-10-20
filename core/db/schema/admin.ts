@@ -11,7 +11,7 @@
  * All tables include tenant_id for multi-tenant isolation via PostgreSQL RLS.
  */
 
-import { pgTable, text, timestamp, uuid, boolean, jsonb, unique } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, uuid, boolean, jsonb, unique, integer } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
 /**
@@ -105,23 +105,32 @@ export const apiKeys = pgTable('api_keys', {
  * System Settings Table
  *
  * Per-tenant configuration settings.
- * Stores SMTP config, AI settings (for forward compatibility), and custom domains.
+ * Stores service branding, integration settings, and custom domains.
  *
  * Fields:
  * - tenant_id: Primary key and foreign key to tenants (cascade delete)
+ * - service_name: Tenant-specific service name (default: 'DevCle')
+ * - logo_url: Logo image URL (S3 or external URL)
+ * - fiscal_year_start_month: Fiscal year start month (1-12, default: 4 for April)
+ * - timezone: IANA timezone (default: 'Asia/Tokyo')
  * - base_url: Base URL for this tenant's deployment
+ * - s3_settings: JSONB containing S3 connection info (bucket, region, credentials)
  * - smtp_settings: JSONB containing SMTP connection info (host, port, user, pass)
- * - ai_settings: JSONB for future AI features (unused in OSS)
  * - shortlink_domain: Custom domain for shortlinks (e.g., "go.example.com")
  * - created_at/updated_at: Timestamp tracking
  *
+ * Note: AI settings removed from OSS version (moved to commercial plugins).
  * Note: Sensitive data in JSONB should be encrypted at application level.
  */
 export const systemSettings = pgTable('system_settings', {
   tenantId: text('tenant_id').primaryKey().references(() => tenants.tenantId, { onDelete: 'cascade' }),
+  serviceName: text('service_name').notNull().default('DevCle'),
+  logoUrl: text('logo_url'),
+  fiscalYearStartMonth: integer('fiscal_year_start_month').notNull().default(4),
+  timezone: text('timezone').notNull().default('Asia/Tokyo'),
   baseUrl: text('base_url'),
+  s3Settings: jsonb('s3_settings'),
   smtpSettings: jsonb('smtp_settings'),
-  aiSettings: jsonb('ai_settings'),
   shortlinkDomain: text('shortlink_domain'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
