@@ -29,6 +29,7 @@ const BASE_URL = process.env['BASE_URL'] || 'http://localhost:3000';
  */
 async function loginAsAdmin(page: Page) {
   await page.goto(`${BASE_URL}/login`);
+  await page.waitForLoadState('networkidle');
   await page.fill('input[name="email"]', 'admin@example.com');
   await page.fill('input[name="password"]', 'admin123456');
   await page.click('button[type="submit"]');
@@ -40,6 +41,7 @@ async function loginAsAdmin(page: Page) {
  */
 async function loginAsMember(page: Page) {
   await page.goto(`${BASE_URL}/login`);
+  await page.waitForLoadState('networkidle');
   await page.fill('input[name="email"]', 'test@example.com');
   await page.fill('input[name="password"]', 'password123');
   await page.click('button[type="submit"]');
