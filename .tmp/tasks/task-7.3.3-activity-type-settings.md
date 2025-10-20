@@ -392,7 +392,8 @@ export async function action({ request, params }: ActionFunctionArgs) {
 import { json, type LoaderFunctionArgs, type ActionFunctionArgs } from '@remix-run/node';
 import { useLoaderData, useFetcher } from '@remix-run/react';
 import { requireAuth } from '../middleware/auth.server.js';
-import { listActivityTypes, listFunnelStages } from '../../services/...';
+import { listActivityTypes } from '../../services/activity-type.service.js';
+import { listFunnelStages } from '../../services/funnel-stage.service.js';
 
 /**
  * Activity Types Settings Page
