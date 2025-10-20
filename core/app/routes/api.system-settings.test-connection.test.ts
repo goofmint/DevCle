@@ -54,7 +54,9 @@ async function createUserWithSession(role: 'admin' | 'member' = 'admin') {
   const session = await getSession(request);
   session.set('userId', userId);
   session.set('tenantId', TENANT);
-  const cookie = await commitSession(session);
+  const cookieHeader = await commitSession(session);
+  // Extract only the name=value pair from Set-Cookie header (before semicolon)
+  const cookie = cookieHeader.split(';')[0];
 
   return { userId, cookie };
 }

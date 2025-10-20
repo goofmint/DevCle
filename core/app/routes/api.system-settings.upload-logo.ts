@@ -16,7 +16,10 @@
 import {
   json,
   unstable_parseMultipartFormData,
+  unstable_createMemoryUploadHandler,
+  unstable_composeUploadHandlers,
   type ActionFunctionArgs,
+  type UploadHandler,
 } from '@remix-run/node';
 import { requireAuth } from '~/auth.middleware.js';
 import { uploadLogo } from '../../services/system-settings.service.js';
@@ -119,17 +122,12 @@ export async function action({ request }: ActionFunctionArgs) {
     let fileFilename: string | null = null;
 
     // Custom upload handler to validate file before processing
-    const uploadHandler = async ({
+    const uploadHandler: UploadHandler = async ({
       name,
       contentType,
       data,
       filename,
-    }: {
-      name: string;
-      contentType: string;
-      data: AsyncIterable<Uint8Array>;
-      filename?: string;
-    }): Promise<string | null> => {
+    }) => {
       // Only process 'file' field
       if (name !== 'file') {
         return null;
@@ -199,8 +197,18 @@ export async function action({ request }: ActionFunctionArgs) {
       return 'file'; // Return placeholder string
     };
 
+    // Compose upload handlers: custom validation handler + memory handler
+    const memoryUploadHandler = unstable_createMemoryUploadHandler({
+      maxPartSize: MAX_FILE_SIZE,
+    });
+
+    const composedHandler = unstable_composeUploadHandlers(
+      uploadHandler,
+      memoryUploadHandler
+    );
+
     // Parse form data
-    await unstable_parseMultipartFormData(request, uploadHandler);
+    await unstable_parseMultipartFormData(request, composedHandler);
 
     // Check if file was uploaded
     const fileData =

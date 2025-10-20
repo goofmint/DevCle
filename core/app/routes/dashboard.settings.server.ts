@@ -7,6 +7,7 @@
 
 import { json } from '@remix-run/node';
 import { updateSystemSettings } from '../../services/system-settings.service.js';
+import type { UpdateSystemSettings } from '../../services/system-settings.schemas.js';
 import { testS3Connection } from '../../utils/s3-client.js';
 import { testSmtpConnection } from '../../utils/smtp-client.js';
 
@@ -19,38 +20,6 @@ export interface ActionData {
   section?: string;
 }
 
-/**
- * Update data types for each section
- */
-type BasicUpdateData = {
-  serviceName: string;
-  logoUrl: string | null;
-  fiscalYearStartMonth: number;
-  timezone: string;
-};
-
-type S3UpdateData = {
-  s3Settings: {
-    bucket: string;
-    region: string;
-    accessKeyId: string;
-    secretAccessKey: string;
-    endpoint?: string;
-  };
-};
-
-type SmtpUpdateData = {
-  smtpSettings: {
-    host: string;
-    port: number;
-    secure: boolean;
-    user: string;
-    password: string;
-    from: string;
-  };
-};
-
-type UpdateData = BasicUpdateData | S3UpdateData | SmtpUpdateData;
 
 /**
  * Handle update action
@@ -77,7 +46,7 @@ export async function handleUpdate(
       );
     }
 
-    let updateData: UpdateData;
+    let updateData: UpdateSystemSettings;
 
     if (section === 'basic') {
       updateData = {
