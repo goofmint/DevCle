@@ -20,6 +20,39 @@ export interface ActionData {
 }
 
 /**
+ * Update data types for each section
+ */
+type BasicUpdateData = {
+  serviceName: string;
+  logoUrl: string | null;
+  fiscalYearStartMonth: number;
+  timezone: string;
+};
+
+type S3UpdateData = {
+  s3Settings: {
+    bucket: string;
+    region: string;
+    accessKeyId: string;
+    secretAccessKey: string;
+    endpoint?: string;
+  };
+};
+
+type SmtpUpdateData = {
+  smtpSettings: {
+    host: string;
+    port: number;
+    secure: boolean;
+    user: string;
+    password: string;
+    from: string;
+  };
+};
+
+type UpdateData = BasicUpdateData | S3UpdateData | SmtpUpdateData;
+
+/**
  * Handle update action
  *
  * Updates system settings directly via service layer.
@@ -36,7 +69,15 @@ export async function handleUpdate(
   section: string
 ): Promise<Response> {
   try {
-    let updateData = {};
+    // Validate section parameter
+    if (section !== 'basic' && section !== 's3' && section !== 'smtp') {
+      return json<ActionData>(
+        { error: `Invalid section: ${section}. Must be 'basic', 's3', or 'smtp'`, section },
+        { status: 400 }
+      );
+    }
+
+    let updateData: UpdateData;
 
     if (section === 'basic') {
       updateData = {
@@ -46,21 +87,26 @@ export async function handleUpdate(
         timezone: formData.get('timezone') as string,
       };
     } else if (section === 's3') {
+      const endpointValue = formData.get('endpoint') as string;
       updateData = {
         s3Settings: {
           bucket: formData.get('bucket') as string,
           region: formData.get('region') as string,
           accessKeyId: formData.get('accessKeyId') as string,
           secretAccessKey: formData.get('secretAccessKey') as string,
-          endpoint: (formData.get('endpoint') as string) || undefined,
+          ...(endpointValue && { endpoint: endpointValue }),
         },
       };
-    } else if (section === 'smtp') {
+    } else {
+      // section === 'smtp'
+      const port = Number(formData.get('port'));
       updateData = {
         smtpSettings: {
           host: formData.get('host') as string,
-          port: Number(formData.get('port')),
-          secure: formData.get('useTls') === 'true',
+          port,
+          // SSL/SMTPS (secure=true) is only for port 465
+          // Port 587 uses STARTTLS (secure=false)
+          secure: port === 465,
           user: formData.get('username') as string,
           password: formData.get('password') as string,
           from: formData.get('fromAddress') as string,
@@ -119,10 +165,13 @@ export async function handleTestS3(formData: FormData): Promise<Response> {
  */
 export async function handleTestSmtp(formData: FormData): Promise<Response> {
   try {
+    const port = Number(formData.get('port'));
     const settings = {
       host: formData.get('host') as string,
-      port: Number(formData.get('port')),
-      secure: formData.get('useTls') === 'true',
+      port,
+      // SSL/SMTPS (secure=true) is only for port 465
+      // Port 587 uses STARTTLS (secure=false)
+      secure: port === 465,
       user: formData.get('username') as string,
       password: formData.get('password') as string,
       from: formData.get('fromAddress') as string,
@@ -131,7 +180,7 @@ export async function handleTestSmtp(formData: FormData): Promise<Response> {
     await testSmtpConnection(settings);
     return json<ActionData>({ success: true, section: 'smtp-test' });
   } catch (error) {
-    console.error('SMTP connection test failed:', error);
+    console.error('SMTP connection test failed');
     return json<ActionData>(
       { error: error instanceof Error ? error.message : 'SMTP connection test failed', section: 'smtp-test' },
       { status: 500 }

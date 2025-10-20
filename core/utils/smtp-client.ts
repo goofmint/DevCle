@@ -18,7 +18,7 @@ import type { SmtpSettings } from '../services/system-settings.schemas.js';
  * @throws Error if connection fails
  */
 export async function testSmtpConnection(settings: SmtpSettings): Promise<boolean> {
-  // Create transporter with provided settings
+  // Create transporter with provided settings and timeouts
   const transporter = nodemailer.createTransport({
     host: settings.host,
     port: settings.port,
@@ -27,6 +27,10 @@ export async function testSmtpConnection(settings: SmtpSettings): Promise<boolea
       user: settings.user,
       pass: settings.password,
     },
+    // Timeout settings to prevent hanging requests
+    connectionTimeout: 10000, // 10s to establish connection
+    greetingTimeout: 10000, // 10s to receive greeting after connection
+    socketTimeout: 10000, // 10s of inactivity allowed
   });
 
   try {

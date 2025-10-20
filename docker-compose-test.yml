@@ -13,18 +13,18 @@ services:
       target: development
       dockerfile: ../docker/Dockerfile.core
     environment:
-      DATABASE_URL: postgresql://devcle:test_password_only@postgres:5432/devcle_test
-      DATABASE_HOST: postgres
-      DATABASE_PORT: 5432
-      POSTGRES_USER: devcle
-      POSTGRES_DB: devcle_test
-      POSTGRES_PASSWORD: test_password_only
-      REDIS_URL: redis://:test_redis_password_only@redis:6379/0
-      REDIS_PASSWORD: test_redis_password_only
-      SESSION_SECRET: test_session_secret_safe_to_commit
-      ENCRYPTION_KEY: IoEizZo+c7ZB+BAk83VvJhfRS9g0uPiuTRIGQ5Kc4h0=
-      APP_DOMAIN: devcle.test
-      BASE_URL: https://devcle.test
+      DATABASE_URL: ${DATABASE_URL}
+      DATABASE_HOST: ${DATABASE_HOST}
+      DATABASE_PORT: ${DATABASE_PORT}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      REDIS_URL: ${REDIS_URL}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      SESSION_SECRET: ${SESSION_SECRET}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      APP_DOMAIN: ${APP_DOMAIN}
+      BASE_URL: ${BASE_URL}
       NODE_ENV: test
       CI: "true"
     volumes:
@@ -40,9 +40,9 @@ services:
     image: postgres:15-alpine
     container_name: devcle-postgres-test
     environment:
-      POSTGRES_DB: devcle_test
-      POSTGRES_USER: devcle
-      POSTGRES_PASSWORD: test_password_only
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - postgres-data-test:/var/lib/postgresql/data
       - ./infra/postgres/init.sh:/docker-entrypoint-initdb.d/01-init.sh:ro
@@ -53,7 +53,7 @@ services:
     ports:
       - "55432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U devcle"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -63,8 +63,8 @@ services:
     image: redis:7-alpine
     container_name: devcle-redis-test
     environment:
-      REDIS_PASSWORD: test_redis_password_only
-    command: sh -c 'redis-server /usr/local/etc/redis/redis.conf --requirepass "test_redis_password_only"'
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    command: sh -c 'redis-server /usr/local/etc/redis/redis.conf --requirepass "${REDIS_PASSWORD}"'
     volumes:
       - ./infra/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
       - redis-data-test:/data
@@ -74,7 +74,7 @@ services:
     ports:
       - "56379:6379"
     healthcheck:
-      test: ["CMD", "sh", "-c", "redis-cli -a test_redis_password_only PING"]
+      test: ["CMD", "sh", "-c", "redis-cli -a ${REDIS_PASSWORD} PING"]
       interval: 10s
       timeout: 5s
       retries: 5

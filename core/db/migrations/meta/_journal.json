@@ -43,6 +43,13 @@
       "when": 1760921590553,
       "tag": "0005_true_blindfold",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1760923076000,
+      "tag": "0006_add_logo_url",
+      "breakpoints": true
     }
   ]
 }

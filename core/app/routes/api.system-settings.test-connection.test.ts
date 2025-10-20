@@ -68,6 +68,13 @@ async function cleanupUser(userId: string) {
   });
 }
 
+/**
+ * File-level teardown - close DB connection only once
+ */
+afterAll(async () => {
+  await closeDb();
+});
+
 describe('System Settings Test S3 API - POST /api/system-settings/test-s3', () => {
   let userId: string | null = null;
   let cookie: string | null = null;
@@ -88,7 +95,6 @@ describe('System Settings Test S3 API - POST /api/system-settings/test-s3', () =
     if (userId) {
       await cleanupUser(userId);
     }
-    await closeDb();
   });
 
   it('should reject invalid S3 settings', async () => {
@@ -242,7 +248,6 @@ describe('System Settings Test SMTP API - POST /api/system-settings/test-smtp', 
     if (userId) {
       await cleanupUser(userId);
     }
-    await closeDb();
   });
 
   it('should reject invalid SMTP settings', async () => {

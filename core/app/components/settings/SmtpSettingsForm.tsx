@@ -66,8 +66,8 @@ export function SmtpSettingsForm({
   // Local state for form fields
   // Note: We don't pre-populate secret fields from server for security
   const [host, setHost] = useState('');
-  const [port, setPort] = useState('587'); // Default SMTP submission port
-  const [useTls, setUseTls] = useState(true); // TLS enabled by default for security
+  const [port, setPort] = useState('587'); // Default SMTP submission port with STARTTLS
+  const [useTls, setUseTls] = useState(false); // SSL/SMTPS disabled by default (use STARTTLS on 587 instead)
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [fromAddress, setFromAddress] = useState('');
@@ -202,11 +202,11 @@ export function SmtpSettingsForm({
           data-testid="smtp-port-input"
         />
         <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-          Common ports: 587 (STARTTLS), 465 (SSL), 25 (legacy)
+          Port 587: STARTTLS (recommended), Port 465: SSL/SMTPS (check box below), Port 25: legacy
         </p>
       </div>
 
-      {/* Use TLS Checkbox */}
+      {/* Use SSL Checkbox */}
       <div className="flex items-center gap-2">
         <input
           type="checkbox"
@@ -228,7 +228,7 @@ export function SmtpSettingsForm({
           htmlFor="smtpUseTls"
           className="text-sm font-medium text-gray-700 dark:text-gray-300"
         >
-          Use TLS (recommended)
+          Use SSL/SMTPS (port 465 only)
         </label>
       </div>
 

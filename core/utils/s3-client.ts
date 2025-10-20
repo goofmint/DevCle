@@ -11,6 +11,7 @@ import {
   DeleteObjectCommand,
   type PutObjectCommandInput,
 } from '@aws-sdk/client-s3';
+import { NodeHttpHandler } from '@smithy/node-http-handler';
 
 /**
  * S3 settings structure
@@ -35,12 +36,17 @@ function createS3Client(settings: S3Settings): S3Client {
     credentials: { accessKeyId: string; secretAccessKey: string };
     endpoint?: string;
     forcePathStyle?: boolean;
+    requestHandler: NodeHttpHandler;
   } = {
     region: settings.region,
     credentials: {
       accessKeyId: settings.accessKeyId,
       secretAccessKey: settings.secretAccessKey,
     },
+    requestHandler: new NodeHttpHandler({
+      connectionTimeout: 10000, // 10s connection timeout
+      requestTimeout: 10000, // 10s request timeout
+    }),
   };
 
   // Add optional properties only if they have values
