@@ -36,6 +36,13 @@
       "when": 1760863797042,
       "tag": "0004_migrate_to_jsonb_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1760921590553,
+      "tag": "0005_true_blindfold",
+      "breakpoints": true
     }
   ]
 }

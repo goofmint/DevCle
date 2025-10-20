@@ -116,10 +116,10 @@ export const apiKeys = pgTable('api_keys', {
  * - base_url: Base URL for this tenant's deployment
  * - s3_settings: JSONB containing S3 connection info (bucket, region, credentials)
  * - smtp_settings: JSONB containing SMTP connection info (host, port, user, pass)
- * - ai_settings: JSONB for AI API settings (provider, apiKey, model)
  * - shortlink_domain: Custom domain for shortlinks (e.g., "go.example.com")
  * - created_at/updated_at: Timestamp tracking
  *
+ * Note: AI settings removed from OSS version (moved to commercial plugins).
  * Note: Sensitive data in JSONB should be encrypted at application level.
  */
 export const systemSettings = pgTable('system_settings', {
@@ -131,7 +131,6 @@ export const systemSettings = pgTable('system_settings', {
   baseUrl: text('base_url'),
   s3Settings: jsonb('s3_settings'),
   smtpSettings: jsonb('smtp_settings'),
-  aiSettings: jsonb('ai_settings'),
   shortlinkDomain: text('shortlink_domain'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
