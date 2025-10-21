@@ -588,9 +588,9 @@
   - ENCRYPTION_KEY起動時バリデーション（Fail-Fast）
   - ロゴアップロード: multipart/form-data、2MB以下、PNG/JPEG/WebPのみ（SVG除外）
 
-### Task 7.3.3: アクティビティカラーとアイコンの設定画面実装（システム設定画面の一部） 🔄 進行中
+### Task 7.3.3: アクティビティカラーとアイコンの設定画面実装（システム設定画面の一部） ✅
 
-**現在の進捗（2025-10-21）:**
+**実装完了（2025-10-21）:**
 
 **バックエンド実装（完了）:**
 - [x] `core/db/schema/admin.ts`に`activity_types`テーブル追加 ✅
@@ -608,39 +608,40 @@
   - `react-color@2.19.3`
   - `@types/react-color@3.0.13`
 
-**フロントエンド実装（残り）:**
-- [ ] `app/routes/dashboard.settings.activity-types.tsx`作成（メイン画面）
-- [ ] UIコンポーネント実装：
-  - [ ] ActivityTypeTable（一覧テーブル）
-  - [ ] ActivityTypeForm（作成・編集フォーム）
-  - [ ] ActionCombobox（既存アクション選択 + 新規入力）
-  - [ ] IconPicker（@iconify/react使用、アイコン検索・選択）
-  - [ ] ColorPalette（react-color使用、プリセットカラー選択）
-- [ ] E2Eテスト作成（13テスト）
+**フロントエンド実装（完了）:**
+- [x] `app/routes/dashboard.settings.activity-types.tsx`作成（メイン画面）
+- [x] UIコンポーネント実装：
+  - [x] ActivityTypeTable（一覧テーブル）
+  - [x] ActivityTypeForm（作成・編集フォーム）
+  - [x] ActionCombobox（既存アクション選択 + 新規入力）
+  - [x] IconPicker（@iconify/react使用、アイコン検索・選択）
+  - [x] ColorPalette（react-color使用、プリセットカラー選択）
+- [x] E2Eテスト作成（13テスト）
   - 表示・アクセス制御: 2 tests
   - CRUD操作: 6 tests
   - バリデーション: 2 tests
   - コンポーネント動作: 3 tests
 
-- **完了条件**: 設定画面でアクティビティタイプごとにアイコンとカラーを設定でき、E2Eテストが全てパスする
+- **完了条件**: 設定画面でアクティビティタイプごとにアイコンとカラーを設定でき、E2Eテストが全てパスする ✓
 - **依存**: Task 7.3
-- **推定時間**: 6.5時間（残り: 約3.5時間）
+- **推定時間**: 6.5時間
+- **完了日**: 2025-10-21
 - **ドキュメント**:
   - [.tmp/tasks/task-7.3.3-activity-type-settings.md](.tmp/tasks/task-7.3.3-activity-type-settings.md)（全体仕様）
   - [.tmp/tasks/task-7.3.3-ui.md](.tmp/tasks/task-7.3.3-ui.md)（UI実装仕様）
 - **注意**:
   - 実装は2段階に分割：
-    1. このタスク（7.3.3）: 設定画面とテーブル作成（**バックエンド完了**、フロントエンド残り）
+    1. このタスク（7.3.3）: 設定画面とテーブル作成（完了）
     2. 次のタスク（7.3.4）: `getActivityColor()`と`getActivityIconName()`の実装（データベースから取得）
   - ActivityTimeline.tsx内のTODOコメントを参照
 
 ### Task 7.3.4: ActivityTimeline動的カラー・アイコン適用
 
-- [ ] `getActivityColor()`実装（データベースから設定を取得）
-- [ ] `getActivityIconName()`実装（データベースから設定を取得）
-- [ ] `ActivityTimeline.tsx`にデータローディング処理追加
-- [ ] キャッシング実装（同一テナント内で設定を再利用）
-- [ ] E2Eテスト作成（カラー・アイコンの動的表示確認）
+- [x] `getActivityColor()`実装（データベースから設定を取得）
+- [x] `getActivityIconName()`実装（データベースから設定を取得）
+- [x] `ActivityTimeline.tsx`にデータローディング処理追加
+- [x] キャッシング実装（同一テナント内で設定を再利用）
+- [x] E2Eテスト作成（カラー・アイコンの動的表示確認）
 - **完了条件**: ActivityTimelineがデータベースの設定に基づいてカラーとアイコンを動的に表示する
 - **依存**: Task 7.3.3
 - **推定時間**: 3時間
