@@ -82,7 +82,7 @@ function createMultipartRequest(cookie: string, fileData: {
   filename: string;
 }): Request {
   const formData = new FormData();
-  const blob = new Blob([fileData.buffer], { type: fileData.contentType });
+  const blob = new Blob([new Uint8Array(fileData.buffer)], { type: fileData.contentType });
   formData.append('file', blob, fileData.filename);
 
   return new Request('http://localhost/api/system-settings/upload-logo', {

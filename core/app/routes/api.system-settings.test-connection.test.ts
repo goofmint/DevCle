@@ -32,7 +32,7 @@ type ConnectionTestResponse =
 /**
  * Create test user with session cookie
  */
-async function createUserWithSession(role: 'admin' | 'member' = 'admin') {
+async function createUserWithSession(role: 'admin' | 'member' = 'admin'): Promise<{ userId: string; cookie: string }> {
   const userId = crypto.randomUUID();
   const passwordHash = await hashPassword('pass-123');
 
@@ -56,7 +56,7 @@ async function createUserWithSession(role: 'admin' | 'member' = 'admin') {
   session.set('tenantId', TENANT);
   const cookieHeader = await commitSession(session);
   // Extract only the name=value pair from Set-Cookie header (before semicolon)
-  const cookie = cookieHeader.split(';')[0];
+  const cookie = cookieHeader.split(';')[0] ?? '';
 
   return { userId, cookie };
 }

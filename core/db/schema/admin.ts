@@ -11,8 +11,9 @@
  * All tables include tenant_id for multi-tenant isolation via PostgreSQL RLS.
  */
 
-import { pgTable, text, timestamp, uuid, boolean, jsonb, unique, integer } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, uuid, boolean, jsonb, unique, integer, varchar } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
+import { funnelStages } from './analytics';
 
 /**
  * Tenants Table
@@ -166,3 +167,50 @@ export const notifications = pgTable('notifications', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   sentAt: timestamp('sent_at', { withTimezone: true }),
 });
+
+/**
+ * Activity Types Table
+ *
+ * Defines customizable activity types with icons, colors, and funnel stage mapping.
+ * Allows administrators to customize how different activity actions are displayed.
+ *
+ * Fields:
+ * - activity_type_id: UUID primary key
+ * - tenant_id: Foreign key to tenants (cascade delete)
+ * - action: Action name (e.g., 'click', 'attend', 'signup', 'post', 'star')
+ * - icon_name: Iconify icon name (e.g., 'heroicons:bolt', 'mdi:github')
+ * - color_class: Tailwind CSS classes for styling (e.g., 'text-blue-600 bg-blue-100 border-blue-200')
+ * - stage_key: Optional funnel stage mapping (references funnel_stages.stage_key)
+ * - created_at/updated_at: Timestamp tracking
+ *
+ * Unique constraint: (tenant_id, action) - one action per tenant
+ *
+ * Examples:
+ * - action: 'click' → icon: 'heroicons:cursor-arrow-rays' → color: 'text-blue-600 bg-blue-100 border-blue-200'
+ * - action: 'attend' → icon: 'heroicons:calendar-days' → color: 'text-green-600 bg-green-100 border-green-200'
+ * - action: 'signup' → icon: 'heroicons:user-plus' → color: 'text-purple-600 bg-purple-100 border-purple-200'
+ * - action: 'post' → icon: 'heroicons:chat-bubble-left-right' → color: 'text-orange-600 bg-orange-100 border-orange-200'
+ * - action: 'star' → icon: 'heroicons:star' → color: 'text-yellow-600 bg-yellow-100 border-yellow-200'
+ */
+export const activityTypes = pgTable('activity_types', {
+  activityTypeId: uuid('activity_type_id').primaryKey().default(sql`uuid_generate_v4()`),
+  tenantId: text('tenant_id').notNull().references(() => tenants.tenantId, { onDelete: 'cascade' }),
+
+  // Activity action (e.g., 'click', 'attend', 'signup', 'post', 'star')
+  action: varchar('action', { length: 100 }).notNull(),
+
+  // Iconify icon name (e.g., 'heroicons:bolt', 'mdi:github')
+  iconName: varchar('icon_name', { length: 255 }).notNull().default('heroicons:bolt'),
+
+  // Tailwind CSS classes for styling (e.g., 'text-blue-600 bg-blue-100 border-blue-200')
+  colorClass: varchar('color_class', { length: 255 }).notNull().default('text-gray-600 bg-gray-100 border-gray-200'),
+
+  // Optional funnel stage mapping (references funnel_stages.stage_key)
+  stageKey: text('stage_key').references(() => funnelStages.stageKey, { onDelete: 'set null' }),
+
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  // Unique constraint: one action per tenant
+  uniqueTenantAction: unique('activity_types_tenant_action_unique').on(t.tenantId, t.action),
+}));

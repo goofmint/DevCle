@@ -176,7 +176,7 @@ Organization ||--o{ Developer : includes
 ### Integration Tests (Vitest) - IN DOCKER
 ```bash
 # Start dev environment (mounts source + devDependencies)
-docker compose -f docker-compose.yml -f docker-compose-dev.yml up -d
+docker compose -f docker-compose.yml -f docker-compose-test.yml up -d
 
 # Run tests
 docker compose exec core pnpm test
