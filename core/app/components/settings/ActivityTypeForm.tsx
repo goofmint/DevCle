@@ -7,9 +7,8 @@ import { ColorPalette } from './ColorPalette.js';
  * Funnel Stage data structure
  */
 interface FunnelStage {
-  funnelStageId: string;
   stageKey: string;
-  stageName: string;
+  title: string;
 }
 
 /**
@@ -23,7 +22,7 @@ interface ActivityTypeFormProps {
     action: string;
     iconName: string;
     colorClass: string;
-    funnelStageId: string | null;
+    stageKey: string | null;
   };
   /** List of existing actions for ActionCombobox suggestions */
   existingActions: string[];
@@ -85,7 +84,7 @@ export function ActivityTypeForm({
   const [action, setAction] = useState('');
   const [iconName, setIconName] = useState('heroicons:bolt');
   const [colorClass, setColorClass] = useState('text-gray-600 bg-gray-100 border-gray-200');
-  const [funnelStageId, setFunnelStageId] = useState<string>('');
+  const [stageKey, setStageKey] = useState<string>('');
 
   // Initialize form with initialData in edit mode
   useEffect(() => {
@@ -93,7 +92,7 @@ export function ActivityTypeForm({
       setAction(initialData.action);
       setIconName(initialData.iconName);
       setColorClass(initialData.colorClass);
-      setFunnelStageId(initialData.funnelStageId || '');
+      setStageKey(initialData.stageKey || '');
     }
   }, [initialData]);
 
@@ -134,12 +133,9 @@ export function ActivityTypeForm({
     formData.append('iconName', iconName.trim());
     formData.append('colorClass', colorClass.trim());
 
-    // Convert funnelStageId to stageKey for API
-    if (funnelStageId) {
-      const selectedStage = funnelStages.find((stage) => stage.funnelStageId === funnelStageId);
-      if (selectedStage) {
-        formData.append('stageKey', selectedStage.stageKey);
-      }
+    // Add stageKey if selected
+    if (stageKey) {
+      formData.append('stageKey', stageKey);
     }
 
     // Call parent onSubmit handler
@@ -193,14 +189,14 @@ export function ActivityTypeForm({
         </label>
         <select
           id="funnel-stage-select"
-          value={funnelStageId}
-          onChange={(e) => setFunnelStageId(e.target.value)}
+          value={stageKey}
+          onChange={(e) => setStageKey(e.target.value)}
           className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <option value="">-- None --</option>
           {funnelStages.map((stage) => (
-            <option key={stage.funnelStageId} value={stage.funnelStageId}>
-              {stage.stageName} ({stage.stageKey})
+            <option key={stage.stageKey} value={stage.stageKey}>
+              {stage.title}
             </option>
           ))}
         </select>

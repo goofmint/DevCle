@@ -204,6 +204,10 @@ export default function SystemSettingsPage() {
     smtpTestFetcher,
   });
 
+  // Get current location for tab navigation
+  const location = useLocation();
+  const currentPath = location.pathname;
+
   // Revalidate loader data after S3/SMTP settings are saved successfully
   React.useEffect(() => {
     if (s3Fetcher.data?.success && s3Fetcher.state === 'idle') {
@@ -263,9 +267,6 @@ export default function SystemSettingsPage() {
       </div>
     );
   };
-
-  const location = useLocation();
-  const currentPath = location.pathname;
 
   return (
     <div className="max-w-4xl mx-auto">

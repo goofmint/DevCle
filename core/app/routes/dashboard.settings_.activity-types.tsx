@@ -43,9 +43,8 @@ interface ActivityType {
  * Funnel Stage data structure
  */
 interface FunnelStage {
-  funnelStageId: string;
   stageKey: string;
-  stageName: string;
+  title: string;
 }
 
 /**
@@ -83,6 +82,10 @@ export default function ActivityTypesSettings() {
   const [editingAction, setEditingAction] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [toast, setToast] = useState<Toast | null>(null);
+
+  // Get current location for tab navigation (must be before any early returns)
+  const location = useLocation();
+  const currentPath = location.pathname;
 
   /**
    * Fetch initial data on component mount
@@ -283,9 +286,6 @@ export default function ActivityTypesSettings() {
     ? activityTypes.find((at) => at.action === editingAction)
     : null;
 
-  const location = useLocation();
-  const currentPath = location.pathname;
-
   return (
     <div className="max-w-6xl mx-auto" data-testid="activity-types-settings-page">
       {/* Page Header */}
@@ -383,7 +383,7 @@ export default function ActivityTypesSettings() {
               action: editingData.action,
               iconName: editingData.iconName,
               colorClass: editingData.colorClass,
-              funnelStageId: funnelStages.find((fs) => fs.stageKey === editingData.stageKey)?.funnelStageId || null,
+              stageKey: editingData.stageKey,
             }}
             existingActions={existingActions}
             funnelStages={funnelStages}

@@ -21,24 +21,20 @@ export async function loader({ request }: LoaderFunctionArgs) {
     // Return hardcoded funnel stages (temporary)
     const funnelStages = [
       {
-        funnelStageId: '1',
         stageKey: 'awareness',
-        stageName: 'Awareness',
+        title: 'Awareness',
       },
       {
-        funnelStageId: '2',
         stageKey: 'engagement',
-        stageName: 'Engagement',
+        title: 'Engagement',
       },
       {
-        funnelStageId: '3',
         stageKey: 'adoption',
-        stageName: 'Adoption',
+        title: 'Adoption',
       },
       {
-        funnelStageId: '4',
         stageKey: 'advocacy',
-        stageName: 'Advocacy',
+        title: 'Advocacy',
       },
     ];
 
