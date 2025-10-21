@@ -50,6 +50,13 @@
       "when": 1760923076000,
       "tag": "0006_add_logo_url",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1760944427691,
+      "tag": "0007_flawless_umar",
+      "breakpoints": true
     }
   ]
 }

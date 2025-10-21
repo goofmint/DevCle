@@ -20,13 +20,14 @@
  * - Toast logic: Separated to useSettingsToast hook
  */
 
+import React from 'react';
 import {
   json,
   type LoaderFunctionArgs,
   type ActionFunctionArgs,
   type MetaFunction,
 } from '@remix-run/node';
-import { useLoaderData, useFetcher } from '@remix-run/react';
+import { useLoaderData, useFetcher, useRevalidator, Link, useLocation } from '@remix-run/react';
 import { requireAuth } from '~/auth.middleware.js';
 import { Icon } from '@iconify/react';
 import { BasicSettingsForm } from '~/components/settings/BasicSettingsForm';
@@ -183,6 +184,7 @@ export async function action({ request }: ActionFunctionArgs) {
 export default function SystemSettingsPage() {
   // Get loader data (current settings)
   const loaderData = useLoaderData<typeof loader>();
+  const revalidator = useRevalidator();
 
   // Create fetchers for form submissions
   const basicFetcher = useFetcher<ActionData>();
@@ -201,6 +203,23 @@ export default function SystemSettingsPage() {
     s3TestFetcher,
     smtpTestFetcher,
   });
+
+  // Get current location for tab navigation
+  const location = useLocation();
+  const currentPath = location.pathname;
+
+  // Revalidate loader data after S3/SMTP settings are saved successfully
+  React.useEffect(() => {
+    if (s3Fetcher.data?.success && s3Fetcher.state === 'idle') {
+      revalidator.revalidate();
+    }
+  }, [s3Fetcher.data, s3Fetcher.state, revalidator]);
+
+  React.useEffect(() => {
+    if (smtpFetcher.data?.success && smtpFetcher.state === 'idle') {
+      revalidator.revalidate();
+    }
+  }, [smtpFetcher.data, smtpFetcher.state, revalidator]);
 
   // Check if loader returned error (403 Forbidden)
   if ('error' in loaderData) {
@@ -226,38 +245,75 @@ export default function SystemSettingsPage() {
   const isS3Testing = s3TestFetcher.state === 'submitting';
   const isSmtpTesting = smtpTestFetcher.state === 'submitting';
 
+  // Helper function to render toast for specific section
+  const renderToast = (section: 'basic' | 's3' | 'smtp' | 's3-test' | 'smtp-test') => {
+    if (!toast || toast.section !== section) return null;
+
+    return (
+      <div
+        className={`
+          mb-4 p-4 rounded-md flex items-center gap-2
+          ${toast.type === 'success' ? 'bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-400' : ''}
+          ${toast.type === 'error' ? 'bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-400' : ''}
+        `}
+        role="alert"
+        data-testid="toast-notification"
+      >
+        <Icon
+          icon={toast.type === 'success' ? 'mdi:check-circle' : 'mdi:alert-circle'}
+          className="w-5 h-5"
+        />
+        <span>{toast.message}</span>
+      </div>
+    );
+  };
+
   return (
     <div className="max-w-4xl mx-auto">
       {/* Page Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">System Settings</h1>
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Settings</h1>
         <p className="mt-2 text-gray-600 dark:text-gray-400">
           Manage system configuration and integrations
         </p>
       </div>
 
-      {/* Toast Notification */}
-      {toast && (
-        <div
-          className={`
-            mb-6 p-4 rounded-md flex items-center gap-2
-            ${toast.type === 'success' ? 'bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-400' : ''}
-            ${toast.type === 'error' ? 'bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-400' : ''}
-          `}
-          role="alert"
-          data-testid="toast-notification"
-        >
-          <Icon
-            icon={toast.type === 'success' ? 'mdi:check-circle' : 'mdi:alert-circle'}
-            className="w-5 h-5"
-          />
-          <span>{toast.message}</span>
-        </div>
-      )}
+      {/* Tab Navigation */}
+      <div className="mb-6 border-b border-gray-200 dark:border-gray-700">
+        <nav className="-mb-px flex space-x-8" aria-label="Settings tabs">
+          <Link
+            to="/dashboard/settings"
+            className={`
+              whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm
+              ${
+                currentPath === '/dashboard/settings'
+                  ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+              }
+            `}
+          >
+            System
+          </Link>
+          <Link
+            to="/dashboard/settings/activity-types"
+            className={`
+              whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm
+              ${
+                currentPath === '/dashboard/settings/activity-types'
+                  ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+              }
+            `}
+          >
+            Activity Types
+          </Link>
+        </nav>
+      </div>
 
       {/* Settings Forms */}
       <div className="space-y-8">
         {/* Basic Settings Section */}
+        {renderToast('basic')}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
           <BasicSettingsForm
             serviceName={loaderData.serviceName}
@@ -274,6 +330,8 @@ export default function SystemSettingsPage() {
         </div>
 
         {/* S3 Settings Section */}
+        {renderToast('s3')}
+        {renderToast('s3-test')}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
           <S3SettingsForm
             s3Configured={loaderData.s3Configured}
@@ -291,6 +349,8 @@ export default function SystemSettingsPage() {
         </div>
 
         {/* SMTP Settings Section */}
+        {renderToast('smtp')}
+        {renderToast('smtp-test')}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
           <SmtpSettingsForm
             smtpConfigured={loaderData.smtpConfigured}

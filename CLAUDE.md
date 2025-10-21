@@ -174,22 +174,33 @@ Organization ||--o{ Developer : includes
 ## 🚨 Testing Rules 🚨
 
 ### Integration Tests (Vitest) - IN DOCKER
+
+**🚨 CRITICAL: Docker Compose automatically reads `.env` file! 🚨**
+
+To use test environment variables from `.env.test`, you MUST specify `--env-file`:
+
 ```bash
-# Start dev environment (mounts source + devDependencies)
-docker compose -f docker-compose.yml -f docker-compose-dev.yml up -d
+# Start test environment with .env.test (CORRECT)
+docker compose --env-file .env.test -f docker-compose.yml -f docker-compose-test.yml up -d
 
 # Run tests
-docker compose exec core pnpm test
-docker compose exec core pnpm typecheck
+docker compose --env-file .env.test exec core pnpm test
+docker compose --env-file .env.test exec core pnpm typecheck
 ```
+
+**Why `--env-file` is required:**
+- Docker Compose reads `.env` by default (production variables)
+- `env_file: .env.test` in docker-compose-test.yml does NOT override this
+- Without `--env-file .env.test`, production DATABASE_URL will be used
+- This causes all tests to fail with connection errors
 
 ### E2E Tests (Playwright) - ON HOST
 
 **🚨 CRITICAL: MUST use BASE_URL=https://devcle.test for ALL E2E tests! 🚨**
 
 ```bash
-# Start test environment first
-docker compose -f docker-compose.yml -f docker-compose-test.yml up -d
+# Start test environment first (MUST use --env-file .env.test)
+docker compose --env-file .env.test -f docker-compose.yml -f docker-compose-test.yml up -d
 
 # Run E2E tests with pnpm test:e2e (includes db:seed)
 pnpm test:e2e
@@ -204,8 +215,8 @@ BASE_URL=https://devcle.test pnpm --filter @drm/core exec playwright test --repo
 - `pnpm test:e2e` script loads `.env.test` automatically
 
 ### Before Commit
-1. `docker compose exec core pnpm test` - ALL tests must pass
-2. `docker compose exec core pnpm typecheck` - No errors
+1. `docker compose --env-file .env.test exec core pnpm test` - ALL tests must pass
+2. `docker compose --env-file .env.test exec core pnpm typecheck` - No errors
 3. `pnpm test:e2e` (or `BASE_URL=https://devcle.test pnpm --filter @drm/core exec playwright test`) - All E2E pass
 4. **NEVER skip failing tests**
 

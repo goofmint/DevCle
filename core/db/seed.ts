@@ -841,6 +841,74 @@ async function seedFunnelStages(): Promise<void> {
 }
 
 /**
+ * Seed activity types
+ *
+ * Creates default activity types for the default tenant.
+ * These are the base activity types that can be customized via the settings UI.
+ *
+ * Default types:
+ * - click: Awareness stage (text-blue-600 bg-blue-100 border-blue-200, heroicons:cursor-arrow-rays)
+ * - attend: Engagement stage (text-green-600 bg-green-100 border-green-200, heroicons:calendar-days)
+ * - signup: Engagement stage (text-purple-600 bg-purple-100 border-purple-200, heroicons:user-plus)
+ * - post: Advocacy stage (text-orange-600 bg-orange-100 border-orange-200, heroicons:chat-bubble-left-right)
+ * - star: Advocacy stage (text-yellow-600 bg-yellow-100 border-yellow-200, heroicons:star)
+ */
+async function seedActivityTypes(): Promise<void> {
+  const db = getDb();
+
+  console.log('  🎯 Seeding activity types...');
+
+  // Insert 5 default activity types for default tenant
+  await db
+    .insert(schema.activityTypes)
+    .values([
+      {
+        activityTypeId: generateUUID(),
+        tenantId: 'default',
+        action: 'click',
+        iconName: 'heroicons:cursor-arrow-rays',
+        colorClass: 'text-blue-600 bg-blue-100 border-blue-200',
+        stageKey: 'awareness',
+      },
+      {
+        activityTypeId: generateUUID(),
+        tenantId: 'default',
+        action: 'attend',
+        iconName: 'heroicons:calendar-days',
+        colorClass: 'text-green-600 bg-green-100 border-green-200',
+        stageKey: 'engagement',
+      },
+      {
+        activityTypeId: generateUUID(),
+        tenantId: 'default',
+        action: 'signup',
+        iconName: 'heroicons:user-plus',
+        colorClass: 'text-purple-600 bg-purple-100 border-purple-200',
+        stageKey: 'engagement',
+      },
+      {
+        activityTypeId: generateUUID(),
+        tenantId: 'default',
+        action: 'post',
+        iconName: 'heroicons:chat-bubble-left-right',
+        colorClass: 'text-orange-600 bg-orange-100 border-orange-200',
+        stageKey: 'advocacy',
+      },
+      {
+        activityTypeId: generateUUID(),
+        tenantId: 'default',
+        action: 'star',
+        iconName: 'heroicons:star',
+        colorClass: 'text-yellow-600 bg-yellow-100 border-yellow-200',
+        stageKey: 'advocacy',
+      },
+    ])
+    .onConflictDoNothing();
+
+  console.log('    ✅ Activity types seeded (5)');
+}
+
+/**
  * Seed activity funnel mappings
  *
  * Creates default mappings from activity actions to funnel stages.
@@ -944,7 +1012,7 @@ async function seed(): Promise<void> {
       // Plugin/Import tables
       'plugins', 'plugin_runs', 'plugin_events_raw', 'import_jobs', 'shortlinks',
       // Analytics/Funnel tables
-      'developer_stats', 'campaign_stats', 'funnel_stages', 'activity_funnel_map'
+      'developer_stats', 'campaign_stats', 'funnel_stages', 'activity_funnel_map', 'activity_types'
     ];
 
     for (const table of tables) {
@@ -983,6 +1051,7 @@ async function seed(): Promise<void> {
     await sql.unsafe('TRUNCATE TABLE shortlinks CASCADE');
     await sql.unsafe('TRUNCATE TABLE developer_stats CASCADE');
     await sql.unsafe('TRUNCATE TABLE campaign_stats CASCADE');
+    await sql.unsafe('TRUNCATE TABLE activity_types CASCADE');
     await sql.unsafe('TRUNCATE TABLE tenants CASCADE');
     console.log('    ✅ All data cleared\n');
 
@@ -1007,6 +1076,8 @@ async function seed(): Promise<void> {
 
     await seedFunnelStages(); // REQUIRED: Funnel stage master data
 
+    await seedActivityTypes(); // Activity types for settings UI
+
     await seedActivityFunnelMaps(); // Action-to-stage mappings
 
     console.log('\n✅ Seed completed successfully!');
@@ -1020,6 +1091,7 @@ async function seed(): Promise<void> {
     console.log('  - Resources: 3');
     console.log('  - Activities: 10');
     console.log('  - Funnel Stages: 4');
+    console.log('  - Activity Types: 5');
     console.log('  - Activity Funnel Mappings: 11');
   } catch (error) {
     // Log detailed error information for debugging
@@ -1045,7 +1117,7 @@ async function seed(): Promise<void> {
       // Plugin/Import tables
       'plugins', 'plugin_runs', 'plugin_events_raw', 'import_jobs', 'shortlinks',
       // Analytics/Funnel tables
-      'developer_stats', 'campaign_stats', 'funnel_stages', 'activity_funnel_map'
+      'developer_stats', 'campaign_stats', 'funnel_stages', 'activity_funnel_map', 'activity_types'
     ];
 
     for (const table of tables) {

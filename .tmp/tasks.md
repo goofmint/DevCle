@@ -560,60 +560,77 @@
   - すべてのAPI routesとservice functionsに影響
   - 慎重なテストとレビューが必要
 
-### Task 7.3.2: システム設定画面の実装
+### Task 7.3.2: システム設定画面の実装 ✅
 
-- [ ] データベーススキーマ更新（`service_name`, `logo_url`, `fiscal_year_start_month`, `timezone`, `s3_settings`追加）
-- [ ] `core/config/env.ts`実装（ENCRYPTION_KEY起動時バリデーション）
-- [ ] `core/utils/encryption.ts`実装（AES-256-GCM暗号化/復号化、キーローテーション対応）
-- [ ] `core/utils/s3-client.ts`実装（S3アップロード/削除）
-- [ ] `core/middleware/upload.ts`実装（multipart/form-dataパース、ファイルバリデーション）
-- [ ] `core/services/system-settings.service.ts`実装（CRUD、暗号化、S3/SMTP/AI設定チェック、ロゴアップロード）
-- [ ] `app/routes/api/system-settings.ts`実装（GET/PUT、admin権限チェック）
-- [ ] `app/routes/api/system-settings.upload-logo.ts`実装（POST、ロゴアップロード）
-- [ ] `app/routes/dashboard.settings.tsx`作成（Basic/S3/SMTP/AI設定画面、ロゴアップロードUI）
-- [ ] 接続テスト機能実装（S3/SMTP/AI接続確認API）
-- [ ] E2Eテスト作成（16テスト：Basic 6 + S3 3 + SMTP 2 + AI 2 + Validation 3）
-- **完了条件**: システム設定画面が表示され、S3/SMTP/AI設定が保存・テスト・ロゴアップロードできる
+- [x] データベーススキーマ更新（`service_name`, `logo_url`, `fiscal_year_start_month`, `timezone`, `s3_settings`, `smtp_settings`追加）
+- [x] `core/config/env.ts`実装（ENCRYPTION_KEY起動時バリデーション）
+- [x] `core/utils/encryption.ts`実装（AES-256-GCM暗号化/復号化、キーローテーション対応）
+- [x] `core/utils/s3-client.ts`実装（S3アップロード/削除）
+- [x] `core/utils/smtp-client.ts`実装（SMTP接続テスト）
+- [x] `core/services/system-settings.service.ts`実装（CRUD、暗号化、S3/SMTP設定チェック、ロゴアップロード）
+- [x] `app/routes/api.system-settings.ts`実装（GET/PUT、admin権限チェック）
+- [x] `app/routes/api.system-settings.upload-logo.ts`実装（POST、ロゴアップロード）
+- [x] `app/routes/dashboard.settings.tsx`作成（Basic/S3/SMTP設定画面、ロゴアップロードUI）
+- [x] 接続テスト機能実装（S3/SMTP接続確認API）
+- [x] E2Eテスト作成（14テスト：Basic 6 + S3 3 + SMTP 2 + Validation 3）
+- **完了条件**: システム設定画面が表示され、S3/SMTP設定が保存・テスト・ロゴアップロードできる ✓
 - **依存**: Task 7.1
-- **推定時間**: 8時間（暗号化キー管理、ロゴアップロード機能追加により増加）
+- **推定時間**: 8時間
+- **完了日**: 2025-10-20
 - **ドキュメント**: [.tmp/tasks/task-7.3.2-system-settings.md](.tmp/tasks/task-7.3.2-system-settings.md)
 - **注意**:
+  - AI機能はOSS版に含まれないため除外
   - 会計年度は期初月のみ（1-12、デフォルト: 4）
   - S3未設定時はロゴアップロード無効化（URL入力のみ）
   - 機密情報（API keys, passwords）は暗号化してDB保存
   - GET APIでは機密情報を返さない（boolean flagのみ）
   - 設定変更はadminロールのみ許可
   - ENCRYPTION_KEY起動時バリデーション（Fail-Fast）
-  - ロゴアップロード: multipart/form-data、2MB以下、image/*のみ
+  - ロゴアップロード: multipart/form-data、2MB以下、PNG/JPEG/WebPのみ（SVG除外）
 
-### Task 7.3.3: アクティビティカラーとアイコンの設定画面実装（システム設定画面の一部）
+### Task 7.3.3: アクティビティカラーとアイコンの設定画面実装（システム設定画面の一部） 🔄 進行中
 
-- [ ] `app/routes/dashboard.settings.activity-types.tsx`作成（アクティビティタイプ設定画面）
-- [ ] `app/routes/api/activity-types.ts`作成（アクティビティタイプCRUD API）
-- [ ] `core/db/schema/admin.ts`に`activity_types`テーブル追加
-  - カラム: `activity_type_id`, `tenant_id`, `action`, `icon_name`, `color_class`, `funnel_stage_id`, `created_at`, `updated_at`
-  - `action`は`'click' | 'attend' | 'signup' | 'post' | 'star'`等の文字列
-  - `icon_name`は`'heroicons:bolt'`等のIconifyアイコン名
-  - `color_class`はTailwind CSS classの文字列（例: `'text-blue-600 bg-blue-100 border-blue-200'`）
-  - `funnel_stage_id`は`funnel_stages`テーブルへの外部キー（NULL可）
-- [ ] `core/services/activity-type.service.ts`作成（CRUD + デフォルトシードデータ）
-- [ ] 設定画面UI実装
-  - アクティビティタイプ一覧表示（テーブル形式）
-  - アイコンピッカー（Iconify検索UI）
-  - カラーパレット（Tailwindカラー選択UI）
-  - ファネルステージ選択ドロップダウン
-  - CRUD操作（作成・編集・削除）
-- [ ] `ActivityTimeline.tsx`の`getActivityColor()`と`getActivityIconName()`を修正
-  - データベースから取得した設定を使用
-  - デフォルト値（gray, heroicons:bolt）をフォールバックとして保持
-- [ ] E2Eテスト作成（設定画面の動作確認）
-- **完了条件**: 設定画面でアクティビティタイプごとにアイコンとカラーを設定でき、ActivityTimelineに反映される
+**現在の進捗（2025-10-21）:**
+
+**バックエンド実装（完了）:**
+- [x] `core/db/schema/admin.ts`に`activity_types`テーブル追加 ✅
+  - カラム: `activity_type_id`, `tenant_id`, `action`, `icon_name`, `color_class`, `stage_key`, `created_at`, `updated_at`
+  - Migration 0007生成・適用完了
+- [x] `core/services/activity-type.service.ts`作成（CRUD + デフォルトシードデータ） ✅
+  - 24個のテストパス
+- [x] `app/routes/api.activity-types.ts`作成（アクティビティタイプCRUD API） ✅
+  - GET (list), POST (create) - 13テスト
+- [x] `app/routes/api.activity-types.$action.ts`作成（個別リソースAPI） ✅
+  - GET, PUT, DELETE - 13テスト
+- [x] `app/routes/api.activity-types.actions.ts`作成（既存アクション一覧API） ✅
+  - GET - 3テスト
+- [x] 依存関係インストール ✅
+  - `react-color@2.19.3`
+  - `@types/react-color@3.0.13`
+
+**フロントエンド実装（残り）:**
+- [ ] `app/routes/dashboard.settings.activity-types.tsx`作成（メイン画面）
+- [ ] UIコンポーネント実装：
+  - [ ] ActivityTypeTable（一覧テーブル）
+  - [ ] ActivityTypeForm（作成・編集フォーム）
+  - [ ] ActionCombobox（既存アクション選択 + 新規入力）
+  - [ ] IconPicker（@iconify/react使用、アイコン検索・選択）
+  - [ ] ColorPalette（react-color使用、プリセットカラー選択）
+- [ ] E2Eテスト作成（13テスト）
+  - 表示・アクセス制御: 2 tests
+  - CRUD操作: 6 tests
+  - バリデーション: 2 tests
+  - コンポーネント動作: 3 tests
+
+- **完了条件**: 設定画面でアクティビティタイプごとにアイコンとカラーを設定でき、E2Eテストが全てパスする
 - **依存**: Task 7.3
-- **推定時間**: 5時間
-- **ドキュメント**: [.tmp/tasks/task-7.3.3-activity-type-settings.md](.tmp/tasks/task-7.3.3-activity-type-settings.md)
+- **推定時間**: 6.5時間（残り: 約3.5時間）
+- **ドキュメント**:
+  - [.tmp/tasks/task-7.3.3-activity-type-settings.md](.tmp/tasks/task-7.3.3-activity-type-settings.md)（全体仕様）
+  - [.tmp/tasks/task-7.3.3-ui.md](.tmp/tasks/task-7.3.3-ui.md)（UI実装仕様）
 - **注意**:
   - 実装は2段階に分割：
-    1. このタスク（7.3.3）: 設定画面とテーブル作成
+    1. このタスク（7.3.3）: 設定画面とテーブル作成（**バックエンド完了**、フロントエンド残り）
     2. 次のタスク（7.3.4）: `getActivityColor()`と`getActivityIconName()`の実装（データベースから取得）
   - ActivityTimeline.tsx内のTODOコメントを参照
 

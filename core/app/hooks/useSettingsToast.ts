@@ -5,7 +5,7 @@
  * Monitors multiple fetchers and displays success/error messages.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { Fetcher } from '@remix-run/react';
 import type { ActionData } from '~/routes/dashboard.settings.server';
 
@@ -26,6 +26,7 @@ interface UseSettingsToastProps {
 export interface ToastState {
   message: string;
   type: 'success' | 'error';
+  section: 'basic' | 's3' | 'smtp' | 's3-test' | 'smtp-test';
 }
 
 /**
@@ -52,44 +53,64 @@ export function useSettingsToast(props: UseSettingsToastProps) {
   const { basicFetcher, s3Fetcher, smtpFetcher, s3TestFetcher, smtpTestFetcher } = props;
   const [toast, setToast] = useState<ToastState | null>(null);
 
-  // Monitor all fetchers for completion and display toast
+  // Track previous states to detect transitions
+  const prevStates = useRef({
+    basic: 'idle',
+    s3: 'idle',
+    smtp: 'idle',
+    's3-test': 'idle',
+    'smtp-test': 'idle',
+  });
+
+  // Monitor all fetchers for state transitions (submitting → idle)
   useEffect(() => {
     const fetchers = [
-      basicFetcher,
-      s3Fetcher,
-      smtpFetcher,
-      s3TestFetcher,
-      smtpTestFetcher,
+      { fetcher: basicFetcher, key: 'basic' as const },
+      { fetcher: s3Fetcher, key: 's3' as const },
+      { fetcher: smtpFetcher, key: 'smtp' as const },
+      { fetcher: s3TestFetcher, key: 's3-test' as const },
+      { fetcher: smtpTestFetcher, key: 'smtp-test' as const },
     ];
 
-    for (const fetcher of fetchers) {
-      if (fetcher.data && fetcher.state === 'idle') {
-        if (fetcher.data.success) {
-          setToast({
-            message: TOAST_MESSAGES[fetcher.data.section || ''] || 'Success',
-            type: 'success',
-          });
-        } else if (fetcher.data.error) {
-          setToast({
-            message: fetcher.data.error,
-            type: 'error',
-          });
+    for (const { fetcher, key } of fetchers) {
+      const prevState = prevStates.current[key];
+      const currentState = fetcher.state;
+
+      // Detect transition from submitting/loading to idle
+      if ((prevState === 'submitting' || prevState === 'loading') && currentState === 'idle') {
+        // Fetcher just completed, check data
+        if (fetcher.data) {
+          const section = (fetcher.data.section || key) as 'basic' | 's3' | 'smtp' | 's3-test' | 'smtp-test';
+          if (fetcher.data.success) {
+            setToast({
+              message: TOAST_MESSAGES[fetcher.data.section || key] || 'Success',
+              type: 'success',
+              section,
+            });
+          } else if (fetcher.data.error) {
+            setToast({
+              message: fetcher.data.error,
+              type: 'error',
+              section,
+            });
+          }
         }
-        // Break after first completed fetcher
-        break;
       }
+
+      // Update previous state
+      prevStates.current[key] = currentState;
     }
   }, [
-    basicFetcher.data,
     basicFetcher.state,
-    s3Fetcher.data,
+    basicFetcher.data,
     s3Fetcher.state,
-    smtpFetcher.data,
+    s3Fetcher.data,
     smtpFetcher.state,
-    s3TestFetcher.data,
+    smtpFetcher.data,
     s3TestFetcher.state,
-    smtpTestFetcher.data,
+    s3TestFetcher.data,
     smtpTestFetcher.state,
+    smtpTestFetcher.data,
   ]);
 
   // Auto-dismiss toast after 5 seconds

@@ -2,14 +2,15 @@
  * Database Schema Index
  *
  * This file aggregates all database table schemas for the DevCle (DRM) project.
- * Total of 25 tables across 7 schema files:
+ * Total of 26 tables across 7 schema files:
  *
- * 1. admin.ts (5 tables):
+ * 1. admin.ts (6 tables):
  *    - tenants: Multi-tenant management
  *    - users: Console users (dashboard login)
  *    - api_keys: API keys for programmatic access
  *    - system_settings: Per-tenant settings (SMTP, AI, domains)
  *    - notifications: Outbound notification history
+ *    - activity_types: Customizable activity types with icons, colors, and funnel stage mapping
  *
  * 2. core.ts (5 tables):
  *    - organizations: Organizations that developers belong to
@@ -57,7 +58,7 @@
  * - Deduplication via hash-based dedup_key
  */
 
-// Export all admin tables (5)
+// Export all admin tables (6)
 export * from './admin';
 
 // Export all core entity tables (5)

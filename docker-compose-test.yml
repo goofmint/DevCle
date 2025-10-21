@@ -12,19 +12,8 @@ services:
     build:
       target: development
       dockerfile: ../docker/Dockerfile.core
+    env_file: .env.test
     environment:
-      DATABASE_URL: ${DATABASE_URL}
-      DATABASE_HOST: ${DATABASE_HOST}
-      DATABASE_PORT: ${DATABASE_PORT}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      REDIS_URL: ${REDIS_URL}
-      REDIS_PASSWORD: ${REDIS_PASSWORD}
-      SESSION_SECRET: ${SESSION_SECRET}
-      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
-      APP_DOMAIN: ${APP_DOMAIN}
-      BASE_URL: ${BASE_URL}
       NODE_ENV: test
       CI: "true"
     volumes:

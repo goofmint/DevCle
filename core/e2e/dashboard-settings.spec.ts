@@ -59,7 +59,7 @@ test('should display system settings page (admin only)', async ({ page }) => {
   await page.waitForLoadState('networkidle');
 
   // Verify page title
-  await expect(page.locator('h1')).toContainText('System Settings');
+  await expect(page.locator('h1')).toContainText('Settings');
 
   // Verify all three sections are visible (use role to avoid ambiguity)
   await expect(page.getByRole('heading', { name: 'Basic Settings' })).toBeVisible();
