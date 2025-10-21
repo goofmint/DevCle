@@ -710,8 +710,8 @@ test.describe('Activity Types Settings', () => {
 
 ### 5.1 アクセス制御
 
-- **Admin専用**: loader/actionの両方で`requireAuth(request)`でadmin権限チェック
-- **403 Forbidden**: 非adminユーザーには403エラーを返す
+- **Admin専用**: APIレイヤー（`/api/activity-types`）で`requireAuth(request)`でadmin権限チェック
+- **403 Forbidden**: 非adminユーザーにはAPIが403エラーを返す（UIは認証状態を表示）
 
 ### 5.2 入力検証
 
@@ -730,8 +730,8 @@ test.describe('Activity Types Settings', () => {
 
 ### 6.1 データフェッチ
 
-- **loaderでまとめて取得**: activityTypesとfunnelStagesをloaderで一度に取得
-- **Fetcherでフォーム送信**: useFetcher()を使用してページリロードなし
+- **useEffectでまとめて取得**: activityTypesとfunnelStagesをPromise.allで並列フェッチ
+- **fetchで直接送信**: fetch APIを使用してページリロードなし、setStateで即座にUI更新
 
 ### 6.2 アイコンプレビュー
 
@@ -744,7 +744,8 @@ test.describe('Activity Types Settings', () => {
 
 1. **メイン画面実装**（1時間）
    - `dashboard.settings.activity-types.tsx`作成
-   - loader/action実装
+   - useState/useEffect実装（データフェッチ + state管理）
+   - CRUDハンドラー実装（handleCreate/Update/Delete）
    - 基本レイアウト実装
 
 2. **ActivityTypeTable実装**（30分）
