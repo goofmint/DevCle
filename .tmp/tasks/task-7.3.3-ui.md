@@ -46,88 +46,144 @@ app/
 │   └── ColorPalette.tsx                       # カラー選択コンポーネント
 ```
 
-### 1.2 Remix Route実装
+### 1.2 SPA Component実装
 
 `app/routes/dashboard.settings.activity-types.tsx`
 
 ```typescript
-import { json, type LoaderFunctionArgs, type ActionFunctionArgs } from '@remix-run/node';
-import { useLoaderData, useFetcher } from '@remix-run/react';
-import { requireAuth } from '../middleware/auth.server.js';
-import {
-  listActivityTypes,
-  createActivityType,
-  updateActivityType,
-  deleteActivityType
-} from '../../services/activity-type.service.js';
-import { listFunnelStages } from '../../services/funnel-stage.service.js';
+import { useEffect, useState } from 'react';
+import { ActivityTypeTable } from '../components/settings/ActivityTypeTable.js';
+import { ActivityTypeForm } from '../components/settings/ActivityTypeForm.js';
 
-/**
- * Loader: Load activity types and funnel stages
- *
- * - Admin-only access (403 for non-admin)
- * - Load all activity types for current tenant
- * - Load funnel stages for dropdown options
- */
-export async function loader({ request }: LoaderFunctionArgs) {
-  // 実装内容:
-  // 1. requireAuth(request) でadmin権限チェック（非adminは403）
-  // 2. listActivityTypes(user.tenantId, { limit: 100, offset: 0 }) で全取得
-  // 3. listFunnelStages(user.tenantId) でファネルステージ取得
-  // 4. return json({ activityTypes, funnelStages })
+interface ActivityType {
+  activityTypeId: string;
+  action: string;
+  iconName: string;
+  colorClass: string;
+  stageKey: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface FunnelStage {
+  funnelStageId: string;
+  stageKey: string;
+  stageName: string;
 }
 
 /**
- * Action: Handle create/update/delete operations
- *
- * - POST: Create new activity type
- * - PUT: Update existing activity type
- * - DELETE: Delete activity type
- *
- * Form data:
- * - intent: 'create' | 'update' | 'delete'
- * - action: string (activity action name)
- * - iconName: string (Iconify icon name)
- * - colorClass: string (Tailwind CSS classes)
- * - funnelStageId: string | null (UUID)
- */
-export async function action({ request }: ActionFunctionArgs) {
-  // 実装内容:
-  // 1. requireAuth(request) でadmin権限チェック
-  // 2. await request.formData() でフォームデータ取得
-  // 3. intent で処理を分岐:
-  //    - 'create': createActivityType(tenantId, data)
-  //    - 'update': updateActivityType(tenantId, action, data)
-  //    - 'delete': deleteActivityType(tenantId, action)
-  // 4. return json({ success: true, message: '...' })
-  // 5. エラー時: return json({ success: false, error: '...' }, { status: 400/409/500 })
-}
-
-/**
- * Activity Types Settings Page Component
+ * Activity Types Settings Page Component (SPA)
  *
  * Features:
+ * - Fetch activity types and funnel stages on mount (useEffect)
  * - Display activity types in a table
  * - Create new activity type (modal/inline form)
  * - Edit existing activity type (modal/inline form)
  * - Delete activity type (confirmation dialog)
  * - Toast notifications for success/error
  * - Dark/Light mode support
+ *
+ * Data Fetching (SPA):
+ * - No loader - use useEffect + fetch
+ * - No action - use fetch directly in handlers
+ * - Client-side state management with useState
  */
 export default function ActivityTypesSettings() {
   // 実装内容:
-  // 1. const { activityTypes, funnelStages } = useLoaderData<typeof loader>();
-  // 2. const fetcher = useFetcher();
-  // 3. const [editingAction, setEditingAction] = useState<string | null>(null);
-  // 4. const [isCreating, setIsCreating] = useState(false);
-  // 5. レンダリング:
+  // 1. State管理:
+  //    const [activityTypes, setActivityTypes] = useState<ActivityType[]>([]);
+  //    const [funnelStages, setFunnelStages] = useState<FunnelStage[]>([]);
+  //    const [loading, setLoading] = useState(true);
+  //    const [error, setError] = useState<string | null>(null);
+  //    const [editingAction, setEditingAction] = useState<string | null>(null);
+  //    const [isCreating, setIsCreating] = useState(false);
+  //
+  // 2. データフェッチ (useEffect):
+  //    useEffect(() => {
+  //      async function fetchData() {
+  //        try {
+  //          setLoading(true);
+  //          const [activityTypesRes, funnelStagesRes] = await Promise.all([
+  //            fetch('/api/activity-types?limit=100'),
+  //            fetch('/api/funnel-stages?limit=100')
+  //          ]);
+  //          if (!activityTypesRes.ok || !funnelStagesRes.ok) {
+  //            throw new Error('Failed to fetch data');
+  //          }
+  //          const activityTypesData = await activityTypesRes.json();
+  //          const funnelStagesData = await funnelStagesRes.json();
+  //          setActivityTypes(activityTypesData.activityTypes);
+  //          setFunnelStages(funnelStagesData.funnelStages);
+  //        } catch (err) {
+  //          setError(err.message);
+  //        } finally {
+  //          setLoading(false);
+  //        }
+  //      }
+  //      fetchData();
+  //    }, []);
+  //
+  // 3. CRUD操作ハンドラー:
+  //    const handleCreate = async (data: FormData) => {
+  //      try {
+  //        const res = await fetch('/api/activity-types', {
+  //          method: 'POST',
+  //          body: JSON.stringify(Object.fromEntries(data)),
+  //          headers: { 'Content-Type': 'application/json' },
+  //        });
+  //        if (!res.ok) throw new Error('Failed to create');
+  //        const newActivityType = await res.json();
+  //        setActivityTypes([...activityTypes, newActivityType.activityType]);
+  //        setIsCreating(false);
+  //        // Show success toast
+  //      } catch (err) {
+  //        // Show error toast
+  //      }
+  //    };
+  //
+  //    const handleUpdate = async (action: string, data: FormData) => {
+  //      try {
+  //        const res = await fetch(`/api/activity-types/${action}`, {
+  //          method: 'PUT',
+  //          body: JSON.stringify(Object.fromEntries(data)),
+  //          headers: { 'Content-Type': 'application/json' },
+  //        });
+  //        if (!res.ok) throw new Error('Failed to update');
+  //        const updated = await res.json();
+  //        setActivityTypes(activityTypes.map(at =>
+  //          at.action === action ? updated.activityType : at
+  //        ));
+  //        setEditingAction(null);
+  //        // Show success toast
+  //      } catch (err) {
+  //        // Show error toast
+  //      }
+  //    };
+  //
+  //    const handleDelete = async (action: string) => {
+  //      if (!confirm('Are you sure you want to delete this activity type?')) return;
+  //      try {
+  //        const res = await fetch(`/api/activity-types/${action}`, {
+  //          method: 'DELETE',
+  //        });
+  //        if (!res.ok) throw new Error('Failed to delete');
+  //        setActivityTypes(activityTypes.filter(at => at.action !== action));
+  //        // Show success toast
+  //      } catch (err) {
+  //        // Show error toast
+  //      }
+  //    };
+  //
+  // 4. レンダリング:
+  //    - Loading state: "Loading..."
+  //    - Error state: Error message
   //    - ページタイトル "Activity Type Settings"
   //    - "Create Activity Type" ボタン
-  //    - <ActivityTypeTable> でactivityTypes表示
-  //    - isCreating時: <ActivityTypeForm mode="create" />
-  //    - editingAction時: <ActivityTypeForm mode="edit" />
-  //    - fetcher.dataでToast表示（success/error）
-  // 6. Dark/Light mode: Tailwind dark:クラス使用
+  //    - <ActivityTypeTable activityTypes={activityTypes} onEdit={setEditingAction} onDelete={handleDelete} />
+  //    - isCreating時: <ActivityTypeForm mode="create" onSubmit={handleCreate} onCancel={() => setIsCreating(false)} />
+  //    - editingAction時: <ActivityTypeForm mode="edit" initialData={...} onSubmit={(data) => handleUpdate(editingAction, data)} onCancel={() => setEditingAction(null)} />
+  //
+  // 5. Dark/Light mode: Tailwind dark:クラス使用
 }
 ```
 
@@ -726,27 +782,51 @@ test.describe('Activity Types Settings', () => {
 
 ### 8.1 使用ライブラリ
 
+- **React**: useState, useEffect, コンポーネント管理
 - **@iconify/react**: アイコンプレビュー（既存プロジェクトで使用中）
 - **react-color**: カラーピッカー（CirclePicker）
-- **Remix**: ルーティング、loader/action、useFetcher
+- **Remix**: ルーティング（ファイルベースルーティングのみ、loader/actionは不使用）
 - **Tailwind CSS**: スタイリング、ダークモード
+- **fetch API**: クライアントサイドでのAPIリクエスト
 
-### 8.2 データフロー
+### 8.2 データフロー（SPA）
 
 ```
-User Action
+Component Mount
     ↓
-useFetcher (form submission)
+useEffect
     ↓
-action() handler (Remix)
+fetch('/api/activity-types')
+    ↓
+API route handler (api.activity-types.ts)
     ↓
 service layer (activity-type.service.ts)
     ↓
 database (activity_types table)
     ↓
-loader() handler (Remix)
+API response (JSON)
     ↓
-useLoaderData (component)
+setState (activityTypes)
+    ↓
+UI Update
+
+---
+
+User Action (Create/Update/Delete)
+    ↓
+Event handler (handleCreate/handleUpdate/handleDelete)
+    ↓
+fetch('/api/activity-types', { method: 'POST/PUT/DELETE' })
+    ↓
+API route handler
+    ↓
+service layer
+    ↓
+database
+    ↓
+API response
+    ↓
+setState (update local state)
     ↓
 UI Update
 ```
