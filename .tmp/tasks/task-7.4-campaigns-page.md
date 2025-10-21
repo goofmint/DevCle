@@ -1,14 +1,15 @@
-# Task 7.4: Campaignsページ実装
+# Task 7.4: Campaignsページ実装（一覧のみ）
 
 ## 概要
 
-ダッシュボードのCampaignsページを実装し、施策（キャンペーン）の一覧表示、ROI表示、検索・フィルタ機能、詳細ページを提供します。プラグインでも利用できるように、施策リストコンポーネントは共通化します。
+ダッシュボードのCampaignsページを実装し、施策（キャンペーン）の一覧表示、ROI表示、検索・フィルタ機能を提供します。プラグインでも利用できるように、施策リストコンポーネントは共通化します。
+
+**注意**: このタスクは一覧ページのみを対象とします。詳細ページはTask 7.4.2、新規API実装はTask 7.4.1で行います。
 
 ## 目的
 
 - 登録されている施策の一覧を表示し、検索・フィルタ機能で目的の施策を素早く見つけられるようにする
 - 施策のROIを視覚的に表示し、正のリターン（成功）と負のリターン（損失）を色分けして確認できるようにする
-- 施策の詳細情報（期間、予算、ROI、関連アクティビティなど）を確認できるようにする
 - プラグインでも再利用可能な共通コンポーネントを提供する
 
 ## 依存タスク
@@ -52,14 +53,6 @@ interface CampaignListItem extends Campaign {
   developerCount?: number;
 }
 
-// 施策詳細（ROI、予算、リソース、アクティビティを含む）
-interface CampaignDetail extends Campaign {
-  roiData: CampaignROI;
-  budgets: Budget[];
-  resources: Resource[];
-  recentActivities: Activity[];
-}
-
 // リストフィルタオプション
 interface CampaignFilterOptions {
   query?: string;      // 名前で検索
@@ -79,10 +72,6 @@ interface CampaignFilterOptions {
 **ファイル**: `core/app/routes/dashboard.campaigns.tsx`
 
 施策一覧ページのルートを作成します。`dashboard.tsx`レイアウトの子ルートとして機能します。
-
-**ファイル**: `core/app/routes/dashboard.campaigns.$id.tsx`
-
-施策詳細ページのルートを作成します。
 
 ### 2. 施策一覧の取得
 
@@ -180,19 +169,7 @@ function formatROI(roi: number | null): string {
 
 これらは`core/app/components/campaigns/`以下に配置し、プラグインからもimportできるようにします。
 
-### 6. 施策詳細ページ
-
-施策の詳細情報を表示するページを実装：
-
-**表示内容**:
-- 基本情報（名前、チャネル、期間、予算総額、属性）
-- ROI情報（総コスト、総価値、ROI、アクティビティ数、開発者数）
-- 予算リスト（Budget情報）
-- リソースリスト（関連リソース）
-- 最近のアクティビティ履歴（最新10件）
-- ROIトレンドチャート（過去30日間のROI推移）
-
-### 7. ページネーション
+### 6. ページネーション
 
 一覧ページにページネーションを実装：
 
@@ -216,7 +193,7 @@ export function Pagination({ currentPage, totalPages, onPageChange }: Pagination
 }
 ```
 
-### 8. ダークモード対応
+### 7. ダークモード対応
 
 全てのコンポーネントはダークモードに対応します：
 
@@ -224,7 +201,7 @@ export function Pagination({ currentPage, totalPages, onPageChange }: Pagination
 - テキスト: `text-gray-900 dark:text-white`
 - ボーダー: `border-gray-200 dark:border-gray-700`
 
-### 9. レスポンシブデザイン
+### 8. レスポンシブデザイン
 
 - **デスクトップ**: テーブル表示
 - **タブレット**: カード表示（2カラム）
@@ -236,19 +213,14 @@ export function Pagination({ currentPage, totalPages, onPageChange }: Pagination
 core/
 ├── app/
 │   ├── routes/
-│   │   ├── dashboard.campaigns.tsx           # 施策一覧ページ
-│   │   └── dashboard.campaigns.$id.tsx       # 施策詳細ページ
+│   │   └── dashboard.campaigns.tsx           # 施策一覧ページ
 │   ├── components/
 │   │   └── campaigns/
 │   │       ├── CampaignList.tsx              # 施策リストコンテナ
 │   │       ├── CampaignCard.tsx              # 施策カード表示
 │   │       ├── CampaignTable.tsx             # 施策テーブル表示
 │   │       ├── CampaignFilters.tsx           # 検索・フィルタUI
-│   │       ├── CampaignDetail.tsx            # 施策詳細表示
-│   │       ├── ROIBadge.tsx                  # ROIバッジ表示
-│   │       ├── BudgetList.tsx                # 予算リスト表示
-│   │       ├── ResourceList.tsx              # リソースリスト表示
-│   │       └── ROITrendChart.tsx             # ROIトレンドチャート
+│   │       └── ROIBadge.tsx                  # ROIバッジ表示
 │   └── hooks/
 │       └── useCampaignFilters.ts             # フィルタ状態管理フック
 ```
@@ -342,7 +314,10 @@ interface UseCampaignFiltersReturn {
  *         <option value="partnership">Partnership</option>
  *         <option value="other">Other</option>
  *       </select>
- *       <select value={roiStatus || ''} onChange={(e) => setRoiStatus(e.target.value as any || null)}>
+ *       <select value={roiStatus || ''} onChange={(e) => {
+ *         const value = e.target.value as 'positive' | 'negative' | 'neutral' | '';
+ *         setRoiStatus(value === '' ? null : value);
+ *       }}>
  *         <option value="">All ROI Status</option>
  *         <option value="positive">Positive</option>
  *         <option value="negative">Negative</option>
@@ -446,72 +421,6 @@ export function useCampaignFilters(options?: UseCampaignFiltersOptions): UseCamp
 - `roi = 0`: 損益分岐点
 - `roi < 0`: 負のリターン（損失）
 - `roi = null`: 計算不可（totalCostが0、ゼロ除算）
-
-### GET /api/campaigns/:id/budgets（新規実装が必要）
-
-施策の予算リストを取得するAPI。
-
-**レスポンス**:
-```typescript
-{
-  "budgets": [
-    {
-      "budgetId": "uuid",
-      "campaignId": "uuid",
-      "category": "venue",
-      "amount": "30000.00",
-      "currency": "JPY",
-      "description": "Conference venue rental",
-      "createdAt": "2025-10-14T00:00:00.000Z"
-    }
-  ]
-}
-```
-
-### GET /api/campaigns/:id/resources（新規実装が必要）
-
-施策の関連リソースリストを取得するAPI。
-
-**レスポンス**:
-```typescript
-{
-  "resources": [
-    {
-      "resourceId": "uuid",
-      "campaignId": "uuid",
-      "type": "landing_page",
-      "url": "https://example.com/conference",
-      "title": "Conference Landing Page",
-      "metadata": {},
-      "createdAt": "2025-10-14T00:00:00.000Z"
-    }
-  ]
-}
-```
-
-### GET /api/campaigns/:id/activities（新規実装が必要）
-
-施策の関連アクティビティリストを取得するAPI。
-
-**クエリパラメータ**:
-- `limit`: 取得件数（デフォルト: 10）
-- `sortOrder`: ソート順序（デフォルト: desc）
-
-**レスポンス**:
-```typescript
-{
-  "activities": [
-    {
-      "activityId": "uuid",
-      "developerId": "uuid",
-      "action": "attend",
-      "source": "connpass",
-      "occurredAt": "2025-03-01T09:00:00.000Z",
-      "metadata": {}
-    }
-  ]
-}
-```
 
 ## コンポーネント設計
 
@@ -619,30 +528,6 @@ export function CampaignFilters({
 }
 ```
 
-### CampaignDetail
-
-```typescript
-interface CampaignDetailProps {
-  campaign: Campaign;
-  roiData: CampaignROI;
-  budgets: Budget[];
-  resources: Resource[];
-}
-
-/**
- * CampaignDetail Component
- *
- * 施策の詳細情報を表示。
- * 基本情報、ROI情報、予算、リソースを表示。
- */
-export function CampaignDetail({ campaign, roiData, budgets, resources }: CampaignDetailProps): JSX.Element {
-  // 基本情報（名前、チャネル、期間、予算総額、属性）
-  // ROI情報（ROIBadgeコンポーネント、総コスト、総価値、アクティビティ数、開発者数）
-  // 予算リスト（BudgetListコンポーネント）
-  // リソースリスト（ResourceListコンポーネント）
-}
-```
-
 ### ROIBadge
 
 ```typescript
@@ -663,64 +548,7 @@ export function ROIBadge({ roi, size = 'md' }: ROIBadgeProps): JSX.Element {
 }
 ```
 
-### BudgetList
-
-```typescript
-interface BudgetListProps {
-  budgets: Budget[];
-}
-
-/**
- * BudgetList Component
- *
- * 施策の予算リストを表示。
- */
-export function BudgetList({ budgets }: BudgetListProps): JSX.Element {
-  // 予算ごとにカテゴリ、金額、通貨、説明を表示
-  // 合計金額を計算して表示
-}
-```
-
-### ResourceList
-
-```typescript
-interface ResourceListProps {
-  resources: Resource[];
-}
-
-/**
- * ResourceList Component
- *
- * 施策の関連リソースリストを表示。
- */
-export function ResourceList({ resources }: ResourceListProps): JSX.Element {
-  // リソースごとにタイプ、タイトル、URLを表示
-  // リンクアイコンを表示
-}
-```
-
-### ROITrendChart
-
-```typescript
-interface ROITrendChartProps {
-  data: Array<{ date: string; roi: number | null }>;
-}
-
-/**
- * ROITrendChart Component
- *
- * ROIの推移をチャート形式で表示。
- * 過去30日間のROI推移をRechartsで可視化。
- */
-export function ROITrendChart({ data }: ROITrendChartProps): JSX.Element {
-  // Rechartsを使用してROI推移を線グラフで表示
-  // ROI > 0はgreen、ROI < 0はred、ROI = 0 or nullはgrayでハイライト
-}
-```
-
 ## データフロー
-
-### 施策一覧ページ
 
 1. ページロード時に`loader`が実行される
 2. URLパラメータからフィルタ設定を取得
@@ -821,117 +649,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
 }
 ```
 
-### 施策詳細ページ（SPAベース実装）
-
-施策詳細ページは認証後のページであるため、loaderを使わずにSPAベースで実装します。
-
-1. コンポーネントのマウント時にURLパラメータから施策IDを取得
-2. `useEffect`で以下のAPIを並列呼び出し：
-   - `GET /api/campaigns/:id`
-   - `GET /api/campaigns/:id/roi`
-   - `GET /api/campaigns/:id/budgets`
-   - `GET /api/campaigns/:id/resources`
-   - `GET /api/campaigns/:id/activities?limit=10&sortOrder=desc`
-3. ローディング状態を表示
-4. データ取得後、CampaignDetailとROITrendChartにデータを渡す
-5. エラー時はエラーメッセージを表示
-
-```typescript
-// SPA実装例（useEffectでデータ取得）
-export default function CampaignDetailPage() {
-  const { id } = useParams<{ id: string }>();
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [data, setData] = useState<CampaignDetail | null>(null);
-
-  useEffect(() => {
-    if (!id) {
-      setError('Campaign ID is required');
-      setLoading(false);
-      return;
-    }
-
-    // データ取得関数
-    async function fetchCampaignDetail() {
-      try {
-        setLoading(true);
-        setError(null);
-
-        // 施策詳細、ROI、予算、リソース、アクティビティを並列取得
-        const [detailResponse, roiResponse, budgetsResponse, resourcesResponse, activitiesResponse] = await Promise.all([
-          fetch(`/api/campaigns/${id}`),
-          fetch(`/api/campaigns/${id}/roi`),
-          fetch(`/api/campaigns/${id}/budgets`),
-          fetch(`/api/campaigns/${id}/resources`),
-          fetch(`/api/campaigns/${id}/activities?limit=10&sortOrder=desc`)
-        ]);
-
-        // レスポンスステータスチェック
-        if (!detailResponse.ok) {
-          if (detailResponse.status === 404) {
-            throw new Error('Campaign not found');
-          }
-          throw new Error(`Failed to fetch campaign: ${detailResponse.status}`);
-        }
-        if (!roiResponse.ok) {
-          throw new Error(`Failed to fetch ROI: ${roiResponse.status}`);
-        }
-
-        // JSONパース
-        const detail = await detailResponse.json();
-        const roiData = await roiResponse.json();
-        const budgets = budgetsResponse.ok ? await budgetsResponse.json() : { budgets: [] };
-        const resources = resourcesResponse.ok ? await resourcesResponse.json() : { resources: [] };
-        const activities = activitiesResponse.ok ? await activitiesResponse.json() : { activities: [] };
-
-        setData({
-          ...detail,
-          roiData,
-          budgets: budgets.budgets,
-          resources: resources.resources,
-          recentActivities: activities.activities
-        });
-      } catch (err) {
-        console.error('Failed to fetch campaign details:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load campaign details');
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchCampaignDetail();
-  }, [id]);
-
-  // ローディング表示
-  if (loading) {
-    return <div>Loading...</div>;
-  }
-
-  // エラー表示
-  if (error) {
-    return <div>Error: {error}</div>;
-  }
-
-  // データなし
-  if (!data) {
-    return <div>No data</div>;
-  }
-
-  // 詳細表示
-  return (
-    <div>
-      <CampaignDetail
-        campaign={data}
-        roiData={data.roiData}
-        budgets={data.budgets}
-        resources={data.resources}
-      />
-      <ROITrendChart data={[]} /> {/* TODO: Implement trend data */}
-    </div>
-  );
-}
-```
-
 ## テスト要件
 
 ### E2Eテスト
@@ -945,26 +662,7 @@ export default function CampaignDetailPage() {
 5. **ROI色分けテスト**: ROIが正/負/ゼロで色分けされていることを確認
 6. **ソート機能テスト**: カラムヘッダーをクリックしてソートできることを確認
 7. **ページネーションテスト**: ページ切り替えが機能することを確認
-8. **詳細ページ遷移テスト**: 施策をクリックして詳細ページに遷移できることを確認
-9. **詳細ページ表示テスト**: 施策詳細ページが正しく表示されることを確認
-10. **レスポンシブテスト**: モバイルビューポートでカード表示になることを確認
-
-### API統合テスト
-
-`core/app/routes/api/campaigns.$id.budgets.test.ts`を作成：
-
-1. **GET /api/campaigns/:id/budgets**: 予算リストが正しく返されることを確認
-2. **認証テスト**: 未認証時に401が返されることを確認
-
-`core/app/routes/api/campaigns.$id.resources.test.ts`を作成：
-
-1. **GET /api/campaigns/:id/resources**: リソースリストが正しく返されることを確認
-2. **認証テスト**: 未認証時に401が返されることを確認
-
-`core/app/routes/api/campaigns.$id.activities.test.ts`を作成：
-
-1. **GET /api/campaigns/:id/activities**: アクティビティリストが正しく返されることを確認
-2. **認証テスト**: 未認証時に401が返されることを確認
+8. **レスポンシブテスト**: モバイルビューポートでカード表示になることを確認
 
 ## パフォーマンス考慮事項
 
@@ -991,110 +689,12 @@ export default function CampaignDetailPage() {
 - [ ] ROIが色分けされている（positive: green, negative: red, neutral: gray）
 - [ ] ソート機能が動作する（名前、開始日、終了日、ROI、作成日）
 - [ ] ページネーションが動作する
-- [ ] 施策詳細ページが`/dashboard/campaigns/:id`で表示される
-- [ ] 詳細ページで基本情報、ROI情報、予算、リソースが表示される
 - [ ] ダークモード対応が完了している
 - [ ] レスポンシブデザインが実装されている（モバイル/タブレット/デスクトップ）
-- [ ] 共通コンポーネント（CampaignList, ROIBadge等）が実装されている
-- [ ] E2Eテストが実装され、全テストがパスする
+- [ ] 共通コンポーネント（CampaignList, CampaignTable, CampaignCard, CampaignFilters, ROIBadge）が実装されている
+- [ ] E2Eテストが実装され、全テストがパスする（8テスト）
 - [ ] TypeScriptエラーがない
 - [ ] ESLintエラーがない
-
-## 新規API実装が必要な項目
-
-以下のAPIは既存実装がないため、新規実装が必要です：
-
-### 1. GET /api/campaigns/:id/budgets - 予算リスト取得
-
-**ファイル**: `core/app/routes/api/campaigns.$id.budgets.ts`
-
-**実装要件**:
-- `budgets`テーブルから`campaignId`でフィルタ
-- `withTenantContext()`を使用してRLS対応
-- `category`の昇順でソート
-- エラーハンドリング（施策が見つからない場合は空配列を返す）
-
-**サービス関数**: `core/services/budget.service.ts`（新規作成）
-- `async function listBudgets(tenantId: string, campaignId: string): Promise<Budget[]>`
-
-**レスポンス**:
-```typescript
-{
-  "budgets": [
-    {
-      "budgetId": "uuid",
-      "campaignId": "uuid",
-      "category": "venue",
-      "amount": "30000.00",
-      "currency": "JPY",
-      "description": "Conference venue rental",
-      "createdAt": "2025-10-14T00:00:00.000Z"
-    }
-  ]
-}
-```
-
-### 2. GET /api/campaigns/:id/resources - リソースリスト取得
-
-**ファイル**: `core/app/routes/api/campaigns.$id.resources.ts`
-
-**実装要件**:
-- `resources`テーブルから`campaignId`でフィルタ
-- `withTenantContext()`を使用してRLS対応
-- `createdAt`の降順でソート
-- エラーハンドリング（施策が見つからない場合は空配列を返す）
-
-**サービス関数**: `core/services/resource.service.ts`（新規作成）
-- `async function listResources(tenantId: string, campaignId: string): Promise<Resource[]>`
-
-**レスポンス**:
-```typescript
-{
-  "resources": [
-    {
-      "resourceId": "uuid",
-      "campaignId": "uuid",
-      "type": "landing_page",
-      "url": "https://example.com/conference",
-      "title": "Conference Landing Page",
-      "metadata": {},
-      "createdAt": "2025-10-14T00:00:00.000Z"
-    }
-  ]
-}
-```
-
-### 3. GET /api/campaigns/:id/activities - アクティビティリスト取得
-
-**ファイル**: `core/app/routes/api/campaigns.$id.activities.ts`
-
-**実装要件**:
-- `activity_campaigns`テーブルから`campaignId`でフィルタ
-- `activities`テーブルと結合して取得
-- クエリパラメータ:
-  - `limit`: 取得件数（デフォルト: 10）
-  - `sortOrder`: ソート順序（デフォルト: desc）
-- `withTenantContext()`を使用してRLS対応
-- エラーハンドリング（施策が見つからない場合は空配列を返す）
-
-**サービス関数**: 既存の`core/services/activity.service.ts`を拡張
-- `async function listActivitiesByCampaign(tenantId: string, campaignId: string, options: { limit: number; sortOrder: 'asc' | 'desc' }): Promise<Activity[]>`
-
-**レスポンス**:
-```typescript
-{
-  "activities": [
-    {
-      "activityId": "uuid",
-      "developerId": "uuid",
-      "action": "attend",
-      "source": "connpass",
-      "occurredAt": "2025-03-01T09:00:00.000Z",
-      "metadata": {}
-    }
-  ]
-}
-```
 
 ## 備考
 
