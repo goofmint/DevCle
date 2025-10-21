@@ -96,6 +96,10 @@ export function IconPicker({ value, onChange }: IconPickerProps) {
                     setIsPickerOpen(false);
                   }
                 }}
+                initIcons={POPULAR_ICONS as unknown as string[]}
+                prefixes="heroicons-,mdi-,material-symbols-"
+                limit={100}
+                placeholderText="Search icons..."
               />
             </ThemeProvider>
           </div>

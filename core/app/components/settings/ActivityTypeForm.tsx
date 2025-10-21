@@ -134,9 +134,12 @@ export function ActivityTypeForm({
     formData.append('iconName', iconName.trim());
     formData.append('colorClass', colorClass.trim());
 
-    // Append funnelStageId only if selected (not empty string)
+    // Convert funnelStageId to stageKey for API
     if (funnelStageId) {
-      formData.append('funnelStageId', funnelStageId);
+      const selectedStage = funnelStages.find((stage) => stage.funnelStageId === funnelStageId);
+      if (selectedStage) {
+        formData.append('stageKey', selectedStage.stageKey);
+      }
     }
 
     // Call parent onSubmit handler

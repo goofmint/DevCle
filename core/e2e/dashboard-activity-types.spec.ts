@@ -401,3 +401,131 @@ test.describe('Activity Types Settings - Component Behavior', () => {
     await expect(helpText).toBeVisible();
   });
 });
+
+/**
+ * Test Group 5: Bug Regression Tests (3 tests)
+ *
+ * These tests verify that the following critical bugs are fixed:
+ * 1. IconPicker should show multiple icons (not just current selection)
+ * 2. Funnel Stage should update successfully
+ * 3. Delete should return proper status (not Internal error)
+ */
+test.describe('Activity Types Settings - Bug Regression Tests', () => {
+  test('should show multiple icons in IconPicker (not just one)', async ({ page }) => {
+    await loginAsAdmin(page);
+    await page.goto(`${BASE_URL}/dashboard/settings/activity-types`);
+    await page.waitForLoadState('networkidle');
+
+    // Click create button to open form
+    await page.getByTestId('create-activity-type-button').click();
+
+    // Wait for form
+    await page.waitForTimeout(500);
+
+    // Click icon input to open IconPicker modal
+    const iconInput = page.locator('input[type="text"][value*="heroicons"]').or(page.locator('input[placeholder="Click to select icon"]'));
+    await iconInput.first().click();
+
+    // Wait for modal to appear
+    await page.waitForTimeout(1000);
+
+    // Verify modal title
+    const modalTitle = page.locator('h3:has-text("Select Icon")');
+    await expect(modalTitle).toBeVisible();
+
+    // Verify multiple icon buttons are visible (not just one)
+    // IconifyPicker uses MUI buttons for icon selection
+    const iconButtons = page.locator('button:has(svg)');
+    const count = await iconButtons.count();
+
+    // Should have at least 10 icons visible (initIcons + search results)
+    expect(count).toBeGreaterThan(10);
+  });
+
+  test('should update funnel stage successfully (was failing before)', async ({ page }) => {
+    await loginAsAdmin(page);
+    await page.goto(`${BASE_URL}/dashboard/settings/activity-types`);
+    await page.waitForLoadState('networkidle');
+
+    // Find "click" row and click edit button (click is always present in seed data)
+    const clickRow = page.locator('tr:has(td:has-text("click"))');
+    const editButton = clickRow.locator('button:has-text("Edit")');
+    await editButton.click();
+
+    // Wait for form to appear
+    await page.waitForTimeout(500);
+
+    // Change funnel stage to different value
+    const funnelStageSelect = page.locator('select#funnel-stage-select');
+
+    // Get current value
+    const currentValue = await funnelStageSelect.inputValue();
+
+    // Select a different option (not "-- None --")
+    const options = await funnelStageSelect.locator('option').count();
+    if (options > 1) {
+      // Select option index 1 (first non-empty option)
+      await funnelStageSelect.selectOption({ index: 1 });
+    }
+
+    // Submit form
+    await page.click('button[type="submit"]:has-text("Update Activity Type")');
+
+    // Wait for response
+    await page.waitForTimeout(2000);
+
+    // Verify success toast appears (not error)
+    const toast = page.getByTestId('toast-notification');
+    if (await toast.count() > 0) {
+      await expect(toast).toContainText(/updated|success/i);
+      // Should NOT contain error text
+      await expect(toast).not.toContainText(/error|fail/i);
+    }
+
+    // Verify no error dialog
+    const errorText = await page.locator('text=/internal error/i').count();
+    expect(errorText).toBe(0);
+  });
+
+  test('should delete without Internal error (proper 200 response)', async ({ page }) => {
+    await loginAsAdmin(page);
+    await page.goto(`${BASE_URL}/dashboard/settings/activity-types`);
+    await page.waitForLoadState('networkidle');
+
+    // Count initial rows
+    const initialCount = await page.locator('table tbody tr').count();
+
+    // Setup dialog handler to accept confirmation
+    page.on('dialog', (dialog) => dialog.accept());
+
+    // Find last row and click delete button
+    const lastRow = page.locator('table tbody tr').last();
+    const deleteButton = lastRow.locator('button:has-text("Delete")');
+
+    // Get the action name for verification
+    const actionCell = lastRow.locator('td').first();
+    const actionName = await actionCell.textContent();
+
+    await deleteButton.click();
+
+    // Wait for deletion to complete
+    await page.waitForTimeout(2000);
+
+    // Verify success toast appears (not Internal error)
+    const toast = page.getByTestId('toast-notification');
+    if (await toast.count() > 0) {
+      // Should show success message
+      await expect(toast).toContainText(/deleted|success/i);
+      // Should mention the action name
+      if (actionName) {
+        await expect(toast).toContainText(actionName.trim());
+      }
+      // Should NOT contain "Internal error"
+      await expect(toast).not.toContainText(/internal error/i);
+    }
+
+    // Verify row count decreased
+    const newCount = await page.locator('table tbody tr').count();
+    expect(newCount).toBeLessThan(initialCount);
+  });
+});

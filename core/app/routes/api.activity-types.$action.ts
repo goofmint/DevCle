@@ -126,7 +126,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
       // Delete activity type
       await deleteActivityType(user.tenantId, action);
 
-      return json({ success: true }, { status: 204 });
+      return json({ success: true }, { status: 200 });
     }
 
     return json({ error: 'Method not allowed' }, { status: 405 });
