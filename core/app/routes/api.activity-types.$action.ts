@@ -16,13 +16,13 @@
  */
 
 import { json, type LoaderFunctionArgs, type ActionFunctionArgs } from '@remix-run/node';
-import { requireAuth } from '../middleware/auth.server.js';
+import { requireAuth } from '~/auth.middleware.js';
 import {
   getActivityTypeByAction,
   updateActivityType,
   deleteActivityType,
-} from '../../core/services/activity-type.service.js';
-import { UpdateActivityTypeSchema } from '../../core/services/activity-type.schemas.js';
+} from '../../services/activity-type.service.js';
+import { UpdateActivityTypeSchema } from '../../services/activity-type.schemas.js';
 
 /**
  * GET /api/activity-types/:action
@@ -103,7 +103,11 @@ export async function action({ request, params }: ActionFunctionArgs) {
     }
 
     // Require admin authentication
-    const user = await requireAuth(request, { requireRole: 'admin' });
+    const user = await requireAuth(request);
+
+    if (user.role !== 'admin') {
+      return json({ error: 'Forbidden' }, { status: 403 });
+    }
 
     // Handle PUT
     if (request.method === 'PUT') {

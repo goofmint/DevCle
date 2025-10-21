@@ -14,15 +14,15 @@
  */
 
 import { json, type LoaderFunctionArgs, type ActionFunctionArgs } from '@remix-run/node';
-import { requireAuth } from '../middleware/auth.server.js';
+import { requireAuth } from '~/auth.middleware.js';
 import {
   listActivityTypes,
   createActivityType,
-} from '../../core/services/activity-type.service.js';
+} from '../../services/activity-type.service.js';
 import {
   ListActivityTypesSchema,
   CreateActivityTypeSchema,
-} from '../../core/services/activity-type.schemas.js';
+} from '../../services/activity-type.schemas.js';
 
 /**
  * GET /api/activity-types
@@ -41,7 +41,11 @@ import {
 export async function loader({ request }: LoaderFunctionArgs) {
   try {
     // Require admin authentication
-    const user = await requireAuth(request, { requireRole: 'admin' });
+    const user = await requireAuth(request);
+
+    if (user.role !== 'admin') {
+      return json({ error: 'Forbidden' }, { status: 403 });
+    }
 
     // Parse query params
     const url = new URL(request.url);
@@ -103,7 +107,11 @@ export async function action({ request }: ActionFunctionArgs) {
     }
 
     // Require admin authentication
-    const user = await requireAuth(request, { requireRole: 'admin' });
+    const user = await requireAuth(request);
+
+    if (user.role !== 'admin') {
+      return json({ error: 'Forbidden' }, { status: 403 });
+    }
 
     // Parse request body
     const body = await request.json();

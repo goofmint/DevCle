@@ -12,8 +12,8 @@
  */
 
 import { json, type LoaderFunctionArgs } from '@remix-run/node';
-import { requireAuth } from '../middleware/auth.server.js';
-import { listActivityTypes } from '../../core/services/activity-type.service.js';
+import { requireAuth } from '~/auth.middleware.js';
+import { listActivityTypes } from '../../services/activity-type.service.js';
 
 /**
  * GET /api/activity-types/actions
