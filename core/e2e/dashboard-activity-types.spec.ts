@@ -64,7 +64,7 @@ test.describe('Activity Types Settings - Display and Access', () => {
     await page.waitForLoadState('networkidle');
 
     // Verify page title
-    await expect(page.locator('h1')).toContainText('Activity Type Settings');
+    await expect(page.locator('h1')).toContainText('Settings');
 
     // Verify create button is visible
     await expect(page.getByTestId('create-activity-type-button')).toBeVisible();

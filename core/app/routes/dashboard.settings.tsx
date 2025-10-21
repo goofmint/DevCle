@@ -27,7 +27,7 @@ import {
   type ActionFunctionArgs,
   type MetaFunction,
 } from '@remix-run/node';
-import { useLoaderData, useFetcher, useRevalidator } from '@remix-run/react';
+import { useLoaderData, useFetcher, useRevalidator, Link, useLocation } from '@remix-run/react';
 import { requireAuth } from '~/auth.middleware.js';
 import { Icon } from '@iconify/react';
 import { BasicSettingsForm } from '~/components/settings/BasicSettingsForm';
@@ -264,14 +264,49 @@ export default function SystemSettingsPage() {
     );
   };
 
+  const location = useLocation();
+  const currentPath = location.pathname;
+
   return (
     <div className="max-w-4xl mx-auto">
       {/* Page Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">System Settings</h1>
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Settings</h1>
         <p className="mt-2 text-gray-600 dark:text-gray-400">
           Manage system configuration and integrations
         </p>
+      </div>
+
+      {/* Tab Navigation */}
+      <div className="mb-6 border-b border-gray-200 dark:border-gray-700">
+        <nav className="-mb-px flex space-x-8" aria-label="Settings tabs">
+          <Link
+            to="/dashboard/settings"
+            className={`
+              whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm
+              ${
+                currentPath === '/dashboard/settings'
+                  ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+              }
+            `}
+          >
+            System
+          </Link>
+          <Link
+            to="/dashboard/settings/activity-types"
+            className={`
+              whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm
+              ${
+                currentPath === '/dashboard/settings/activity-types'
+                  ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+              }
+            `}
+          >
+            Activity Types
+          </Link>
+        </nav>
       </div>
 
       {/* Settings Forms */}
