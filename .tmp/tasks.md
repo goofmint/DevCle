@@ -590,7 +590,9 @@
 
 ### Task 7.3.3: アクティビティカラーとアイコンの設定画面実装（システム設定画面の一部） 🔄 進行中
 
-**現在の進捗（2025-10-20）:**
+**現在の進捗（2025-10-21）:**
+
+**バックエンド実装（完了）:**
 - [x] `core/db/schema/admin.ts`に`activity_types`テーブル追加 ✅
   - カラム: `activity_type_id`, `tenant_id`, `action`, `icon_name`, `color_class`, `stage_key`, `created_at`, `updated_at`
   - Migration 0007生成・適用完了
@@ -602,27 +604,33 @@
   - GET, PUT, DELETE - 13テスト
 - [x] `app/routes/api.activity-types.actions.ts`作成（既存アクション一覧API） ✅
   - GET - 3テスト
-- [ ] 依存関係インストール（@zunicornshift/mui-iconify-picker, react-color, @types/react-color）
-- [ ] `app/routes/dashboard.settings.activity-types.tsx`作成（アクティビティタイプ設定画面）
-- [ ] 設定画面UI実装
-  - アクティビティタイプ一覧表示（テーブル形式）
-  - アイコンピッカー（@zunicornshift/mui-iconify-picker）
-  - カラーパレット（react-color CirclePicker）
-  - ファネルステージ選択ドロップダウン
-  - ActionCombobox（既存アクション選択 + 新規入力）
-  - CRUD操作（作成・編集・削除）
+- [x] 依存関係インストール ✅
+  - `react-color@2.19.3`
+  - `@types/react-color@3.0.13`
+
+**フロントエンド実装（残り）:**
+- [ ] `app/routes/dashboard.settings.activity-types.tsx`作成（メイン画面）
+- [ ] UIコンポーネント実装：
+  - [ ] ActivityTypeTable（一覧テーブル）
+  - [ ] ActivityTypeForm（作成・編集フォーム）
+  - [ ] ActionCombobox（既存アクション選択 + 新規入力）
+  - [ ] IconPicker（@iconify/react使用、アイコン検索・選択）
+  - [ ] ColorPalette（react-color使用、プリセットカラー選択）
 - [ ] E2Eテスト作成（13テスト）
-  - Basic Settings: 6 tests
-  - S3 Settings: 3 tests
-  - SMTP Settings: 2 tests
-  - Validation: 2 tests
+  - 表示・アクセス制御: 2 tests
+  - CRUD操作: 6 tests
+  - バリデーション: 2 tests
+  - コンポーネント動作: 3 tests
+
 - **完了条件**: 設定画面でアクティビティタイプごとにアイコンとカラーを設定でき、E2Eテストが全てパスする
 - **依存**: Task 7.3
 - **推定時間**: 6.5時間（残り: 約3.5時間）
-- **ドキュメント**: [.tmp/tasks/task-7.3.3-activity-type-settings.md](.tmp/tasks/task-7.3.3-activity-type-settings.md)
+- **ドキュメント**:
+  - [.tmp/tasks/task-7.3.3-activity-type-settings.md](.tmp/tasks/task-7.3.3-activity-type-settings.md)（全体仕様）
+  - [.tmp/tasks/task-7.3.3-ui.md](.tmp/tasks/task-7.3.3-ui.md)（UI実装仕様）
 - **注意**:
   - 実装は2段階に分割：
-    1. このタスク（7.3.3）: 設定画面とテーブル作成（DB・API完了、UI・E2E残り）
+    1. このタスク（7.3.3）: 設定画面とテーブル作成（**バックエンド完了**、フロントエンド残り）
     2. 次のタスク（7.3.4）: `getActivityColor()`と`getActivityIconName()`の実装（データベースから取得）
   - ActivityTimeline.tsx内のTODOコメントを参照
 
