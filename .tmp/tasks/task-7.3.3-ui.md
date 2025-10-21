@@ -20,6 +20,34 @@
   - `react-color@2.19.3`
   - `@types/react-color@3.0.13`
 
+## 追加の依存パッケージ（要インストール）
+
+このタスクの実装前に以下のパッケージをインストールする必要があります：
+
+```bash
+# Icon picker
+pnpm add @zunicornshift/mui-iconify-picker
+
+# MUI dependencies (未インストールの場合)
+pnpm add @mui/material @emotion/react @emotion/styled
+```
+
+**パッケージ詳細:**
+
+- **@zunicornshift/mui-iconify-picker**: Iconify統合アイコンピッカー
+  - Version: Latest
+  - Repository: https://www.npmjs.com/package/@zunicornshift/mui-iconify-picker
+  - 200,000+アイコン対応（Iconify全アイコンセット）
+  - MUIコンポーネントベース
+  - 検索・フィルタ機能内蔵
+
+- **@mui/material**: Material-UI v5
+  - IconifyPickerの基盤UI
+  - ThemeProvider でダークモード対応
+
+- **@emotion/react, @emotion/styled**: MUI v5の依存関係
+  - CSS-in-JS ライブラリ
+
 ## スコープ
 
 このタスクで実装するもの：
@@ -389,6 +417,8 @@ export function ActionCombobox({
 `app/components/settings/IconPicker.tsx`
 
 ```typescript
+import { IconifyPicker } from '@zunicornshift/mui-iconify-picker';
+
 interface IconPickerProps {
   value: string;
   onChange: (iconName: string) => void;
@@ -397,37 +427,40 @@ interface IconPickerProps {
 /**
  * Icon Picker Component
  *
+ * Library: @zunicornshift/mui-iconify-picker
+ * Docs: https://www.npmjs.com/package/@zunicornshift/mui-iconify-picker
+ *
  * Features:
  * - Search input for icon name
  * - Icon preview with live rendering
- * - Popular icon sets (heroicons, mdi, material-symbols)
+ * - Popular icon sets (heroicons, mdi, material-symbols, etc.)
  * - Grid layout for browsing
+ * - 200,000+ icons from Iconify
+ * - Recently used icons
  *
  * Implementation:
- * - Use @iconify/react for icon preview
- * - Simple text input with suggestions (no external library)
- * - Show preview below input
- *
- * Popular Icons (suggestions):
- * - heroicons:cursor-arrow-rays
- * - heroicons:calendar-days
- * - heroicons:user-plus
- * - heroicons:chat-bubble-left-right
- * - heroicons:star
- * - heroicons:code-bracket
- * - heroicons:bolt
- * - mdi:github
- * - mdi:slack
- * - material-symbols:event
+ * - Use IconifyPicker component from @zunicornshift/mui-iconify-picker
+ * - MUI-based UI (requires @mui/material)
+ * - Built-in search and filter functionality
+ * - Automatic icon preview
  */
 export function IconPicker({ value, onChange }: IconPickerProps) {
   // 実装内容:
-  // 1. Popular iconsのリスト定義
-  // 2. <input type="text" value={value} onChange={(e) => onChange(e.target.value)} />
-  // 3. <div>Icon Preview: <Icon icon={value} className="w-8 h-8" /></div>
-  // 4. <div>Suggestions: {popularIcons.map(icon => <button onClick={() => onChange(icon)}><Icon icon={icon} /></button>)}</div>
-  // 5. Validation: 1-255文字、必須
-  // 6. Dark mode対応
+  // 1. <IconifyPicker
+  //      value={value}
+  //      onChange={(icon: string) => onChange(icon)}
+  //    />
+  // 2. Optional: Wrap with MUI ThemeProvider for dark mode
+  // 3. Optional: Configure default icon sets (e.g., ['heroicons', 'mdi', 'material-symbols'])
+  // 4. Dark mode: Use MUI theme or custom CSS
+  //
+  // Example:
+  // <IconifyPicker
+  //   value={value}
+  //   onChange={(icon) => onChange(icon)}
+  //   iconSets={['heroicons', 'mdi', 'material-symbols']}
+  //   searchPlaceholder="Search icons..."
+  // />
 }
 ```
 
@@ -784,7 +817,9 @@ test.describe('Activity Types Settings', () => {
 ### 8.1 使用ライブラリ
 
 - **React**: useState, useEffect, コンポーネント管理
-- **@iconify/react**: アイコンプレビュー（既存プロジェクトで使用中）
+- **@zunicornshift/mui-iconify-picker**: アイコンピッカー（200,000+アイコン、検索機能付き）
+- **@mui/material**: Material-UI v5（IconifyPickerの基盤、ThemeProvider）
+- **@emotion/react, @emotion/styled**: MUI v5の依存関係（CSS-in-JS）
 - **react-color**: カラーピッカー（CirclePicker）
 - **Remix**: ルーティング（ファイルベースルーティングのみ、loader/actionは不使用）
 - **Tailwind CSS**: スタイリング、ダークモード
@@ -836,10 +871,11 @@ UI Update
 
 ## 9. 参考リンク
 
-- [@iconify/react](https://iconify.design/docs/icon-components/react/) - Icon component
+- [@zunicornshift/mui-iconify-picker](https://www.npmjs.com/package/@zunicornshift/mui-iconify-picker) - Icon picker library（このタスクで使用）
+- [@mui/material](https://mui.com/material-ui/) - Material-UI v5（IconifyPickerの基盤）
 - [react-color](https://casesandberg.github.io/react-color/) - Color picker library
-- [Iconify Icon Sets](https://icon-sets.iconify.design/) - Available icon sets
-- [Tailwind CSS Colors](https://tailwindcss.com/docs/customizing-colors) - Color palette
+- [Iconify Icon Sets](https://icon-sets.iconify.design/) - Available icon sets（200,000+）
+- [Tailwind CSS Colors](https://tailwindcss.com/docs/customizing-colors/) - Color palette
 - [Heroicons](https://heroicons.com/) - Icon library
 
 ---
