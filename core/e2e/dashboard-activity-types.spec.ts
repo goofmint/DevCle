@@ -346,7 +346,8 @@ test.describe('Activity Types Settings - Component Behavior', () => {
     await page.getByTestId('create-activity-type-button').click();
 
     // Verify icon picker section is visible
-    const iconPickerLabel = page.locator('label:has-text("Icon")');
+    // Use exact match to avoid matching "Popular Icons"
+    const iconPickerLabel = page.locator('label').filter({ hasText: /^Icon$/ });
     await expect(iconPickerLabel).toBeVisible();
 
     // Verify icon preview is visible when an icon is selected
@@ -395,7 +396,8 @@ test.describe('Activity Types Settings - Component Behavior', () => {
     await expect(actionInput).toBeDisabled();
 
     // Verify help text indicates action cannot be changed
-    const helpText = page.locator('text=/cannot be changed/i');
+    // Use more specific selector to avoid matching multiple elements
+    const helpText = page.locator('label[for="action-input"]').filter({ hasText: /cannot be changed/i });
     await expect(helpText).toBeVisible();
   });
 });
