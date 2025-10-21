@@ -458,9 +458,6 @@ test.describe('Activity Types Settings - Bug Regression Tests', () => {
     // Change funnel stage to different value
     const funnelStageSelect = page.locator('select#funnel-stage-select');
 
-    // Get current value
-    const currentValue = await funnelStageSelect.inputValue();
-
     // Select a different option (not "-- None --")
     const options = await funnelStageSelect.locator('option').count();
     if (options > 1) {
