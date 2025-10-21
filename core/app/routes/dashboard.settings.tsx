@@ -20,13 +20,14 @@
  * - Toast logic: Separated to useSettingsToast hook
  */
 
+import React from 'react';
 import {
   json,
   type LoaderFunctionArgs,
   type ActionFunctionArgs,
   type MetaFunction,
 } from '@remix-run/node';
-import { useLoaderData, useFetcher } from '@remix-run/react';
+import { useLoaderData, useFetcher, useRevalidator } from '@remix-run/react';
 import { requireAuth } from '~/auth.middleware.js';
 import { Icon } from '@iconify/react';
 import { BasicSettingsForm } from '~/components/settings/BasicSettingsForm';
@@ -183,6 +184,7 @@ export async function action({ request }: ActionFunctionArgs) {
 export default function SystemSettingsPage() {
   // Get loader data (current settings)
   const loaderData = useLoaderData<typeof loader>();
+  const revalidator = useRevalidator();
 
   // Create fetchers for form submissions
   const basicFetcher = useFetcher<ActionData>();
@@ -201,6 +203,19 @@ export default function SystemSettingsPage() {
     s3TestFetcher,
     smtpTestFetcher,
   });
+
+  // Revalidate loader data after S3/SMTP settings are saved successfully
+  React.useEffect(() => {
+    if (s3Fetcher.data?.success && s3Fetcher.state === 'idle') {
+      revalidator.revalidate();
+    }
+  }, [s3Fetcher.data, s3Fetcher.state, revalidator]);
+
+  React.useEffect(() => {
+    if (smtpFetcher.data?.success && smtpFetcher.state === 'idle') {
+      revalidator.revalidate();
+    }
+  }, [smtpFetcher.data, smtpFetcher.state, revalidator]);
 
   // Check if loader returned error (403 Forbidden)
   if ('error' in loaderData) {
@@ -226,6 +241,29 @@ export default function SystemSettingsPage() {
   const isS3Testing = s3TestFetcher.state === 'submitting';
   const isSmtpTesting = smtpTestFetcher.state === 'submitting';
 
+  // Helper function to render toast for specific section
+  const renderToast = (section: 'basic' | 's3' | 'smtp' | 's3-test' | 'smtp-test') => {
+    if (!toast || toast.section !== section) return null;
+
+    return (
+      <div
+        className={`
+          mb-4 p-4 rounded-md flex items-center gap-2
+          ${toast.type === 'success' ? 'bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-400' : ''}
+          ${toast.type === 'error' ? 'bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-400' : ''}
+        `}
+        role="alert"
+        data-testid="toast-notification"
+      >
+        <Icon
+          icon={toast.type === 'success' ? 'mdi:check-circle' : 'mdi:alert-circle'}
+          className="w-5 h-5"
+        />
+        <span>{toast.message}</span>
+      </div>
+    );
+  };
+
   return (
     <div className="max-w-4xl mx-auto">
       {/* Page Header */}
@@ -236,28 +274,10 @@ export default function SystemSettingsPage() {
         </p>
       </div>
 
-      {/* Toast Notification */}
-      {toast && (
-        <div
-          className={`
-            mb-6 p-4 rounded-md flex items-center gap-2
-            ${toast.type === 'success' ? 'bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-400' : ''}
-            ${toast.type === 'error' ? 'bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-400' : ''}
-          `}
-          role="alert"
-          data-testid="toast-notification"
-        >
-          <Icon
-            icon={toast.type === 'success' ? 'mdi:check-circle' : 'mdi:alert-circle'}
-            className="w-5 h-5"
-          />
-          <span>{toast.message}</span>
-        </div>
-      )}
-
       {/* Settings Forms */}
       <div className="space-y-8">
         {/* Basic Settings Section */}
+        {renderToast('basic')}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
           <BasicSettingsForm
             serviceName={loaderData.serviceName}
@@ -274,6 +294,8 @@ export default function SystemSettingsPage() {
         </div>
 
         {/* S3 Settings Section */}
+        {renderToast('s3')}
+        {renderToast('s3-test')}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
           <S3SettingsForm
             s3Configured={loaderData.s3Configured}
@@ -291,6 +313,8 @@ export default function SystemSettingsPage() {
         </div>
 
         {/* SMTP Settings Section */}
+        {renderToast('smtp')}
+        {renderToast('smtp-test')}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
           <SmtpSettingsForm
             smtpConfigured={loaderData.smtpConfigured}
