@@ -24,8 +24,8 @@ test.describe('Dashboard Campaigns Page', () => {
     await page.waitForURL('/dashboard');
 
     // Navigate to campaigns page
-    await page.click('a[href="/dashboard/campaigns"]');
-    await page.waitForURL('/dashboard/campaigns');
+    await page.goto('/dashboard/campaigns');
+    await page.waitForLoadState('networkidle');
   });
 
   test('1. Campaign list displays correctly', async ({ page }) => {
@@ -184,7 +184,7 @@ test.describe('Dashboard Campaigns Page', () => {
     }
   });
 
-  test('8. Responsive design and dark/light mode color differences', async ({ page, context }) => {
+  test('8. Responsive design and dark/light mode color differences', async ({ page }) => {
     // Test light mode colors
     const lightBg = await page.locator('[data-testid="campaign-filters"]').evaluate((el) => {
       return window.getComputedStyle(el).backgroundColor;
