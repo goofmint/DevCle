@@ -16,8 +16,8 @@ export interface Campaign {
   endDate: string | null; // YYYY-MM-DD format
   budgetTotal: string | null; // decimal string
   attributes: Record<string, unknown> | null;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: Date | string; // Date on server, string after JSON serialization
+  updatedAt: Date | string; // Date on server, string after JSON serialization
 }
 
 /**

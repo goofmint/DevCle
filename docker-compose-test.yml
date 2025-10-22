@@ -3,27 +3,40 @@ version: '3.9'
 services:
   nginx:
     container_name: devcle-nginx-test
-    volumes:
-      - ./certs/devcle.test+3.pem:/etc/nginx/certs/server.crt:ro
-      - ./certs/devcle.test+3-key.pem:/etc/nginx/certs/server.key:ro
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.nginx-test
+    volumes: []
+    networks:
+      - devcle-network
 
   core:
     container_name: devcle-core-test
     build:
+      context: ./core
       target: development
       dockerfile: ../docker/Dockerfile.core
     env_file: .env.test
     environment:
       NODE_ENV: test
       CI: "true"
-    volumes:
-      - ./core:/app
-      - core-node-modules-test:/app/node_modules
-    command: sh -c "pnpm install --frozen-lockfile && pnpm dev"
+      # Override to use docker network names instead of IPs
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_URL: postgresql://devcle:test_password_only@postgres:5432/devcle_test
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_URL: redis://:test_redis_password_only@redis:6379/0
+    command: sh -c "pnpm dev"
     networks:
       - devcle-network
     ports:
       - "3001:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
   postgres:
     image: postgres:15-alpine
@@ -70,7 +83,6 @@ services:
       start_period: 10s
 
 volumes:
-  core-node-modules-test:
   postgres-data-test:
   redis-data-test:
 

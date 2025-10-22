@@ -26,7 +26,7 @@ import {
   listCampaigns,
   type CreateCampaignInput,
   type ListCampaignsInput,
-} from '../../../services/campaign.service.js';
+} from '../../services/campaign.service.js';
 import { z } from 'zod';
 
 /**

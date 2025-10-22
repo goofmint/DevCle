@@ -9,6 +9,7 @@
  * - Reset button
  */
 
+import { useState, useEffect } from 'react';
 import { Icon } from '@iconify/react';
 
 interface CampaignFiltersProps {
@@ -30,6 +31,24 @@ export function CampaignFilters({
   onRoiStatusChange,
   onReset,
 }: CampaignFiltersProps) {
+  // Local state for search input (to avoid losing focus on every keystroke)
+  const [localQuery, setLocalQuery] = useState(query);
+
+  // Sync local state with prop when it changes from outside (e.g., reset)
+  useEffect(() => {
+    setLocalQuery(query);
+  }, [query]);
+
+  // Debounce search query updates
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (localQuery !== query) {
+        onQueryChange(localQuery);
+      }
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [localQuery, query, onQueryChange]);
   return (
     <div
       className="flex flex-col sm:flex-row gap-3 p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700"
@@ -46,8 +65,8 @@ export function CampaignFilters({
           </div>
           <input
             type="text"
-            value={query}
-            onChange={(e) => onQueryChange(e.target.value)}
+            value={localQuery}
+            onChange={(e) => setLocalQuery(e.target.value)}
             placeholder="Search campaigns..."
             className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent"
             data-testid="search-input"

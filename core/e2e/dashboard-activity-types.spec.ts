@@ -259,9 +259,9 @@ test.describe('Activity Types Settings - CRUD Operations', () => {
     // Setup dialog handler to accept confirmation
     page.on('dialog', (dialog) => dialog.accept());
 
-    // Find last row and click delete button
-    const lastRow = page.locator('table tbody tr').last();
-    const deleteButton = lastRow.locator('button:has-text("Delete")');
+    // Find "download" row (created in previous test) and click delete button
+    const downloadRow = page.locator('tr:has(td:has-text("download"))');
+    const deleteButton = downloadRow.locator('button:has-text("Delete")');
     await deleteButton.click();
 
     // Wait for deletion
@@ -269,7 +269,10 @@ test.describe('Activity Types Settings - CRUD Operations', () => {
 
     // Verify row count decreased
     const newCount = await page.locator('table tbody tr').count();
-    expect(newCount).toBeLessThanOrEqual(initialCount);
+    expect(newCount).toBeLessThan(initialCount);
+
+    // Verify "download" is no longer in the table
+    await expect(page.locator('td:has-text("download")')).not.toBeVisible();
   });
 });
 
@@ -434,12 +437,15 @@ test.describe('Activity Types Settings - Bug Regression Tests', () => {
     await expect(modalTitle).toBeVisible();
 
     // Verify multiple icon buttons are visible (not just one)
-    // IconifyPicker uses MUI buttons for icon selection
-    const iconButtons = page.locator('button:has(svg)');
+    // IconPicker uses a grid layout (.grid.grid-cols-8) inside the modal
+    const iconGrid = page.locator('.grid.grid-cols-8');
+    await expect(iconGrid).toBeVisible();
+
+    const iconButtons = iconGrid.locator('button');
     const count = await iconButtons.count();
 
-    // Should have at least 10 icons visible (initIcons + search results)
-    expect(count).toBeGreaterThan(10);
+    // Should have at least 100 icons visible (ALL_ICONS array)
+    expect(count).toBeGreaterThan(100);
   });
 
   test('should update funnel stage successfully (was failing before)', async ({ page }) => {
@@ -489,20 +495,29 @@ test.describe('Activity Types Settings - Bug Regression Tests', () => {
     await page.goto(`${BASE_URL}/dashboard/settings/activity-types`);
     await page.waitForLoadState('networkidle');
 
-    // Count initial rows
+    // First, create a test activity type to delete
+    await page.getByTestId('create-activity-type-button').click();
+    await page.fill('input#action-input', 'test-delete');
+    const iconButtons = page.locator('button:has(svg)').first();
+    if (await iconButtons.count() > 0) {
+      await iconButtons.click();
+    }
+    const colorCircle = page.locator('.circle-picker span').first();
+    if (await colorCircle.count() > 0) {
+      await colorCircle.click();
+    }
+    await page.click('button[type="submit"]:has-text("Create Activity Type")');
+    await page.waitForTimeout(1000);
+
+    // Count rows (should include the new test-delete)
     const initialCount = await page.locator('table tbody tr').count();
 
     // Setup dialog handler to accept confirmation
     page.on('dialog', (dialog) => dialog.accept());
 
-    // Find last row and click delete button
-    const lastRow = page.locator('table tbody tr').last();
-    const deleteButton = lastRow.locator('button:has-text("Delete")');
-
-    // Get the action name for verification
-    const actionCell = lastRow.locator('td').first();
-    const actionName = await actionCell.textContent();
-
+    // Find "test-delete" row and click delete button
+    const testRow = page.locator('tr:has(td:has-text("test-delete"))');
+    const deleteButton = testRow.locator('button:has-text("Delete")');
     await deleteButton.click();
 
     // Wait for deletion to complete
@@ -513,10 +528,8 @@ test.describe('Activity Types Settings - Bug Regression Tests', () => {
     if (await toast.count() > 0) {
       // Should show success message
       await expect(toast).toContainText(/deleted|success/i);
-      // Should mention the action name
-      if (actionName) {
-        await expect(toast).toContainText(actionName.trim());
-      }
+      // Should mention "test-delete"
+      await expect(toast).toContainText('test-delete');
       // Should NOT contain "Internal error"
       await expect(toast).not.toContainText(/internal error/i);
     }

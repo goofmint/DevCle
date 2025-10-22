@@ -1,15 +1,15 @@
 import { describe, it, expect, beforeEach, afterAll } from 'vitest';
-import { runInTenant, ensureTenantExists } from '../../../db/tenant-test-utils.js';
-import { closeDb } from '../../../db/connection.js';
-import { createCampaign, deleteCampaign } from '../../../services/campaign.service.js';
-import { hashPassword } from '../../../services/auth.service.js';
-import * as schema from '../../../db/schema/index.js';
+import { runInTenant, ensureTenantExists } from '../../db/tenant-test-utils.js';
+import { closeDb } from '../../db/connection.js';
+import { createCampaign, deleteCampaign } from '../../services/campaign.service.js';
+import { hashPassword } from '../../services/auth.service.js';
+import * as schema from '../../db/schema/index.js';
 import { eq } from 'drizzle-orm';
 import {
   loader as campaignLoader,
   action as campaignAction,
-} from './campaigns.$id.js';
-import { getSession, commitSession } from '../../sessions.server.js';
+} from './api.campaigns.$id.js';
+import { getSession, commitSession } from '../sessions.server.js';
 
 const TENANT = 'test-campaign-single';
 
