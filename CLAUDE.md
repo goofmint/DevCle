@@ -198,21 +198,62 @@ docker compose --env-file .env.test exec core pnpm typecheck
 
 **🚨 CRITICAL: MUST use BASE_URL=https://devcle.test for ALL E2E tests! 🚨**
 
+#### Initial Setup (One-Time Only)
+
+**DevContainer Network Configuration:**
+
+The test environment runs in Docker containers on a separate network from the DevContainer. To enable E2E tests to access the application:
+
+1. **Start test environment** (nginx automatically connects to both networks via docker-compose-test.yml):
+   ```bash
+   docker compose --env-file .env.test -f docker-compose.yml -f docker-compose-test.yml up -d
+   ```
+
+2. **Configure hostname resolution** in DevContainer's `/etc/hosts`:
+   ```bash
+   # Get nginx container IP on bridge network
+   NGINX_IP=$(docker inspect devcle-nginx-test --format '{{range $net, $conf := .NetworkSettings.Networks}}{{if eq $net "bridge"}}{{$conf.IPAddress}}{{end}}{{end}}')
+
+   # Add to /etc/hosts (manual edit required)
+   echo "$NGINX_IP devcle.test"
+   # Example: 172.17.0.3 devcle.test
+   ```
+
+3. **Verify setup**:
+   ```bash
+   curl -k -I https://devcle.test
+   # Should return HTTP/2 200
+   ```
+
+**Why this setup is needed:**
+- DevContainer runs on default `bridge` network (172.17.0.x)
+- Test containers run on `workspace_devcle-network` (172.20.0.x)
+- nginx is configured to connect to BOTH networks in docker-compose-test.yml
+- `/etc/hosts` maps `devcle.test` to nginx's bridge network IP for DevContainer access
+
+**See `TEST_SETUP.md` for detailed troubleshooting.**
+
+#### Running E2E Tests
+
 ```bash
 # Start test environment first (MUST use --env-file .env.test)
 docker compose --env-file .env.test -f docker-compose.yml -f docker-compose-test.yml up -d
 
-# Run E2E tests with pnpm test:e2e (includes db:seed)
-pnpm test:e2e
+# Initialize database (first time or after down -v)
+docker compose --env-file .env.test exec core pnpm db:migrate
+docker compose --env-file .env.test exec core pnpm db:seed
 
-# Or run Playwright directly (MUST specify BASE_URL)
-BASE_URL=https://devcle.test pnpm --filter @drm/core exec playwright test --reporter=list
+# Run E2E tests with pnpm test:e2e (includes db:seed)
+cd core && BASE_URL=https://devcle.test pnpm playwright test --reporter=list
+
+# Or run specific test file
+cd core && BASE_URL=https://devcle.test pnpm playwright test e2e/auth.spec.ts
 ```
 
 **Why BASE_URL is required:**
-- Tests use `https://devcle.test` (configured in docker-compose-test.yml)
+- Tests use `https://devcle.test` (resolved via /etc/hosts to nginx container)
 - Without `BASE_URL`, tests will try `http://localhost:3000` and fail
-- `pnpm test:e2e` script loads `.env.test` automatically
+- nginx handles HTTPS termination and proxies to core container
 
 ### Before Commit
 1. `docker compose --env-file .env.test exec core pnpm test` - ALL tests must pass

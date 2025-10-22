@@ -15,8 +15,11 @@ import { resolve } from 'node:path';
 
 // Read .env file from parent directory (where docker-compose is located)
 // This ensures tests can access database credentials
+// If NODE_ENV=test, use .env.test, otherwise use .env
 try {
-  const envPath = resolve(__dirname, '../.env');
+  const isTestEnv = process.env['NODE_ENV'] === 'test';
+  const envFileName = isTestEnv ? '.env.test' : '.env';
+  const envPath = resolve(__dirname, '..', envFileName);
   const envFile = readFileSync(envPath, 'utf-8');
 
   // Parse .env file and set environment variables
@@ -34,6 +37,8 @@ try {
       process.env[key.trim()] = value;
     }
   });
+
+  console.log(`✓ Loaded ${envFileName} for testing`);
 } catch (error) {
   // If .env file doesn't exist or can't be read, log warning but don't fail
   // This allows tests to run with environment variables set externally

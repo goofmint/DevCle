@@ -9,7 +9,7 @@
 
 import { json, type LoaderFunctionArgs } from '@remix-run/node';
 import { requireAuth } from '~/auth.middleware.js';
-import { calculateROI } from '../../../services/roi.service.js';
+import { calculateROI } from '../../services/roi.service.js';
 import { z } from 'zod';
 
 /**

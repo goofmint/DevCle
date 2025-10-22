@@ -33,8 +33,43 @@
  */
 
 import * as bcrypt from 'bcrypt';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { getDb, getSql, testConnection } from './connection.js';
 import * as schema from './schema/index.js';
+
+// ============================================================================
+// Environment Variable Loading
+// ============================================================================
+
+/**
+ * Load environment variables from .env or .env.test
+ * If NODE_ENV=test, use .env.test, otherwise use .env
+ */
+try {
+  const isTestEnv = process.env['NODE_ENV'] === 'test';
+  const envFileName = isTestEnv ? '.env.test' : '.env';
+  // seed.ts is in /workspace/core/db/, so go up 2 levels to /workspace/
+  const envPath = resolve(import.meta.dirname || __dirname, '..', '..', envFileName);
+  const envFile = readFileSync(envPath, 'utf-8');
+
+  envFile.split('\n').forEach(line => {
+    if (line.trim() === '' || line.trim().startsWith('#')) {
+      return;
+    }
+    const [key, ...valueParts] = line.split('=');
+    if (key && valueParts.length > 0) {
+      const value = valueParts.join('=').trim();
+      // Only set if not already set (allow environment to override)
+      if (!process.env[key.trim()]) {
+        process.env[key.trim()] = value;
+      }
+    }
+  });
+  console.log(`✓ Loaded ${envFileName} for seeding`);
+} catch (error) {
+  console.warn('Warning: Could not load .env file for seeding:', error);
+}
 
 // ============================================================================
 // Environment Protection

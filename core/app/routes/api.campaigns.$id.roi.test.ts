@@ -1,14 +1,14 @@
 import { describe, it, expect, beforeEach, afterAll } from 'vitest';
-import { runInTenant, ensureTenantExists } from '../../../db/tenant-test-utils.js';
-import { closeDb } from '../../../db/connection.js';
-import { createCampaign, deleteCampaign } from '../../../services/campaign.service.js';
-import { createDeveloper, deleteDeveloper } from '../../../services/drm.service.js';
-import { createActivity } from '../../../services/activity.service.js';
-import { hashPassword } from '../../../services/auth.service.js';
-import * as schema from '../../../db/schema/index.js';
+import { runInTenant, ensureTenantExists } from '../../db/tenant-test-utils.js';
+import { closeDb } from '../../db/connection.js';
+import { createCampaign, deleteCampaign } from '../../services/campaign.service.js';
+import { createDeveloper, deleteDeveloper } from '../../services/drm.service.js';
+import { createActivity } from '../../services/activity.service.js';
+import { hashPassword } from '../../services/auth.service.js';
+import * as schema from '../../db/schema/index.js';
 import { eq } from 'drizzle-orm';
-import { loader as campaignRoiLoader } from './campaigns.$id.roi.js';
-import { getSession, commitSession } from '../../sessions.server.js';
+import { loader as campaignRoiLoader } from './api.campaigns.$id.roi.js';
+import { getSession, commitSession } from '../sessions.server.js';
 
 const TENANT = 'test-campaign-roi';
 
