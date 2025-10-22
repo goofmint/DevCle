@@ -51,3 +51,4 @@ core/*.swo
 core/build
 core/playwright-report
 .env.test
+.pnpm-store
