@@ -180,7 +180,10 @@ describe('GET /api/campaigns/:id/resources', () => {
 
     expect(response.status).toBe(200);
 
-    const data = await response.json();
+    const data = (await response.json()) as {
+      resources: Array<{ resourceId: string; campaignId: string }>;
+      total: number;
+    };
     expect(data.resources).toBeInstanceOf(Array);
     expect(data.total).toBeGreaterThanOrEqual(3); // Our 3 test resources
     expect(data.resources.length).toBeGreaterThanOrEqual(3);
@@ -202,7 +205,10 @@ describe('GET /api/campaigns/:id/resources', () => {
       context: {},
     });
 
-    const data = await response.json();
+    const data = (await response.json()) as {
+      resources: Array<{ resourceId: string; campaignId: string }>;
+      total: number;
+    };
     expect(data.resources.length).toBe(2);
     expect(data.total).toBeGreaterThanOrEqual(3); // Total unchanged
   });
@@ -221,7 +227,10 @@ describe('GET /api/campaigns/:id/resources', () => {
       context: {},
     });
 
-    const data = await response.json();
+    const data = (await response.json()) as {
+      resources: Array<{ resourceId: string; category: string }>;
+      total: number;
+    };
     expect(data.resources.length).toBe(2); // 2 event resources
     data.resources.forEach((resource: { category: string }) => {
       expect(resource.category).toBe('event');
@@ -244,7 +253,7 @@ describe('GET /api/campaigns/:id/resources', () => {
     });
 
     expect(response.status).toBe(404);
-    const data = await response.json();
+    const data = (await response.json()) as { error: string };
     expect(data.error).toBe('Campaign not found');
   });
 
@@ -263,7 +272,7 @@ describe('GET /api/campaigns/:id/resources', () => {
     });
 
     expect(response.status).toBe(400);
-    const data = await response.json();
+    const data = (await response.json()) as { error: string };
     expect(data.error).toBe('Invalid campaign ID format');
   });
 
@@ -279,7 +288,7 @@ describe('GET /api/campaigns/:id/resources', () => {
     });
 
     expect(response.status).toBe(401);
-    const data = await response.json();
+    const data = (await response.json()) as { error: string };
     expect(data.error).toBe('Unauthorized');
   });
 });

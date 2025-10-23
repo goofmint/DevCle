@@ -247,7 +247,10 @@ describe('GET /api/campaigns/:id/activities', () => {
 
     expect(response.status).toBe(200);
 
-    const data = await response.json();
+    const data = (await response.json()) as {
+      activities: Array<{ activityId: string; action: string }>;
+      total: number;
+    };
     expect(data.activities).toBeInstanceOf(Array);
     expect(data.total).toBeGreaterThanOrEqual(3); // Our 3 test activities
     expect(data.activities.length).toBeGreaterThanOrEqual(3);
@@ -269,7 +272,10 @@ describe('GET /api/campaigns/:id/activities', () => {
       context: {},
     });
 
-    const data = await response.json();
+    const data = (await response.json()) as {
+      activities: Array<{ activityId: string; action: string }>;
+      total: number;
+    };
     expect(data.activities.length).toBe(2);
     expect(data.total).toBeGreaterThanOrEqual(3); // Total unchanged
   });
@@ -288,7 +294,10 @@ describe('GET /api/campaigns/:id/activities', () => {
       context: {},
     });
 
-    const data = await response.json();
+    const data = (await response.json()) as {
+      activities: Array<{ activityId: string; action: string }>;
+      total: number;
+    };
     expect(data.activities.length).toBe(2); // 2 attend activities
     data.activities.forEach((activity: { action: string }) => {
       expect(activity.action).toBe('attend');
@@ -310,13 +319,16 @@ describe('GET /api/campaigns/:id/activities', () => {
       context: {},
     });
 
-    const data = await response.json();
+    const data = (await response.json()) as unknown as {
+      activities: Array<{ activityId: string; action: string; occurredAt: string }>;
+      total: number;
+    };
 
     // Activities should be sorted by occurredAt DESC (most recent first)
     // Our test data: 2025-03-01, 2025-02-28, 2025-02-27
     expect(data.activities.length).toBeGreaterThanOrEqual(3);
-    const first = new Date(data.activities[0].occurredAt);
-    const second = new Date(data.activities[1].occurredAt);
+    const first = new Date(data.activities[0]!.occurredAt);
+    const second = new Date(data.activities[1]!.occurredAt);
     expect(first >= second).toBe(true);
   });
 
@@ -335,7 +347,7 @@ describe('GET /api/campaigns/:id/activities', () => {
     });
 
     expect(response.status).toBe(404);
-    const data = await response.json();
+    const data = (await response.json()) as { error: string };
     expect(data.error).toBe('Campaign not found');
   });
 
@@ -354,7 +366,7 @@ describe('GET /api/campaigns/:id/activities', () => {
     });
 
     expect(response.status).toBe(400);
-    const data = await response.json();
+    const data = (await response.json()) as { error: string };
     expect(data.error).toBe('Invalid campaign ID format');
   });
 
@@ -370,7 +382,7 @@ describe('GET /api/campaigns/:id/activities', () => {
     });
 
     expect(response.status).toBe(401);
-    const data = await response.json();
+    const data = (await response.json()) as { error: string };
     expect(data.error).toBe('Unauthorized');
   });
 });

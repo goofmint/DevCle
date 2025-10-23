@@ -19,27 +19,27 @@ import { eq, and, desc, sql, type SQL } from 'drizzle-orm';
  * Parameters for getBudgets query
  */
 export interface BudgetListParams {
-  limit?: number;    // Max 100, default 50
-  offset?: number;   // Default 0
-  category?: string; // Optional filter by category
+  limit?: number;      // Max 100, default 50
+  offset?: number;     // Default 0
+  category?: string | undefined; // Optional filter by category
 }
 
 /**
  * Parameters for getResources query
  */
 export interface ResourceListParams {
-  limit?: number;    // Max 100, default 50
-  offset?: number;   // Default 0
-  category?: string; // Optional filter by category
+  limit?: number;      // Max 100, default 50
+  offset?: number;     // Default 0
+  category?: string | undefined; // Optional filter by category
 }
 
 /**
  * Parameters for getActivities query
  */
 export interface ActivityListParams {
-  limit?: number;  // Max 100, default 50
-  offset?: number; // Default 0
-  action?: string; // Optional filter by action type
+  limit?: number;    // Max 100, default 50
+  offset?: number;   // Default 0
+  action?: string | undefined; // Optional filter by action type
 }
 
 // ==================== getBudgets ====================

@@ -183,7 +183,10 @@ describe('GET /api/campaigns/:id/budgets', () => {
 
     expect(response.status).toBe(200);
 
-    const data = await response.json();
+    const data = (await response.json()) as {
+      budgets: Array<{ budgetId: string; campaignId: string }>;
+      total: number;
+    };
     expect(data.budgets).toBeInstanceOf(Array);
     expect(data.total).toBeGreaterThanOrEqual(3); // Our 3 test budgets
     expect(data.budgets.length).toBeGreaterThanOrEqual(3);
@@ -205,7 +208,10 @@ describe('GET /api/campaigns/:id/budgets', () => {
       context: {},
     });
 
-    const data = await response.json();
+    const data = (await response.json()) as {
+      budgets: Array<{ budgetId: string; campaignId: string }>;
+      total: number;
+    };
     expect(data.budgets.length).toBe(2);
     expect(data.total).toBeGreaterThanOrEqual(3); // Total unchanged
   });
@@ -237,12 +243,18 @@ describe('GET /api/campaigns/:id/budgets', () => {
       context: {},
     });
 
-    const firstData = await firstResponse.json();
-    const secondData = await secondResponse.json();
+    const firstData = (await firstResponse.json()) as {
+      budgets: Array<{ budgetId: string }>;
+      total: number;
+    };
+    const secondData = (await secondResponse.json()) as {
+      budgets: Array<{ budgetId: string }>;
+      total: number;
+    };
 
     // Different budgets on different pages
-    expect(firstData.budgets[0].budgetId).not.toBe(
-      secondData.budgets[0].budgetId
+    expect(firstData.budgets[0]!.budgetId).not.toBe(
+      secondData.budgets[0]!.budgetId
     );
   });
 
@@ -260,7 +272,10 @@ describe('GET /api/campaigns/:id/budgets', () => {
       context: {},
     });
 
-    const data = await response.json();
+    const data = (await response.json()) as {
+      budgets: Array<{ budgetId: string; category: string }>;
+      total: number;
+    };
     expect(data.budgets.length).toBe(2); // 2 labor budgets
     data.budgets.forEach((budget: { category: string }) => {
       expect(budget.category).toBe('labor');
@@ -283,7 +298,7 @@ describe('GET /api/campaigns/:id/budgets', () => {
     });
 
     expect(response.status).toBe(404);
-    const data = await response.json();
+    const data = (await response.json()) as { error: string };
     expect(data.error).toBe('Campaign not found');
   });
 
@@ -302,7 +317,7 @@ describe('GET /api/campaigns/:id/budgets', () => {
     });
 
     expect(response.status).toBe(400);
-    const data = await response.json();
+    const data = (await response.json()) as { error: string };
     expect(data.error).toBe('Invalid campaign ID format');
   });
 
@@ -318,7 +333,7 @@ describe('GET /api/campaigns/:id/budgets', () => {
     });
 
     expect(response.status).toBe(401);
-    const data = await response.json();
+    const data = (await response.json()) as { error: string };
     expect(data.error).toBe('Unauthorized');
   });
 
@@ -337,7 +352,7 @@ describe('GET /api/campaigns/:id/budgets', () => {
     });
 
     expect(response.status).toBe(400);
-    const data = await response.json();
+    const data = (await response.json()) as { error: string };
     expect(data.error).toBe('Invalid query parameters');
   });
 });
