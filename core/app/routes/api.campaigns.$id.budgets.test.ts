@@ -51,7 +51,10 @@ async function createUserSession(): Promise<{ userId: string; cookie: string }> 
   session.set('tenantId', TENANT);
   const sessionCookie = await commitSession(session);
 
-  return { userId: id, cookie: sessionCookie };
+  // Extract only the cookie name=value portion (before first ';')
+  const cookieValue = sessionCookie.split(';')[0] ?? '';
+
+  return { userId: id, cookie: cookieValue };
 }
 
 /**
