@@ -31,25 +31,29 @@
 ### アーキテクチャ
 
 ```
-User Browser
+User Browser (SPA after authentication)
   ↓
-Remix Loader (SSR)
+React Component (campaigns.$id.tsx)
   ↓
-Authentication Middleware (requireAuth)
+useEffect / useState (client-side data fetching)
   ↓
-Campaign Detail Service (getCampaign)
-API Calls (/api/campaigns/:id/budgets, resources, activities)
+API Calls (fetch)
+  - GET /api/campaigns/:id (campaign info)
+  - GET /api/campaigns/:id/budgets
+  - GET /api/campaigns/:id/resources
+  - GET /api/campaigns/:id/activities
+  - GET /api/campaigns/:id/roi
   ↓
-React Component Rendering
+State Management (useState)
   ↓
-Client-Side Navigation (React Router)
+Component Rendering
 ```
 
 ### 設計原則
 
-1. **Server-Side Rendering (SSR)** - Remix loaderでデータフェッチ
-2. **Progressive Enhancement** - JavaScriptなしでも基本表示可能
-3. **認証必須** - ログインユーザーのみアクセス可能
+1. **Client-Side Rendering (CSR)** - すべてのデータはクライアントサイドでフェッチ（認証後はSPA）
+2. **API-First** - 既存のREST APIを活用
+3. **認証必須** - ログインユーザーのみアクセス可能（ダッシュボードレイアウトで保証）
 4. **型安全性** - TypeScript型定義を活用
 5. **再利用可能なコンポーネント** - 共通UIコンポーネントを活用（Task 7.3で実装済み）
 6. **レスポンシブデザイン** - モバイル・タブレット・デスクトップ対応
@@ -80,7 +84,7 @@ app/components/campaigns/              // 新規ディレクトリ（キャン�
 
 ```typescript
 /**
- * Campaign Detail Page
+ * Campaign Detail Page (SPA)
  *
  * Displays comprehensive information about a single campaign:
  * - Campaign header (name, status, dates, ROI)
@@ -89,56 +93,25 @@ app/components/campaigns/              // 新規ディレクトリ（キャン�
  * - Activities section (developer actions with pagination)
  *
  * Route: /dashboard/campaigns/:id
- * Authentication: Required (requireAuth)
- * Data Fetching: Server-side via Remix loader
+ * Authentication: Handled by DashboardLayout (no loader needed)
+ * Data Fetching: Client-side via fetch API
  */
 
-import type { LoaderFunctionArgs } from '@remix-run/node';
-import { json } from '@remix-run/node';
-import { useLoaderData, useSearchParams } from '@remix-run/react';
-import { requireAuth } from '~/services/auth.middleware.js';
-import { getCampaign } from '~/core/services/campaign.service.js';
+import { useState, useEffect } from 'react';
+import { useParams, useSearchParams } from '@remix-run/react';
 
 // ==================== Types ====================
 
-interface LoaderData {
-  campaign: {
-    campaignId: string;
-    tenantId: string;
-    name: string;
-    startDate: string;
-    endDate: string | null;
-    status: string;
-    description: string | null;
-    createdAt: string;
-    updatedAt: string;
-  };
-}
-
-// ==================== Loader ====================
-
-/**
- * Server-side data fetching
- *
- * Implementation steps:
- * 1. Authentication check using requireAuth()
- * 2. Validate campaign ID from params
- * 3. Fetch campaign data using getCampaign(tenantId, campaignId)
- * 4. Return campaign data (404 if not found)
- *
- * Note:
- * - Budgets, Resources, Activities are fetched client-side via API
- *   (to avoid large loader payload and enable independent pagination)
- */
-export async function loader({ params, request }: LoaderFunctionArgs) {
-  // Implementation will be added in coding phase
-  // 1. const user = await requireAuth(request);
-  // 2. const campaignId = params.id;
-  // 3. if (!campaignId) throw new Response('Campaign ID required', { status: 400 });
-  // 4. const campaign = await getCampaign(user.tenantId, campaignId);
-  // 5. if (!campaign) throw new Response('Campaign not found', { status: 404 });
-  // 6. return json({ campaign });
-  throw new Error('Not implemented');
+interface Campaign {
+  campaignId: string;
+  tenantId: string;
+  name: string;
+  startDate: string;
+  endDate: string | null;
+  status: string;
+  description: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // ==================== Component ====================
@@ -152,22 +125,59 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
  * - Tabs: Overview | Budgets | Resources | Activities
  *
  * Implementation:
- * - Use Remix loader data for campaign info
- * - Use client-side fetch for budgets/resources/activities (via useFetcher or useEffect)
+ * - Fetch campaign data from /api/campaigns/:id (useEffect)
+ * - Fetch ROI from /api/campaigns/:id/roi (useEffect)
+ * - Child components (BudgetList, ResourceList, CampaignActivityList) fetch their own data
  * - Use TailwindCSS for styling
  * - Use DashboardLayout (Task 7.1)
+ *
+ * State Management:
+ * - campaign: Campaign | null
+ * - loading: boolean
+ * - error: string | null
  */
 export default function CampaignDetailPage() {
-  // const { campaign } = useLoaderData<typeof loader>();
+  // const { id: campaignId } = useParams();
   // const [searchParams, setSearchParams] = useSearchParams();
   // const activeTab = searchParams.get('tab') || 'overview';
 
+  // const [campaign, setCampaign] = useState<Campaign | null>(null);
+  // const [loading, setLoading] = useState(true);
+  // const [error, setError] = useState<string | null>(null);
+
+  // useEffect(() => {
+  //   async function fetchCampaign() {
+  //     try {
+  //       setLoading(true);
+  //       const response = await fetch(`/api/campaigns/${campaignId}`);
+  //       if (!response.ok) {
+  //         if (response.status === 404) {
+  //           setError('Campaign not found');
+  //         } else {
+  //           setError('Failed to fetch campaign');
+  //         }
+  //         return;
+  //       }
+  //       const data = await response.json();
+  //       setCampaign(data.campaign);
+  //     } catch (err) {
+  //       setError(err.message);
+  //     } finally {
+  //       setLoading(false);
+  //     }
+  //   }
+  //   if (campaignId) {
+  //     fetchCampaign();
+  //   }
+  // }, [campaignId]);
+
   // Implementation will be added in coding phase
+  // - Render loading skeleton while loading
+  // - Render error message if error
+  // - Render 404 page if campaign not found
   // - Render CampaignHeader component
   // - Render tab navigation (Overview | Budgets | Resources | Activities)
   // - Conditionally render tab content based on activeTab
-  // - Handle loading states for client-side data fetching
-  // - Handle error states (404, 500)
 
   return (
     <div>Campaign Detail Page - Implementation pending</div>
@@ -191,7 +201,7 @@ export default function CampaignDetailPage() {
  * - Action buttons (Edit, Delete, Archive)
  *
  * Props:
- * - campaign: Campaign object from loader
+ * - campaign: Campaign object (fetched from /api/campaigns/:id)
  * - roi: ROI data (fetched from /api/campaigns/:id/roi)
  */
 
@@ -403,28 +413,36 @@ export function CampaignActivityList({ campaignId }: CampaignActivityListProps) 
 
 ## データフェッチング戦略
 
-### Loader（Server-Side）
+### すべてClient-Side（useEffect + fetch）
+
+認証後はSPAとして動作するため、すべてのデータはクライアントサイドでフェッチします。
 
 **フェッチするデータ**:
-- Campaign基本情報（GET /api/campaigns/:id via getCampaign service）
+1. **Campaign基本情報**（GET /api/campaigns/:id）
+   - メインコンポーネントのuseEffectで取得
+   - ローディング・エラー・404ハンドリング
 
-**理由**:
-- 初期表示に必須のデータ
-- SEO対応（SSR）
-- 404判定（キャンペーンが存在しない場合）
+2. **ROI情報**（GET /api/campaigns/:id/roi）
+   - CampaignHeaderコンポーネントで取得
+   - 並行フェッチ可能
 
-### Client-Side（useEffect or useFetcher）
+3. **Budgets**（GET /api/campaigns/:id/budgets）
+   - BudgetListコンポーネントで取得
+   - ページネーション対応
 
-**フェッチするデータ**:
-- Budgets（GET /api/campaigns/:id/budgets）
-- Resources（GET /api/campaigns/:id/resources）
-- Activities（GET /api/campaigns/:id/activities）
-- ROI（GET /api/campaigns/:id/roi）
+4. **Resources**（GET /api/campaigns/:id/resources）
+   - ResourceListコンポーネントで取得
+   - ページネーション対応
 
-**理由**:
-- ページネーション対応（ユーザー操作で動的に変化）
+5. **Activities**（GET /api/campaigns/:id/activities）
+   - CampaignActivityListコンポーネントで取得
+   - ページネーション対応
+
+**利点**:
+- SPAとして一貫した動作
 - 独立したローディング状態（段階的表示）
-- Loader payload削減（初期ロード高速化）
+- ページネーション・フィルタの柔軟な対応
+- 各コンポーネントが独立してデータ管理
 
 ---
 
@@ -485,19 +503,9 @@ export function CampaignActivityList({ campaignId }: CampaignActivityListProps) 
 
 ## エラーハンドリング
 
-### Server-Side Errors（Loader）
-
-```typescript
-// 404: Campaign not found
-if (!campaign) {
-  throw new Response('Campaign not found', { status: 404 });
-}
-
-// 401: Unauthorized (handled by requireAuth)
-// Redirects to /login automatically
-```
-
 ### Client-Side Errors（API Fetch）
+
+すべてのエラーはクライアントサイドでハンドリングします。
 
 ```typescript
 // Error state in component
@@ -719,8 +727,7 @@ test.describe('Campaign Detail Page', () => {
 ## 完了条件
 
 - [ ] `app/routes/dashboard/campaigns.$id.tsx`ファイル作成
-- [ ] Remix loaderでキャンペーン基本情報を取得
-- [ ] 認証チェック（requireAuth）
+- [ ] useEffectでキャンペーン基本情報をクライアントサイドで取得
 - [ ] 404エラーハンドリング（キャンペーンが存在しない場合）
 - [ ] `app/components/campaigns/CampaignHeader.tsx`作成
   - [ ] キャンペーン名、ステータス、期間、ROI表示
@@ -935,8 +942,9 @@ Task 7.4.2完了後、次はTask 7.4.3（キャンペーンの追加）に進み
 
 ## 参考資料
 
-- [Remix Loaders](https://remix.run/docs/en/main/route/loader)
-- [Remix useLoaderData](https://remix.run/docs/en/main/hooks/use-loader-data)
+- [React Hooks - useEffect](https://react.dev/reference/react/useEffect)
+- [React Hooks - useState](https://react.dev/reference/react/useState)
+- [Remix useParams](https://remix.run/docs/en/main/hooks/use-params)
 - [Remix useSearchParams](https://remix.run/docs/en/main/hooks/use-search-params)
 - [TailwindCSS Grid](https://tailwindcss.com/docs/grid-template-columns)
 - [Playwright Testing](https://playwright.dev/docs/intro)
