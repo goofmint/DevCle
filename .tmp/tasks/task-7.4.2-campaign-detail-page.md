@@ -55,8 +55,15 @@ Component Rendering
 2. **API-First** - 既存のREST APIを活用
 3. **認証必須** - ログインユーザーのみアクセス可能（ダッシュボードレイアウトで保証）
 4. **型安全性** - TypeScript型定義を活用
-5. **再利用可能なコンポーネント** - 共通UIコンポーネントを活用（Task 7.3で実装済み）
-6. **レスポンシブデザイン** - モバイル・タブレット・デスクトップ対応
+5. **共通コンポーネントの活用** -
+   - `DeveloperTable`と同様に`BudgetTable`, `ResourceTable`, `ActivityTable`を作成
+   - 一覧表示コンポーネントは再利用可能な形で実装
+   - プラグインからも利用可能な共通コンポーネントとして配置
+6. **検索条件を変更してもリロードしない** -
+   - `useSearchParams`でURLパラメータを管理
+   - パラメータ変更時は`useEffect`でデータ再フェッチ
+   - ページ遷移なし（SPA内での状態変更のみ）
+7. **レスポンシブデザイン** - モバイル・タブレット・デスクトップ対応
 
 ---
 
@@ -69,12 +76,18 @@ app/routes/
 
 app/components/campaigns/              // 新規ディレクトリ（キャンペーン用UIコンポーネント）
   ├── CampaignHeader.tsx               // キャンペーンヘッダー（名前、ステータス、ROI）
-  ├── BudgetList.tsx                   // 予算リスト表示
-  ├── ResourceList.tsx                 // リソースリスト表示
-  └── CampaignActivityList.tsx         // アクティビティリスト表示
+  ├── BudgetTable.tsx                  // 予算テーブル（共通コンポーネント、プラグイン可）
+  ├── ResourceTable.tsx                // リソーステーブル（共通コンポーネント、プラグイン可）
+  └── CampaignActivityTable.tsx        // アクティビティテーブル（共通コンポーネント、プラグイン可）
 ```
 
 **ファイルサイズ**: 各ファイル150-300行程度
+
+**共通コンポーネントの設計方針**:
+- `DeveloperTable`（Task 7.3）と同様のパターンで実装
+- 検索・フィルタ・ソート・ページネーション機能を内包
+- `useSearchParams`でURLパラメータと同期
+- プラグインからも`import`可能な汎用コンポーネントとして設計
 
 ---
 
@@ -236,13 +249,13 @@ export function CampaignHeader({ campaign, roi }: CampaignHeaderProps) {
 
 ---
 
-### 3. BudgetList.tsx (予算リスト)
+### 3. BudgetTable.tsx (予算テーブル - 共通コンポーネント)
 
 ```typescript
 /**
- * Budget List Component
+ * Budget Table Component (Common Component)
  *
- * Displays paginated list of budget entries for a campaign.
+ * Displays paginated table of budget entries for a campaign.
  * Fetches data from /api/campaigns/:id/budgets
  *
  * Features:
@@ -250,12 +263,22 @@ export function CampaignHeader({ campaign, roi }: CampaignHeaderProps) {
  * - Category filter dropdown
  * - Pagination (limit: 20 per page)
  * - Total cost summary at bottom
+ * - URL params sync (no page reload on filter/sort changes)
+ *
+ * Design Pattern:
+ * - Similar to DeveloperTable (Task 7.3)
+ * - Uses useSearchParams for URL state management
+ * - useEffect re-fetches data when params change
+ * - No page reload on search/filter/sort
  *
  * Props:
  * - campaignId: Campaign ID to fetch budgets for
  */
 
-interface BudgetListProps {
+import { useState, useEffect } from 'react';
+import { useSearchParams } from '@remix-run/react';
+
+interface BudgetTableProps {
   campaignId: string;
 }
 
@@ -270,19 +293,54 @@ interface Budget {
   createdAt: string;
 }
 
-export function BudgetList({ campaignId }: BudgetListProps) {
+export function BudgetTable({ campaignId }: BudgetTableProps) {
+  // URL params management (no reload pattern)
+  // const [searchParams, setSearchParams] = useSearchParams();
+  // const page = Number(searchParams.get('page') || '1');
+  // const category = searchParams.get('category') || '';
+  // const limit = 20;
+
+  // State management
   // const [budgets, setBudgets] = useState<Budget[]>([]);
   // const [total, setTotal] = useState(0);
-  // const [page, setPage] = useState(1);
-  // const [category, setCategory] = useState<string | null>(null);
   // const [loading, setLoading] = useState(true);
+  // const [error, setError] = useState<string | null>(null);
+
+  // Data fetching (re-fetch when URL params change, no page reload)
+  // useEffect(() => {
+  //   async function fetchBudgets() {
+  //     try {
+  //       setLoading(true);
+  //       const offset = (page - 1) * limit;
+  //       const url = `/api/campaigns/${campaignId}/budgets?limit=${limit}&offset=${offset}${category ? `&category=${category}` : ''}`;
+  //       const response = await fetch(url);
+  //       if (!response.ok) throw new Error('Failed to fetch budgets');
+  //       const data = await response.json();
+  //       setBudgets(data.budgets);
+  //       setTotal(data.total);
+  //     } catch (err) {
+  //       setError(err.message);
+  //     } finally {
+  //       setLoading(false);
+  //     }
+  //   }
+  //   fetchBudgets();
+  // }, [campaignId, page, category, limit]);
+
+  // Filter handler (updates URL params, triggers useEffect re-fetch)
+  // function handleCategoryChange(newCategory: string) {
+  //   setSearchParams({ page: '1', category: newCategory });
+  // }
+
+  // Pagination handler (updates URL params, triggers useEffect re-fetch)
+  // function handlePageChange(newPage: number) {
+  //   setSearchParams({ page: String(newPage), category });
+  // }
 
   // Implementation will be added in coding phase
-  // - useEffect to fetch budgets when campaignId/page/category changes
-  // - Fetch from `/api/campaigns/${campaignId}/budgets?limit=20&offset=${(page-1)*20}&category=${category}`
-  // - Display data in table format
-  // - Render category filter dropdown
-  // - Render pagination controls (Previous, Next, Page X of Y)
+  // - Render category filter dropdown (onChange → setSearchParams)
+  // - Render budget table (thead + tbody)
+  // - Render pagination controls (onClick → setSearchParams)
   // - Calculate and display total cost at bottom
   // - Handle loading state (skeleton loader)
   // - Handle error state (error message + retry button)
@@ -293,26 +351,34 @@ export function BudgetList({ campaignId }: BudgetListProps) {
 
 ---
 
-### 4. ResourceList.tsx (リソースリスト)
+### 4. ResourceTable.tsx (リソーステーブル - 共通コンポーネント)
 
 ```typescript
 /**
- * Resource List Component
+ * Resource Table Component (Common Component)
  *
  * Displays list of resources (event, blog, video, etc.) for a campaign.
  * Fetches data from /api/campaigns/:id/resources
  *
  * Features:
- * - Card grid view (responsive: 1-3 columns)
+ * - Card grid view (responsive: 1-3 columns) or table view
  * - Category filter (event, blog, video, ad, repo, link, form, webinar)
  * - Pagination (limit: 12 per page)
- * - Resource card: title, category badge, URL link, thumbnail (if available)
+ * - URL params sync (no page reload on filter changes)
+ *
+ * Design Pattern:
+ * - Similar to DeveloperTable and BudgetTable
+ * - Uses useSearchParams for URL state management
+ * - useEffect re-fetches data when params change
  *
  * Props:
  * - campaignId: Campaign ID to fetch resources for
  */
 
-interface ResourceListProps {
+import { useState, useEffect } from 'react';
+import { useSearchParams } from '@remix-run/react';
+
+interface ResourceTableProps {
   campaignId: string;
 }
 
@@ -329,20 +395,45 @@ interface Resource {
   updatedAt: string;
 }
 
-export function ResourceList({ campaignId }: ResourceListProps) {
+export function ResourceTable({ campaignId }: ResourceTableProps) {
+  // URL params management (no reload pattern)
+  // const [searchParams, setSearchParams] = useSearchParams();
+  // const page = Number(searchParams.get('page') || '1');
+  // const category = searchParams.get('category') || '';
+  // const limit = 12;
+
+  // State management
   // const [resources, setResources] = useState<Resource[]>([]);
   // const [total, setTotal] = useState(0);
-  // const [page, setPage] = useState(1);
-  // const [category, setCategory] = useState<string | null>(null);
   // const [loading, setLoading] = useState(true);
+  // const [error, setError] = useState<string | null>(null);
+
+  // Data fetching (re-fetch when URL params change)
+  // useEffect(() => {
+  //   async function fetchResources() {
+  //     try {
+  //       setLoading(true);
+  //       const offset = (page - 1) * limit;
+  //       const url = `/api/campaigns/${campaignId}/resources?limit=${limit}&offset=${offset}${category ? `&category=${category}` : ''}`;
+  //       const response = await fetch(url);
+  //       if (!response.ok) throw new Error('Failed to fetch resources');
+  //       const data = await response.json();
+  //       setResources(data.resources);
+  //       setTotal(data.total);
+  //     } catch (err) {
+  //       setError(err.message);
+  //     } finally {
+  //       setLoading(false);
+  //     }
+  //   }
+  //   fetchResources();
+  // }, [campaignId, page, category, limit]);
 
   // Implementation will be added in coding phase
-  // - useEffect to fetch resources when campaignId/page/category changes
-  // - Fetch from `/api/campaigns/${campaignId}/resources?limit=12&offset=${(page-1)*12}&category=${category}`
+  // - Render category filter dropdown (onChange → setSearchParams)
   // - Display data in responsive card grid (grid-cols-1 md:grid-cols-2 lg:grid-cols-3)
   // - Each card shows: category badge, title (link to URL), attributes
-  // - Render category filter dropdown
-  // - Render pagination controls
+  // - Render pagination controls (onClick → setSearchParams)
   // - Handle loading/error/empty states
   throw new Error('Not implemented');
 }
@@ -350,30 +441,35 @@ export function ResourceList({ campaignId }: ResourceListProps) {
 
 ---
 
-### 5. CampaignActivityList.tsx (アクティビティリスト)
+### 5. CampaignActivityTable.tsx (アクティビティテーブル - 共通コンポーネント)
 
 ```typescript
 /**
- * Campaign Activity List Component
+ * Campaign Activity Table Component (Common Component)
  *
- * Displays paginated list of activities attributed to a campaign.
+ * Displays paginated table/timeline of activities attributed to a campaign.
  * Fetches data from /api/campaigns/:id/activities
  *
  * Features:
- * - Timeline view (vertical list with icons)
+ * - Timeline view (vertical list with icons) or table view
  * - Action filter dropdown
  * - Pagination (limit: 20 per page)
- * - Activity card: action, developer, timestamp, source, value
+ * - URL params sync (no page reload on filter changes)
+ *
+ * Design Pattern:
+ * - Similar to DeveloperTable, BudgetTable, ResourceTable
+ * - Uses useSearchParams for URL state management
+ * - useEffect re-fetches data when params change
+ * - May reuse ActivityTimeline component from Task 7.3
  *
  * Props:
  * - campaignId: Campaign ID to fetch activities for
- *
- * Note:
- * - Reuses ActivityTimeline component from Task 7.3 if applicable
- * - Otherwise, creates simplified version for campaign context
  */
 
-interface CampaignActivityListProps {
+import { useState, useEffect } from 'react';
+import { useSearchParams } from '@remix-run/react';
+
+interface CampaignActivityTableProps {
   campaignId: string;
 }
 
@@ -389,20 +485,45 @@ interface Activity {
   metadata: Record<string, any> | null;
 }
 
-export function CampaignActivityList({ campaignId }: CampaignActivityListProps) {
+export function CampaignActivityTable({ campaignId }: CampaignActivityTableProps) {
+  // URL params management (no reload pattern)
+  // const [searchParams, setSearchParams] = useSearchParams();
+  // const page = Number(searchParams.get('page') || '1');
+  // const action = searchParams.get('action') || '';
+  // const limit = 20;
+
+  // State management
   // const [activities, setActivities] = useState<Activity[]>([]);
   // const [total, setTotal] = useState(0);
-  // const [page, setPage] = useState(1);
-  // const [action, setAction] = useState<string | null>(null);
   // const [loading, setLoading] = useState(true);
+  // const [error, setError] = useState<string | null>(null);
+
+  // Data fetching (re-fetch when URL params change)
+  // useEffect(() => {
+  //   async function fetchActivities() {
+  //     try {
+  //       setLoading(true);
+  //       const offset = (page - 1) * limit;
+  //       const url = `/api/campaigns/${campaignId}/activities?limit=${limit}&offset=${offset}${action ? `&action=${action}` : ''}`;
+  //       const response = await fetch(url);
+  //       if (!response.ok) throw new Error('Failed to fetch activities');
+  //       const data = await response.json();
+  //       setActivities(data.activities);
+  //       setTotal(data.total);
+  //     } catch (err) {
+  //       setError(err.message);
+  //     } finally {
+  //       setLoading(false);
+  //     }
+  //   }
+  //   fetchActivities();
+  // }, [campaignId, page, action, limit]);
 
   // Implementation will be added in coding phase
-  // - useEffect to fetch activities when campaignId/page/action changes
-  // - Fetch from `/api/campaigns/${campaignId}/activities?limit=20&offset=${(page-1)*20}&action=${action}`
-  // - Display data in timeline format (vertical list)
+  // - Render action filter dropdown (onChange → setSearchParams)
+  // - Display data in timeline format (vertical list with icons)
   // - Each entry shows: icon (based on action), action name, developer name, timestamp, value
-  // - Render action filter dropdown
-  // - Render pagination controls
+  // - Render pagination controls (onClick → setSearchParams)
   // - Handle loading/error/empty states
   // - Consider reusing ActivityTimeline component from Task 7.3
   throw new Error('Not implemented');
@@ -732,20 +853,26 @@ test.describe('Campaign Detail Page', () => {
 - [ ] `app/components/campaigns/CampaignHeader.tsx`作成
   - [ ] キャンペーン名、ステータス、期間、ROI表示
   - [ ] 編集・削除ボタン実装
-- [ ] `app/components/campaigns/BudgetList.tsx`作成
-  - [ ] 予算リスト表示（テーブル形式）
-  - [ ] カテゴリフィルタ実装
-  - [ ] ページネーション実装
+- [ ] `app/components/campaigns/BudgetTable.tsx`作成（共通コンポーネント）
+  - [ ] DeveloperTableと同様のパターンで実装
+  - [ ] useSearchParamsでURLパラメータ管理
+  - [ ] カテゴリフィルタ実装（onChange → setSearchParams、ページリロードなし）
+  - [ ] ページネーション実装（onClick → setSearchParams）
+  - [ ] useEffectでparams変更時にデータ再フェッチ
   - [ ] ローディング・エラー・空状態ハンドリング
-- [ ] `app/components/campaigns/ResourceList.tsx`作成
-  - [ ] リソースリスト表示（カードグリッド形式）
-  - [ ] カテゴリフィルタ実装
+- [ ] `app/components/campaigns/ResourceTable.tsx`作成（共通コンポーネント）
+  - [ ] DeveloperTableと同様のパターンで実装
+  - [ ] useSearchParamsでURLパラメータ管理
+  - [ ] カテゴリフィルタ実装（ページリロードなし）
   - [ ] ページネーション実装
+  - [ ] useEffectでparams変更時にデータ再フェッチ
   - [ ] ローディング・エラー・空状態ハンドリング
-- [ ] `app/components/campaigns/CampaignActivityList.tsx`作成
-  - [ ] アクティビティリスト表示（タイムライン形式）
-  - [ ] アクションフィルタ実装
+- [ ] `app/components/campaigns/CampaignActivityTable.tsx`作成（共通コンポーネント）
+  - [ ] DeveloperTableと同様のパターンで実装
+  - [ ] useSearchParamsでURLパラメータ管理
+  - [ ] アクションフィルタ実装（ページリロードなし）
   - [ ] ページネーション実装
+  - [ ] useEffectでparams変更時にデータ再フェッチ
   - [ ] ローディング・エラー・空状態ハンドリング
 - [ ] タブナビゲーション実装（Overview | Budgets | Resources | Activities）
 - [ ] URLクエリパラメータ対応（?tab=xxx&page=xxx&category=xxx）
@@ -773,6 +900,14 @@ test.describe('Campaign Detail Page', () => {
 
 ### 参考実装
 
+**必須参考**:
+- **DeveloperTable** (`app/components/developers/DeveloperTable.tsx`) - Task 7.3で実装済み
+  - **このパターンを必ず踏襲すること**
+  - useSearchParams + useEffect パターン
+  - 検索条件変更時もページリロードなし
+  - URLパラメータと状態の同期
+
+**その他参考**:
 - **Developers Detail Page** (`app/routes/dashboard/developers.$id.tsx`) - Task 7.3で実装済み（詳細ページパターン）
 - **ActivityTimeline Component** (`app/components/developers/ActivityTimeline.tsx`) - Task 7.3で実装済み（再利用可能）
 - **DashboardLayout** (`app/routes/dashboard.tsx`) - Task 7.1で実装済み
@@ -782,9 +917,15 @@ test.describe('Campaign Detail Page', () => {
 
 1. **すべてのコードとコメントは英語で記述**
 2. **UIコンポーネントは`app/components/campaigns/`に配置**
-3. **TailwindCSSでスタイリング**
-4. **TypeScript型定義を明確に記述（any使用禁止）**
-5. **`data-testid`属性をE2Eテスト用に追加**
+3. **共通コンポーネントパターンを厳守**
+   - DeveloperTableと同様の実装パターンを使用
+   - useSearchParamsでURLパラメータ管理
+   - フィルタ・ソート・ページネーション変更時にsetSearchParams呼び出し
+   - useEffectでparams変更を検知してデータ再フェッチ
+   - **ページリロードは一切行わない**
+4. **TailwindCSSでスタイリング**
+5. **TypeScript型定義を明確に記述（any使用禁止）**
+6. **`data-testid`属性をE2Eテスト用に追加**
 
 ### TailwindCSSクラス例
 
