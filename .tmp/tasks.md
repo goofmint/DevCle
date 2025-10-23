@@ -635,16 +635,17 @@
     2. 次のタスク（7.3.4）: `getActivityColor()`と`getActivityIconName()`の実装（データベースから取得）
   - ActivityTimeline.tsx 内の TODO コメントを参照
 
-### Task 7.3.4: ActivityTimeline 動的カラー・アイコン適用
+### Task 7.3.4: ActivityTimeline 動的カラー・アイコン適用 ✅
 
 - [x] `getActivityColor()`実装（データベースから設定を取得）
 - [x] `getActivityIconName()`実装（データベースから設定を取得）
 - [x] `ActivityTimeline.tsx`にデータローディング処理追加
 - [x] キャッシング実装（同一テナント内で設定を再利用）
 - [x] E2E テスト作成（カラー・アイコンの動的表示確認）
-- **完了条件**: ActivityTimeline がデータベースの設定に基づいてカラーとアイコンを動的に表示する
+- **完了条件**: ActivityTimeline がデータベースの設定に基づいてカラーとアイコンを動的に表示する ✓
 - **依存**: Task 7.3.3
 - **推定時間**: 3 時間
+- **完了日**: 2025-10-21
 - **ドキュメント**: [.tmp/tasks/task-7.3.4-activity-timeline-dynamic.md](.tmp/tasks/task-7.3.4-activity-timeline-dynamic.md)
 
 ### Task 7.4: Campaigns ページ実装
@@ -664,6 +665,7 @@
 - **完了条件**: 3 つの API が実装され、テストがパスする
 - **依存**: Task 5.4
 - **推定時間**: 3 時間
+- **ドキュメント**: [.tmp/tasks/task-7.4.1-campaign-detail-apis.md](.tmp/tasks/task-7.4.1-campaign-detail-apis.md)
 
 ### Task 7.4.2: 施策詳細ページ実装
 

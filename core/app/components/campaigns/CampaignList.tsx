@@ -57,7 +57,7 @@ export function CampaignList({
   initialCampaigns,
   initialPagination,
   initialFilters,
-  viewMode = 'table',
+  viewMode: _viewMode = 'table',
 }: CampaignListProps) {
   // Component state
   const [campaigns, setCampaigns] = useState<CampaignListItem[]>(initialCampaigns);

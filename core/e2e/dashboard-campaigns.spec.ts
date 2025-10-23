@@ -25,16 +25,40 @@ test.describe('Dashboard Campaigns Page', () => {
 
     // Navigate to campaigns page
     await page.goto('/dashboard/campaigns');
-    await page.waitForLoadState('networkidle');
 
-    // Wait for loading to complete and data to be fetched
-    // The loading state shows "Loading campaigns..." which should disappear
-    await page.waitForSelector('[data-testid="campaign-list"]', { timeout: 10000 });
-    // Give a moment for data to render
+    // Wait for either loading indicator to disappear OR error to appear
+    // This handles both success and error cases
+    await Promise.race([
+      // Wait for loading to disappear (success case)
+      page.waitForSelector('text=Loading campaigns...', { state: 'hidden', timeout: 15000 }),
+      // Or wait for error message (error case)
+      page.waitForSelector('text=Error', { timeout: 15000 })
+    ]).catch(() => {
+      // If both timeout, that's also useful info
+    });
+
+    // Small delay for React state updates
     await page.waitForTimeout(500);
   });
 
   test('1. Campaign list displays correctly', async ({ page }) => {
+    // Check if page is in error state
+    const errorElement = page.locator('text=Error');
+    const isError = await errorElement.isVisible().catch(() => false);
+
+    if (isError) {
+      const errorText = await page.textContent('body');
+      throw new Error(`Page is in error state: ${errorText}`);
+    }
+
+    // Check if still loading
+    const loadingElement = page.locator('text=Loading campaigns...');
+    const isLoading = await loadingElement.isVisible().catch(() => false);
+
+    if (isLoading) {
+      throw new Error('Page is still in loading state after timeout');
+    }
+
     // Check if campaign list is visible
     await expect(page.getByTestId('campaign-list')).toBeVisible();
 
