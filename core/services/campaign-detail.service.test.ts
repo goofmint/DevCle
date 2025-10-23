@@ -13,9 +13,10 @@ import {
   getResources,
   getActivities,
 } from './campaign-detail.service.js';
-import { getDb } from '../db/connection.js';
+import { closeDb } from '../db/connection.js';
+import { runInTenant, ensureTenantExists } from '../db/tenant-test-utils.js';
 import * as schema from '../db/schema/index.js';
-import { eq, and } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 
 const TEST_TENANT_ID = 'default';
 
@@ -24,83 +25,87 @@ let testCampaignId: string;
 
 // Create test campaign and budgets before all tests
 beforeAll(async () => {
-  const db = getDb();
+  // Ensure tenant exists
+  await ensureTenantExists(TEST_TENANT_ID);
 
-  // Create test campaign
+  // Create test campaign ID
   testCampaignId = crypto.randomUUID();
 
-  await db.insert(schema.campaigns).values({
-    campaignId: testCampaignId,
-    tenantId: TEST_TENANT_ID,
-    name: 'Test Campaign for Service Tests',
-    startDate: '2025-01-01',
-    endDate: '2025-12-31',
+  // Create test campaign and budgets inside tenant context
+  await runInTenant(TEST_TENANT_ID, async (tx) => {
+    // Create test campaign
+    await tx.insert(schema.campaigns).values({
+      campaignId: testCampaignId,
+      tenantId: TEST_TENANT_ID,
+      name: 'Test Campaign for Service Tests',
+      startDate: '2025-01-01',
+      endDate: '2025-12-31',
+    });
+
+    // Create test budgets
+    const budgetInserts = [
+      {
+        budgetId: '40000000-0000-4000-8000-000000000001',
+        tenantId: TEST_TENANT_ID,
+        campaignId: testCampaignId,
+        category: 'labor',
+        amount: '50000',
+        currency: 'JPY',
+        spentAt: '2025-03-01',
+        source: 'form',
+        memo: 'Staff costs for test',
+        meta: { hours: 100 },
+      },
+      {
+        budgetId: '40000000-0000-4000-8000-000000000002',
+        tenantId: TEST_TENANT_ID,
+        campaignId: testCampaignId,
+        category: 'venue',
+        amount: '100000',
+        currency: 'JPY',
+        spentAt: '2025-02-15',
+        source: 'form',
+        memo: 'Venue rental for test',
+        meta: null,
+      },
+      {
+        budgetId: '40000000-0000-4000-8000-000000000003',
+        tenantId: TEST_TENANT_ID,
+        campaignId: testCampaignId,
+        category: 'labor',
+        amount: '30000',
+        currency: 'JPY',
+        spentAt: '2025-02-20',
+        source: 'api',
+        memo: 'Additional staff costs for test',
+        meta: { hours: 60 },
+      },
+    ];
+
+    await tx
+      .insert(schema.budgets)
+      .values(budgetInserts)
+      .onConflictDoNothing();
   });
-
-  // Create test budgets
-  const budgetInserts = [
-    {
-      budgetId: '40000000-0000-4000-8000-000000000001',
-      tenantId: TEST_TENANT_ID,
-      campaignId: testCampaignId,
-      category: 'labor',
-      amount: '50000',
-      currency: 'JPY',
-      spentAt: '2025-03-01',
-      source: 'form',
-      memo: 'Staff costs for test',
-      meta: { hours: 100 },
-    },
-    {
-      budgetId: '40000000-0000-4000-8000-000000000002',
-      tenantId: TEST_TENANT_ID,
-      campaignId: testCampaignId,
-      category: 'venue',
-      amount: '100000',
-      currency: 'JPY',
-      spentAt: '2025-02-15',
-      source: 'form',
-      memo: 'Venue rental for test',
-      meta: null,
-    },
-    {
-      budgetId: '40000000-0000-4000-8000-000000000003',
-      tenantId: TEST_TENANT_ID,
-      campaignId: testCampaignId,
-      category: 'labor',
-      amount: '30000',
-      currency: 'JPY',
-      spentAt: '2025-02-20',
-      source: 'api',
-      memo: 'Additional staff costs for test',
-      meta: { hours: 60 },
-    },
-  ];
-
-  await db
-    .insert(schema.budgets)
-    .values(budgetInserts)
-    .onConflictDoNothing();
 });
 
 // Clean up test data after all tests
 afterAll(async () => {
-  const db = getDb();
+  // Clean up inside tenant context
+  await runInTenant(TEST_TENANT_ID, async (tx) => {
+    // Delete test budgets
+    await tx
+      .delete(schema.budgets)
+      .where(eq(schema.budgets.campaignId, testCampaignId));
 
-  // Delete test budgets
-  await db
-    .delete(schema.budgets)
-    .where(
-      and(
-        eq(schema.budgets.tenantId, TEST_TENANT_ID),
-        eq(schema.budgets.campaignId, testCampaignId)
-      )
-    );
+    // Delete test campaign
+    await tx
+      .delete(schema.campaigns)
+      .where(eq(schema.campaigns.campaignId, testCampaignId));
+  });
 
-  // Delete test campaign
-  await db
-    .delete(schema.campaigns)
-    .where(eq(schema.campaigns.campaignId, testCampaignId));
+  // Close DB connection to prevent open handle leaks
+  await closeDb();
 });
 
 // ==================== getBudgets Tests ====================

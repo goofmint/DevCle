@@ -23,9 +23,6 @@ let testCampaignId: string;
 let userId: string | null = null;
 let cookie: string | null = null;
 
-// Test resource IDs for cleanup
-let testResourceIds: string[] = [];
-
 /**
  * Create authenticated user session for testing
  */
@@ -51,7 +48,10 @@ async function createUserSession(): Promise<{ userId: string; cookie: string }> 
   session.set('tenantId', TENANT);
   const sessionCookie = await commitSession(session);
 
-  return { userId: id, cookie: sessionCookie };
+  // Extract only the cookie name=value portion (before first ';')
+  const cookieValue = sessionCookie.split(';')[0] ?? '';
+
+  return { userId: id, cookie: cookieValue };
 }
 
 /**
@@ -125,12 +125,10 @@ async function seedResources(): Promise<string[]> {
  */
 async function cleanup() {
   await runInTenant(TENANT, async (tx) => {
-    // Clean up resources
-    if (testResourceIds.length > 0) {
-      await tx
-        .delete(schema.resources)
-        .where(eq(schema.resources.tenantId, TENANT));
-    }
+    // Clean up resources (filter by campaignId to avoid deleting other test data)
+    await tx
+      .delete(schema.resources)
+      .where(eq(schema.resources.campaignId, testCampaignId));
 
     // Clean up campaign
     if (testCampaignId) {
@@ -149,7 +147,7 @@ async function cleanup() {
 // Setup before all tests
 beforeAll(async () => {
   await ensureTenantExists(TENANT);
-  testResourceIds = await seedResources();
+  await seedResources();
   const auth = await createUserSession();
   userId = auth.userId;
   cookie = auth.cookie;
