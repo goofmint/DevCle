@@ -81,13 +81,19 @@ export function ResourceTable({ campaignId }: ResourceTableProps) {
   const [resources, setResources] = useState<Resource[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [isRefetching, setIsRefetching] = useState(false); // For subsequent fetches
   const [error, setError] = useState<string | null>(null);
 
   // Data fetching (re-fetch when URL params change)
   useEffect(() => {
     async function fetchResources() {
       try {
-        setLoading(true);
+        // Only show skeleton on initial load, use refetching indicator for subsequent loads
+        if (resources.length === 0) {
+          setLoading(true);
+        } else {
+          setIsRefetching(true);
+        }
         setError(null);
 
         const offset = (page - 1) * limit;
@@ -111,6 +117,7 @@ export function ResourceTable({ campaignId }: ResourceTableProps) {
         setError(err instanceof Error ? err.message : 'Failed to load resources');
       } finally {
         setLoading(false);
+        setIsRefetching(false);
       }
     }
 
@@ -197,6 +204,13 @@ export function ResourceTable({ campaignId }: ResourceTableProps) {
           <option value="form">Form</option>
           <option value="webinar">Webinar</option>
         </select>
+        {/* Refetching indicator */}
+        {isRefetching && (
+          <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+            <Icon icon="svg-spinners:ring-resize" className="w-4 h-4" />
+            <span>Updating...</span>
+          </div>
+        )}
       </div>
 
       {/* Resource Grid */}

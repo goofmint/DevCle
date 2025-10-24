@@ -63,13 +63,19 @@ export function BudgetTable({ campaignId }: BudgetTableProps) {
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [isRefetching, setIsRefetching] = useState(false); // For subsequent fetches
   const [error, setError] = useState<string | null>(null);
 
   // Data fetching (re-fetch when URL params change, no page reload)
   useEffect(() => {
     async function fetchBudgets() {
       try {
-        setLoading(true);
+        // Only show skeleton on initial load, use refetching indicator for subsequent loads
+        if (budgets.length === 0) {
+          setLoading(true);
+        } else {
+          setIsRefetching(true);
+        }
         setError(null);
 
         const offset = (page - 1) * limit;
@@ -93,6 +99,7 @@ export function BudgetTable({ campaignId }: BudgetTableProps) {
         setError(err instanceof Error ? err.message : 'Failed to load budgets');
       } finally {
         setLoading(false);
+        setIsRefetching(false);
       }
     }
 
@@ -190,6 +197,13 @@ export function BudgetTable({ campaignId }: BudgetTableProps) {
           <option value="tools">Tools</option>
           <option value="other">Other</option>
         </select>
+        {/* Refetching indicator */}
+        {isRefetching && (
+          <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+            <Icon icon="svg-spinners:ring-resize" className="w-4 h-4" />
+            <span>Updating...</span>
+          </div>
+        )}
       </div>
 
       {/* Budget Table */}

@@ -314,16 +314,16 @@ test.describe('Campaign Detail Page', () => {
     // We already verified colors are different, which is the main requirement
   });
 
-  test('13. Breadcrumb navigation works', async ({ page }) => {
+  test('13. Back navigation works', async ({ page }) => {
     // Navigate to campaign detail page
     await page.goto(`/dashboard/campaigns/${TEST_CAMPAIGN_ID}`);
 
     // Wait for page to load
     await page.waitForSelector('[data-testid="campaign-status"]', { timeout: 10000 });
 
-    // Click breadcrumb link to campaigns list
-    const breadcrumbLink = page.locator('a:has-text("Campaigns")').first();
-    await breadcrumbLink.click();
+    // Click "Back to Campaigns" link
+    const backLink = page.locator('a:has-text("Back to Campaigns")');
+    await backLink.click();
 
     // Wait for navigation
     await page.waitForTimeout(1000);
