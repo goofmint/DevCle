@@ -668,16 +668,17 @@
 - **完了日**: 2025-10-22
 - **ドキュメント**: [.tmp/tasks/task-7.4.1-campaign-detail-apis.md](.tmp/tasks/task-7.4.1-campaign-detail-apis.md)
 
-### Task 7.4.2: 施策詳細ページ実装
+### Task 7.4.2: 施策詳細ページ実装 ✅
 
-- [ ] `app/routes/dashboard/campaigns.$id.tsx`作成
-- [ ] 施策詳細情報表示
-- [ ] Budgets リスト表示
-- [ ] Resources リスト表示
-- [ ] Activities リスト表示
-- **完了条件**: 施策詳細ページが表示され、関連データが確認できる
+- [x] `app/routes/dashboard/campaigns.$id.tsx`作成
+- [x] 施策詳細情報表示
+- [x] Budgets リスト表示
+- [x] Resources リスト表示
+- [x] Activities リスト表示
+- **完了条件**: 施策詳細ページが表示され、関連データが確認できる ✓
 - **依存**: Task 7.4, Task 7.4.1
 - **推定時間**: 3 時間
+- **完了日**: 2025-10-23
 - **ドキュメント**: [.tmp/tasks/task-7.4.2-campaign-detail-page.md](.tmp/tasks/task-7.4.2-campaign-detail-page.md)
 
 ### Task 7.4.3: キャンペーンの追加
@@ -688,6 +689,7 @@
 - **完了条件**: キャンペーンの追加フォームが機能し、新規キャンペーンを作成できる
 - **依存**: Task 7.4
 - **推定時間**: 2 時間
+- **ドキュメント**: [.tmp/tasks/task-7.4.3-campaign-add-form.md](.tmp/tasks/task-7.4.3-campaign-add-form.md)
 
 ### Task 7.4.4: キャンペーンの編集
 
