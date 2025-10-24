@@ -7,7 +7,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import type { Fetcher } from '@remix-run/react';
-import type { ActionData } from '~/routes/dashboard.settings.server';
+import type { ActionData } from '~/routes/dashboard.settings';
 
 /**
  * Hook Props

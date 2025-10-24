@@ -657,14 +657,15 @@
 - **依存**: Task 7.1, Task 5.4
 - **推定時間**: 3 時間
 
-### Task 7.4.1: 新規 API 実装
+### Task 7.4.1: 新規 API 実装 ✅
 
-- [ ] `GET /api/campaigns/:id/budgets`実装
-- [ ] `GET /api/campaigns/:id/resources`実装
-- [ ] `GET /api/campaigns/:id/activities`実装
-- **完了条件**: 3 つの API が実装され、テストがパスする
+- [x] `GET /api/campaigns/:id/budgets`実装
+- [x] `GET /api/campaigns/:id/resources`実装
+- [x] `GET /api/campaigns/:id/activities`実装
+- **完了条件**: 3 つの API が実装され、テストがパスする ✓
 - **依存**: Task 5.4
 - **推定時間**: 3 時間
+- **完了日**: 2025-10-22
 - **ドキュメント**: [.tmp/tasks/task-7.4.1-campaign-detail-apis.md](.tmp/tasks/task-7.4.1-campaign-detail-apis.md)
 
 ### Task 7.4.2: 施策詳細ページ実装
@@ -677,6 +678,7 @@
 - **完了条件**: 施策詳細ページが表示され、関連データが確認できる
 - **依存**: Task 7.4, Task 7.4.1
 - **推定時間**: 3 時間
+- **ドキュメント**: [.tmp/tasks/task-7.4.2-campaign-detail-page.md](.tmp/tasks/task-7.4.2-campaign-detail-page.md)
 
 ### Task 7.4.3: キャンペーンの追加
 

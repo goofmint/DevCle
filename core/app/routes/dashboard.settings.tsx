@@ -34,8 +34,16 @@ import { BasicSettingsForm } from '~/components/settings/BasicSettingsForm';
 import { S3SettingsForm } from '~/components/settings/S3SettingsForm';
 import { SmtpSettingsForm } from '~/components/settings/SmtpSettingsForm';
 import { getSystemSettings } from '../../services/system-settings.service.js';
-import { handleUpdate, handleTestS3, handleTestSmtp, type ActionData } from './dashboard.settings.server.js';
 import { useSettingsToast } from '~/hooks/useSettingsToast.js';
+
+/**
+ * Action Data Type
+ */
+export interface ActionData {
+  success?: boolean;
+  error?: string;
+  section?: string;
+}
 
 /**
  * Meta function - Sets page title
@@ -140,17 +148,111 @@ export async function action({ request }: ActionFunctionArgs) {
     const intent = formData.get('intent') as string;
     const section = formData.get('section') as string;
 
-    // 4. Route to appropriate action handler
+    // 4. Route to appropriate action handler (inlined to avoid .server import issues)
     if (intent === 'test-s3') {
-      return await handleTestS3(formData);
+      // Test S3 connection
+      const { testS3Connection } = await import('../../utils/s3-client.js');
+      try {
+        const endpointValue = formData.get('endpoint') as string;
+        const settings = {
+          bucket: formData.get('bucket') as string,
+          region: formData.get('region') as string,
+          accessKeyId: formData.get('accessKeyId') as string,
+          secretAccessKey: formData.get('secretAccessKey') as string,
+          ...(endpointValue && { endpoint: endpointValue }),
+        };
+        await testS3Connection(settings);
+        return json<ActionData>({ success: true, section: 's3-test' });
+      } catch (error) {
+        console.error('S3 connection test failed:', error);
+        return json<ActionData>(
+          { error: error instanceof Error ? error.message : 'S3 connection test failed', section: 's3-test' },
+          { status: 500 }
+        );
+      }
     }
 
     if (intent === 'test-smtp') {
-      return await handleTestSmtp(formData);
+      // Test SMTP connection
+      const { testSmtpConnection } = await import('../../utils/smtp-client.js');
+      try {
+        const port = Number(formData.get('port'));
+        const settings = {
+          host: formData.get('host') as string,
+          port,
+          secure: port === 465,
+          user: formData.get('username') as string,
+          password: formData.get('password') as string,
+          from: formData.get('fromAddress') as string,
+        };
+        await testSmtpConnection(settings);
+        return json<ActionData>({ success: true, section: 'smtp-test' });
+      } catch (error) {
+        console.error('SMTP connection test failed');
+        return json<ActionData>(
+          { error: error instanceof Error ? error.message : 'SMTP connection test failed', section: 'smtp-test' },
+          { status: 500 }
+        );
+      }
     }
 
     if (intent === 'update') {
-      return await handleUpdate(user.tenantId, formData, section);
+      // Update settings
+      const { updateSystemSettings } = await import('../../services/system-settings.service.js');
+
+      try {
+        // Validate section parameter
+        if (section !== 'basic' && section !== 's3' && section !== 'smtp') {
+          return json<ActionData>(
+            { error: `Invalid section: ${section}. Must be 'basic', 's3', or 'smtp'`, section },
+            { status: 400 }
+          );
+        }
+
+        let updateData: any;
+
+        if (section === 'basic') {
+          updateData = {
+            serviceName: formData.get('serviceName') as string,
+            logoUrl: (formData.get('logoUrl') as string) || null,
+            fiscalYearStartMonth: Number(formData.get('fiscalYearStartMonth')),
+            timezone: formData.get('timezone') as string,
+          };
+        } else if (section === 's3') {
+          const endpointValue = formData.get('endpoint') as string;
+          updateData = {
+            s3Settings: {
+              bucket: formData.get('bucket') as string,
+              region: formData.get('region') as string,
+              accessKeyId: formData.get('accessKeyId') as string,
+              secretAccessKey: formData.get('secretAccessKey') as string,
+              ...(endpointValue && { endpoint: endpointValue }),
+            },
+          };
+        } else {
+          // section === 'smtp'
+          const port = Number(formData.get('port'));
+          updateData = {
+            smtpSettings: {
+              host: formData.get('host') as string,
+              port,
+              secure: port === 465,
+              user: formData.get('username') as string,
+              password: formData.get('password') as string,
+              from: formData.get('fromAddress') as string,
+            },
+          };
+        }
+
+        await updateSystemSettings(user.tenantId, updateData);
+        return json<ActionData>({ success: true, section });
+      } catch (error) {
+        console.error('Failed to update settings:', error);
+        return json<ActionData>(
+          { error: error instanceof Error ? error.message : 'Failed to update settings', section },
+          { status: 500 }
+        );
+      }
     }
 
     // Unknown intent

@@ -609,6 +609,100 @@ async function seedResources(
 }
 
 /**
+ * Seed sample budgets
+ *
+ * Creates budget entries for campaigns to demonstrate cost tracking.
+ * - Meetup campaign: venue, catering, materials (total: 500,000 JPY)
+ * - Blog campaign: writer fees, ads (total: 100,000 JPY)
+ * - Sponsor campaign: no budget (community-driven)
+ *
+ * @param {Record<string, string>} campaignIds - Map of campaign names to UUIDs
+ */
+async function seedBudgets(
+  campaignIds: Record<string, string>
+): Promise<void> {
+  const db = getDb();
+
+  console.log('  💰 Seeding budgets...');
+
+  // Fixed UUIDs for idempotency
+  const budgetIds = [
+    '60000000-0000-4000-8000-000000000001',
+    '60000000-0000-4000-8000-000000000002',
+    '60000000-0000-4000-8000-000000000003',
+    '60000000-0000-4000-8000-000000000004',
+    '60000000-0000-4000-8000-000000000005',
+    '60000000-0000-4000-8000-000000000006',
+  ];
+
+  await db
+    .insert(schema.budgets)
+    .values([
+      // DevRel Meetup 2025 budgets (total: 500,000 JPY)
+      {
+        budgetId: budgetIds[0],
+        tenantId: 'default',
+        campaignId: campaignIds['meetup']!,
+        category: 'venue',
+        amount: '200000',
+        currency: 'JPY',
+        spentAt: '2025-10-15',
+        source: 'company_budget',
+        memo: 'Event venue rental for DevRel Meetup 2025',
+      },
+      {
+        budgetId: budgetIds[1],
+        tenantId: 'default',
+        campaignId: campaignIds['meetup']!,
+        category: 'catering',
+        amount: '150000',
+        currency: 'JPY',
+        spentAt: '2025-10-20',
+        source: 'company_budget',
+        memo: 'Food and drinks for attendees',
+      },
+      {
+        budgetId: budgetIds[2],
+        tenantId: 'default',
+        campaignId: campaignIds['meetup']!,
+        category: 'material',
+        amount: '150000',
+        currency: 'JPY',
+        spentAt: '2025-10-25',
+        source: 'company_budget',
+        memo: 'Swag, name tags, and promotional materials',
+      },
+      // Blog Content Series budgets (total: 100,000 JPY)
+      {
+        budgetId: budgetIds[3],
+        tenantId: 'default',
+        campaignId: campaignIds['blog']!,
+        category: 'labor',
+        amount: '60000',
+        currency: 'JPY',
+        spentAt: '2025-10-05',
+        source: 'marketing_budget',
+        memo: 'Technical writer fee for blog series',
+      },
+      {
+        budgetId: budgetIds[4],
+        tenantId: 'default',
+        campaignId: campaignIds['blog']!,
+        category: 'ads',
+        amount: '40000',
+        currency: 'JPY',
+        spentAt: '2025-10-10',
+        source: 'marketing_budget',
+        memo: 'Social media promotion for blog posts',
+      },
+      // Sponsor campaign has no budget entries (community-driven)
+    ])
+    .onConflictDoNothing();
+
+  console.log('    ✅ Budgets seeded (5)');
+}
+
+/**
  * Seed sample activities
  *
  * Creates 10 test activity records demonstrating different scenarios:
@@ -1105,6 +1199,8 @@ async function seed(): Promise<void> {
 
     const campaignIds = await seedCampaigns(); // Marketing campaigns
 
+    await seedBudgets(campaignIds); // Campaign budgets
+
     const resourceIds = await seedResources(campaignIds); // Campaign resources
 
     await seedActivities(devIds, accountIds, resourceIds); // Activity log
@@ -1123,6 +1219,7 @@ async function seed(): Promise<void> {
     console.log('  - Developers: 5');
     console.log('  - Accounts: 4');
     console.log('  - Campaigns: 3');
+    console.log('  - Budgets: 5');
     console.log('  - Resources: 3');
     console.log('  - Activities: 10');
     console.log('  - Funnel Stages: 4');
