@@ -302,13 +302,13 @@ export default function CampaignDetailPage() {
                   ROI
                 </h3>
                 <p className={`mt-2 text-3xl font-semibold ${
-                  roi?.roi !== null && roi.roi > 0
+                  roi && roi.roi !== null && roi.roi > 0
                     ? 'text-green-600 dark:text-green-400'
-                    : roi?.roi !== null && roi.roi < 0
+                    : roi && roi.roi !== null && roi.roi < 0
                     ? 'text-red-600 dark:text-red-400'
                     : 'text-gray-900 dark:text-white'
                 }`}>
-                  {roi?.roi !== null ? `${roi.roi.toFixed(1)}%` : 'N/A'}
+                  {roi && roi.roi !== null ? `${roi.roi.toFixed(1)}%` : 'N/A'}
                 </p>
               </div>
             </div>

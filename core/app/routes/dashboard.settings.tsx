@@ -199,7 +199,6 @@ export async function action({ request }: ActionFunctionArgs) {
     if (intent === 'update') {
       // Update settings
       const { updateSystemSettings } = await import('../../services/system-settings.service.js');
-      const { UpdateSystemSettings } = await import('../../services/system-settings.schemas.js');
 
       try {
         // Validate section parameter
