@@ -18,25 +18,29 @@
 
 import { test, expect, type Page } from '@playwright/test';
 
+// Base URL for the application
+const BASE_URL = process.env['BASE_URL'] || 'http://localhost:3000';
+
 /**
  * Helper function to log in as test user
  */
 async function login(page: Page): Promise<void> {
-  await page.goto('https://devcle.test/login');
+  await page.goto(`${BASE_URL}/login`);
   await page.fill('input[name="email"]', 'test@example.com');
   await page.fill('input[name="password"]', 'password123');
   await page.click('button[type="submit"]');
-  await page.waitForURL('https://devcle.test/dashboard');
+  await page.waitForURL(`${BASE_URL}/dashboard`);
 }
 
 /**
  * Helper function to create a test campaign via API
  *
  * Returns the created campaign ID
+ * Note: Uses page.request which automatically shares cookies from the browser context
  */
 async function createTestCampaign(page: Page): Promise<string> {
   const response = await page.request.post(
-    'https://devcle.test/api/campaigns',
+    `${BASE_URL}/api/campaigns`,
     {
       data: {
         name: 'Test Campaign for Deletion',
@@ -58,12 +62,13 @@ async function createTestCampaign(page: Page): Promise<string> {
 
 /**
  * Helper function to delete a campaign via API (cleanup)
+ * Note: Uses page.request which automatically shares cookies from the browser context
  */
 async function deleteCampaignViaAPI(
   page: Page,
   campaignId: string
 ): Promise<void> {
-  await page.request.delete(`https://devcle.test/api/campaigns/${campaignId}`);
+  await page.request.delete(`${BASE_URL}/api/campaigns/${campaignId}`);
 }
 
 /**
@@ -100,7 +105,7 @@ test.describe('Campaign Delete', () => {
   test.beforeEach(async ({ page }) => {
     await login(page);
     campaignId = await createTestCampaign(page);
-    await page.goto(`https://devcle.test/dashboard/campaigns/${campaignId}`);
+    await page.goto(`${BASE_URL}/dashboard/campaigns/${campaignId}`);
     // Wait for campaign header to load
     await expect(
       page.locator('h1:has-text("Test Campaign for Deletion")')
@@ -194,15 +199,15 @@ test.describe('Campaign Delete', () => {
     await page.locator('button:has-text("Delete")').last().click();
 
     // Wait for navigation to campaigns list
-    await page.waitForURL('https://devcle.test/dashboard/campaigns', {
+    await page.waitForURL(`${BASE_URL}/dashboard/campaigns`, {
       timeout: 5000,
     });
 
     // Verify we're on the campaigns list page
-    expect(page.url()).toBe('https://devcle.test/dashboard/campaigns');
+    expect(page.url()).toBe(`${BASE_URL}/dashboard/campaigns`);
 
     // Verify campaign no longer exists (try to access detail page)
-    await page.goto(`https://devcle.test/dashboard/campaigns/${campaignId}`);
+    await page.goto(`${BASE_URL}/dashboard/campaigns/${campaignId}`);
 
     // Should show error or "not found" message
     await expect(
@@ -235,7 +240,7 @@ test.describe('Campaign Delete', () => {
 
     // Verify we're still on the campaign detail page
     expect(page.url()).toContain(
-      `https://devcle.test/dashboard/campaigns/${campaignId}`
+      `${BASE_URL}/dashboard/campaigns/${campaignId}`
     );
   });
 
@@ -259,7 +264,7 @@ test.describe('Campaign Delete', () => {
 
     // Verify we're still on the campaign detail page
     expect(page.url()).toContain(
-      `https://devcle.test/dashboard/campaigns/${campaignId}`
+      `${BASE_URL}/dashboard/campaigns/${campaignId}`
     );
   });
 
@@ -283,7 +288,7 @@ test.describe('Campaign Delete', () => {
 
     // Verify we're still on the campaign detail page
     expect(page.url()).toContain(
-      `https://devcle.test/dashboard/campaigns/${campaignId}`
+      `${BASE_URL}/dashboard/campaigns/${campaignId}`
     );
   });
 
@@ -345,7 +350,7 @@ test.describe('Campaign Delete', () => {
     await expect(page.locator('button:has-text("Deleting...")')).toBeDisabled();
 
     // Wait for navigation
-    await page.waitForURL('https://devcle.test/dashboard/campaigns', {
+    await page.waitForURL(`${BASE_URL}/dashboard/campaigns`, {
       timeout: 5000,
     });
 
