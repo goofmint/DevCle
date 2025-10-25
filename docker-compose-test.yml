@@ -35,11 +35,11 @@ services:
       DATABASE_HOST: postgres
       # Encryption key for sensitive data (from .env.test)
       ENCRYPTION_KEY: ${ENCRYPTION_KEY}
-    # volumes:
-      # Mount source code for hot reloading (use host path for DinD)
-      # - ${LOCAL_WORKSPACE_FOLDER}/core:/app
+    volumes:
+      # Mount source code for hot reloading (use host path via LOCAL_WORKSPACE_FOLDER env var)
+      - ${LOCAL_WORKSPACE_FOLDER}/core:/app
       # Use named volume to preserve container's node_modules (Linux Alpine binaries)
-      # - core-node-modules-test:/app/node_modules
+      - core-node-modules-test:/app/node_modules
     ports:
       # Expose test server on different port
       - "3001:3000"
