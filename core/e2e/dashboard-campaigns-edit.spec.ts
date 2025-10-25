@@ -160,8 +160,11 @@ test.describe('Campaign Edit Form', () => {
     // Wait for form to load
     await page.waitForSelector('.campaign-form', { timeout: 10000 });
 
+    // Generate unique campaign name to avoid conflicts
+    const uniqueName = `Updated Campaign ${Date.now()}`;
+
     // Modify form fields
-    await page.fill('input#name', 'Updated Campaign Name');
+    await page.fill('input#name', uniqueName);
     await page.fill('input#channel', 'ad');
     await page.fill('input#budgetTotal', '75000');
 
@@ -176,7 +179,7 @@ test.describe('Campaign Edit Form', () => {
     expect(page.url()).not.toContain('/edit');
 
     // Verify updated data is displayed (check if name appears on page)
-    await expect(page.locator('text=Updated Campaign Name')).toBeVisible();
+    await expect(page.locator(`text=${uniqueName}`)).toBeVisible();
   });
 
   /**
