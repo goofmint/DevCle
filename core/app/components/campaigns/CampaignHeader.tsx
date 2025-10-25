@@ -193,17 +193,15 @@ export function CampaignHeader({ campaign, roi }: CampaignHeaderProps) {
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2 ml-4">
-          {/* Edit Button - placeholder for future implementation */}
-          <button
-            type="button"
+          {/* Edit Button - Navigate to edit page */}
+          <Link
+            to={`/dashboard/campaigns/edit/${campaign.campaignId}`}
             className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
             data-testid="campaign-edit-button"
-            disabled
-            title="Edit functionality coming soon"
           >
             <Icon icon="heroicons:pencil" className="w-4 h-4 mr-2" />
             Edit
-          </button>
+          </Link>
 
           {/* Delete Button - placeholder for future implementation */}
           <button
