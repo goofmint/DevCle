@@ -102,11 +102,8 @@ export function FunnelChart({ data }: FunnelChartProps) {
       {/* Funnel stages visualization */}
       <div className="space-y-4">
         {data.map((stage, index) => {
-          // Calculate bar width as percentage of max count
-          // Minimum width of 20% for visibility even with low counts
-          const widthPercent = maxCount > 0
-            ? Math.max(20, (stage.count / maxCount) * 100)
-            : 20;
+          // All stages have the same width (80% of container for consistent visual appearance)
+          const widthPercent = 80;
 
           // Get color scheme for this stage
           const colors = STAGE_COLORS[stage.stage] || STAGE_COLORS['awareness'];
