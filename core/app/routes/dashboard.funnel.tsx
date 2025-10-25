@@ -81,28 +81,53 @@ export default function FunnelPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch funnel statistics on mount
+  // Fetch funnel statistics and initial timeline data on mount
   useEffect(() => {
-    async function fetchFunnelStats() {
+    async function fetchInitialData() {
       try {
-        const response = await fetch('/api/funnel');
+        // Fetch both funnel stats and timeline data in parallel
+        const [funnelResponse, timelineResponse] = await Promise.all([
+          fetch('/api/funnel'),
+          fetch(`/api/funnel/timeline?interval=${interval}`),
+        ]);
 
-        if (!response.ok) {
-          throw new Error(`Failed to fetch funnel statistics: ${response.status}`);
+        // Check funnel response
+        if (!funnelResponse.ok) {
+          throw new Error(`Failed to fetch funnel statistics: ${funnelResponse.status}`);
         }
 
-        const data: FunnelStats = await response.json();
-        setFunnelStats(data);
+        // Check timeline response (non-fatal, just log error)
+        if (!timelineResponse.ok) {
+          console.error('Failed to fetch timeline data:', timelineResponse.status);
+        }
+
+        // Parse responses
+        const funnelData: FunnelStats = await funnelResponse.json();
+        const timelineData: TimeSeriesDataPoint[] = timelineResponse.ok
+          ? await timelineResponse.json()
+          : [];
+
+        // Update state
+        setFunnelStats(funnelData);
+        setTimeSeriesData(timelineData);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load funnel statistics');
+      } finally {
+        // Always clear loading state when initial fetch completes
+        setLoading(false);
       }
     }
 
-    fetchFunnelStats();
+    fetchInitialData();
   }, []);
 
-  // Fetch time series data when interval changes
+  // Fetch time series data when interval changes (after initial load)
   useEffect(() => {
+    // Skip initial load (handled by fetchInitialData above)
+    if (loading) {
+      return;
+    }
+
     async function fetchTimeSeries() {
       try {
         const response = await fetch(`/api/funnel/timeline?interval=${interval}`);
@@ -116,13 +141,11 @@ export default function FunnelPage() {
       } catch (err) {
         console.error('Failed to fetch timeline data:', err);
         setTimeSeriesData([]);
-      } finally {
-        setLoading(false);
       }
     }
 
     fetchTimeSeries();
-  }, [interval]);
+  }, [interval, loading]);
 
   // Loading state
   if (loading) {

@@ -72,11 +72,11 @@ const STAGE_COLORS: Record<string, { bg: string; text: string; darkBg: string }>
  * - High contrast colors for visibility
  */
 export function FunnelChart({ data }: FunnelChartProps) {
-  // Find max count for width calculation (100% width)
-  const maxCount = Math.max(...data.map((d) => d.count));
+  // Calculate total developers across all stages for percentage calculation
+  const totalDevelopers = data.reduce((sum, stage) => sum + stage.count, 0);
 
   // Handle empty data case
-  if (data.length === 0 || maxCount === 0) {
+  if (data.length === 0 || totalDevelopers === 0) {
     return (
       <div
         className="flex items-center justify-center h-64 text-gray-500 dark:text-gray-400"
@@ -143,7 +143,7 @@ export function FunnelChart({ data }: FunnelChartProps) {
                     {stage.count.toLocaleString()}
                   </p>
                   <p className="text-xs mt-1 opacity-90">
-                    {maxCount > 0 ? ((stage.count / maxCount) * 100).toFixed(0) : '0'}% of total
+                    {totalDevelopers > 0 ? ((stage.count / totalDevelopers) * 100).toFixed(0) : '0'}% of total
                   </p>
                 </div>
               </div>
