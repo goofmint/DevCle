@@ -236,15 +236,17 @@ The test environment runs in Docker containers on a separate network from the De
 #### Running E2E Tests
 
 ```bash
-# Start test environment first (MUST use --env-file .env.test)
+# Start test environment (MUST use --env-file .env.test)
 docker compose --env-file .env.test -f docker-compose.yml -f docker-compose-test.yml up -d
 
 # Initialize database (first time or after down -v)
 docker compose --env-file .env.test exec core pnpm db:migrate
+
+# Seed database INSIDE Docker (ensures test DB is used, not dev DB)
 docker compose --env-file .env.test exec core pnpm db:seed
 
-# Run E2E tests with pnpm test:e2e (includes db:seed)
-cd core && BASE_URL=https://devcle.test pnpm playwright test --reporter=list
+# Run E2E tests from host
+cd core && BASE_URL=https://devcle.test pnpm test:e2e
 
 # Or run specific test file
 cd core && BASE_URL=https://devcle.test pnpm playwright test e2e/auth.spec.ts
@@ -258,8 +260,9 @@ cd core && BASE_URL=https://devcle.test pnpm playwright test e2e/auth.spec.ts
 ### Before Commit
 1. `docker compose --env-file .env.test exec core pnpm test` - ALL tests must pass
 2. `docker compose --env-file .env.test exec core pnpm typecheck` - No errors
-3. `pnpm test:e2e` (or `BASE_URL=https://devcle.test pnpm --filter @drm/core exec playwright test`) - All E2E pass
-4. **NEVER skip failing tests**
+3. Seed test DB: `docker compose --env-file .env.test exec core pnpm db:seed`
+4. E2E tests: `cd core && BASE_URL=https://devcle.test pnpm test:e2e`
+5. **NEVER skip failing tests**
 
 ## When Implementation Begins
 

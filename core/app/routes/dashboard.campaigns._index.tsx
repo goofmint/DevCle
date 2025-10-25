@@ -9,8 +9,9 @@
  * Note: Uses SPA pattern - fetches data client-side via API calls.
  */
 
-import { useSearchParams } from '@remix-run/react';
+import { useSearchParams, useNavigate } from '@remix-run/react';
 import { useState, useEffect } from 'react';
+import { Icon } from '@iconify/react';
 import { CampaignList } from '~/components/campaigns/CampaignList';
 import type { CampaignListItem } from '~/components/campaigns/types';
 
@@ -32,6 +33,7 @@ interface PaginationInfo {
  */
 export default function CampaignsPage() {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [campaigns, setCampaigns] = useState<CampaignListItem[]>([]);
@@ -138,9 +140,18 @@ export default function CampaignsPage() {
   if (loading) {
     return (
       <div className="container mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-8">
-          Campaigns
-        </h1>
+        <div className="flex items-center justify-between mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+            Campaigns
+          </h1>
+          <button
+            onClick={() => navigate('/dashboard/campaigns/new')}
+            className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <Icon icon="mdi:plus" className="w-5 h-5 mr-2" />
+            新規作成
+          </button>
+        </div>
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
@@ -155,9 +166,18 @@ export default function CampaignsPage() {
   if (error) {
     return (
       <div className="container mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-8">
-          Campaigns
-        </h1>
+        <div className="flex items-center justify-between mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+            Campaigns
+          </h1>
+          <button
+            onClick={() => navigate('/dashboard/campaigns/new')}
+            className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <Icon icon="mdi:plus" className="w-5 h-5 mr-2" />
+            新規作成
+          </button>
+        </div>
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-6">
           <h2 className="text-xl font-semibold text-red-800 dark:text-red-200 mb-2">
             Error
@@ -170,9 +190,18 @@ export default function CampaignsPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-8">
-        Campaigns
-      </h1>
+      <div className="flex items-center justify-between mb-8">
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+          Campaigns
+        </h1>
+        <button
+          onClick={() => navigate('/dashboard/campaigns/new')}
+          className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <Icon icon="mdi:plus" className="w-5 h-5 mr-2" />
+          New Campaign
+        </button>
+      </div>
 
       <CampaignList
         initialCampaigns={campaigns}
