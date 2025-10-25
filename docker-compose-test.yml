@@ -1,3 +1,6 @@
+# docker-compose-test.yml (Test environment)
+# Note: Use Compose V2 (docker compose)
+# Usage: docker compose --env-file .env.test -f docker-compose.yml -f docker-compose-test.yml up -d
 version: '3.9'
 
 services:
@@ -13,77 +16,112 @@ services:
   core:
     container_name: devcle-core-test
     build:
+      # Build from core directory
       context: ./core
+      # Use development target for hot reloading
       target: development
+      # Use the same Dockerfile as production but different target
       dockerfile: ../docker/Dockerfile.core
-    env_file: .env.test
     environment:
+      # Override NODE_ENV for test
       NODE_ENV: test
+      # Set CI flag for non-interactive pnpm install
       CI: "true"
-      # Override to use docker network names instead of IPs
+      # PostgreSQL environment variables for drizzle-kit
+      POSTGRES_DB: ${POSTGRES_DB:-devcle_test}
+      POSTGRES_USER: ${POSTGRES_USER:-devcle}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      # Database host points to postgres service in docker network
       DATABASE_HOST: postgres
-      DATABASE_PORT: 5432
-      DATABASE_URL: postgresql://devcle:test_password_only@postgres:5432/devcle_test
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      REDIS_URL: redis://:test_redis_password_only@redis:6379/0
-    command: sh -c "pnpm dev"
-    networks:
-      - devcle-network
+      # Encryption key for sensitive data (from .env.test)
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+    # volumes:
+      # Mount source code for hot reloading (use host path for DinD)
+      # - ${LOCAL_WORKSPACE_FOLDER}/core:/app
+      # Use named volume to preserve container's node_modules (Linux Alpine binaries)
+      # - core-node-modules-test:/app/node_modules
     ports:
+      # Expose test server on different port
       - "3001:3000"
+    # Override command to install dependencies and run development server
+    command: sh -c "pnpm install --frozen-lockfile && pnpm dev"
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
 
+  # PostgreSQL service for test environment
   postgres:
     image: postgres:15-alpine
     container_name: devcle-postgres-test
     environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
+      # Database name (defaults to 'devcle_test' if not set)
+      POSTGRES_DB: ${POSTGRES_DB:-devcle_test}
+      # Database user (defaults to 'devcle' if not set)
+      POSTGRES_USER: ${POSTGRES_USER:-devcle}
+      # Database password (must be set in .env.test)
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
+      # Persist database data using named volume
       - postgres-data-test:/var/lib/postgresql/data
+      # Mount initialization script (read-only, executable)
       - ./infra/postgres/init.sh:/docker-entrypoint-initdb.d/01-init.sh:ro
+      # Mount RLS policies script (read-only)
       - ./infra/postgres/rls.sql:/docker-entrypoint-initdb.d/02-rls.sql:ro
     networks:
       - devcle-network
     restart: unless-stopped
     ports:
+      # Expose postgres port on different port to avoid conflict with dev
       - "55432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      # Check if PostgreSQL is ready to accept connections
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-devcle}"]
       interval: 10s
       timeout: 5s
       retries: 5
+      # Allow 30s for postgres to boot before starting healthchecks
       start_period: 30s
 
+  # Redis service for test environment
   redis:
+    # Redis 7.x Alpine image for cache, session storage, and job queue (BullMQ)
     image: redis:7-alpine
     container_name: devcle-redis-test
     environment:
+      # Redis password for authentication (required)
       REDIS_PASSWORD: ${REDIS_PASSWORD}
-    command: sh -c 'redis-server /usr/local/etc/redis/redis.conf --requirepass "${REDIS_PASSWORD}"'
+    # Override requirepass in redis.conf with environment variable
+    command: >
+      redis-server /usr/local/etc/redis/redis.conf
+      --requirepass ${REDIS_PASSWORD}
     volumes:
+      # Mount redis configuration (read-only)
       - ./infra/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+      # Persist redis data using named volume for AOF files
       - redis-data-test:/data
     networks:
       - devcle-network
     restart: unless-stopped
     ports:
+      # Expose redis port on different port to avoid conflict with dev
       - "56379:6379"
     healthcheck:
-      test: ["CMD", "sh", "-c", "redis-cli -a ${REDIS_PASSWORD} PING"]
+      # Verify Redis is ready to accept connections with password authentication
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "PING"]
       interval: 10s
       timeout: 5s
       retries: 5
+      # Allow 10s for redis to boot before starting healthchecks
       start_period: 10s
 
 volumes:
+  # Named volume for core's node_modules to preserve Linux Alpine binaries
+  core-node-modules-test:
+  # Named volume for PostgreSQL data persistence in test
   postgres-data-test:
+  # Named volume for Redis data persistence in test
   redis-data-test:
 
 networks:

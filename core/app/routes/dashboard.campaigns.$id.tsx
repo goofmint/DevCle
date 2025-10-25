@@ -25,8 +25,18 @@ import { CampaignActivityTable } from '~/components/campaigns/CampaignActivityTa
 /**
  * Loader function for authentication check
  * Returns null because actual data is fetched client-side via useEffect
+ *
+ * Note: Skips execution if the :id parameter is 'add' (static route)
+ * This prevents /dashboard/campaigns/add from being treated as a detail page
  */
-export async function loader({ request }: LoaderFunctionArgs) {
+export async function loader({ request, params }: LoaderFunctionArgs) {
+  // Skip loader execution if :id is 'new' (static route takes precedence)
+  // This allows /dashboard/campaigns/new to be handled by dashboard.campaigns.new.tsx
+  if (params['id'] === 'new') {
+    // Let the static route handle this
+    return json(null);
+  }
+
   // Ensure user is authenticated before allowing access to this page
   await requireAuth(request);
   return json(null);
@@ -83,6 +93,12 @@ export default function CampaignDetailPage() {
   const { id: campaignId } = useParams<{ id: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get('tab') || 'overview';
+
+  // Skip rendering if campaignId is 'new' (static route handled by dashboard.campaigns.new.tsx)
+  // This prevents the dynamic route from interfering with the static route
+  if (campaignId === 'new') {
+    return null;
+  }
 
   // State for campaign and ROI data
   const [campaign, setCampaign] = useState<Campaign | null>(null);
