@@ -207,10 +207,13 @@ test.describe('Dashboard Campaigns Page', () => {
       await expect(currentPageButton).toBeVisible();
 
       // Try to click next page if available
-      const nextButton = page.getByTestId('next-page');
+      // Note: There are two next-page buttons (mobile and desktop), use the visible one
+      const nextButton = page.getByTestId('next-page').last(); // Desktop version
       const isNextDisabled = await nextButton.isDisabled();
 
       if (!isNextDisabled) {
+        // Scroll to pagination before clicking
+        await nextButton.scrollIntoViewIfNeeded();
         await nextButton.click();
 
         // Wait for URL to update

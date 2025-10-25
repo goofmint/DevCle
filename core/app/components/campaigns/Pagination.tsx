@@ -224,6 +224,7 @@ export function Pagination({
                            text-sm font-medium bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400
                            hover:bg-gray-50 dark:hover:bg-gray-700"
                 aria-label="Next page"
+                data-testid="next-page"
               >
                 <span className="sr-only">Next</span>
                 <Icon icon="heroicons:chevron-right" className="h-5 w-5" />

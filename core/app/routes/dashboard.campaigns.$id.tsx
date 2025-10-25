@@ -21,6 +21,7 @@ import { CampaignHeader } from '~/components/campaigns/CampaignHeader';
 import { BudgetTable } from '~/components/campaigns/BudgetTable';
 import { ResourceTable } from '~/components/campaigns/ResourceTable';
 import { CampaignActivityTable } from '~/components/campaigns/CampaignActivityTable';
+import { DeleteCampaignDialog } from '~/components/campaigns/DeleteCampaignDialog';
 
 /**
  * Loader function for authentication check
@@ -105,6 +106,9 @@ export default function CampaignDetailPage() {
   const [roi, setRoi] = useState<ROIData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // State for delete dialog
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   // Fetch campaign data when campaignId changes
   useEffect(() => {
@@ -218,7 +222,11 @@ export default function CampaignDetailPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       {/* Campaign Header */}
-      <CampaignHeader campaign={campaign} roi={roi} />
+      <CampaignHeader
+        campaign={campaign}
+        roi={roi}
+        onDeleteClick={() => setIsDeleteDialogOpen(true)}
+      />
 
       {/* Tab Navigation */}
       <div className="mt-8 border-b border-gray-200 dark:border-gray-700">
@@ -349,6 +357,16 @@ export default function CampaignDetailPage() {
 
         {activeTab === 'activities' && campaignId && <CampaignActivityTable campaignId={campaignId} />}
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <DeleteCampaignDialog
+        isOpen={isDeleteDialogOpen}
+        onClose={() => setIsDeleteDialogOpen(false)}
+        campaign={{
+          campaignId: campaign.campaignId,
+          name: campaign.name,
+        }}
+      />
     </div>
   );
 }

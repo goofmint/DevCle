@@ -46,6 +46,10 @@ interface ROIData {
 interface CampaignHeaderProps {
   campaign: Campaign;
   roi?: ROIData | null;
+  /**
+   * Optional callback fired when delete button is clicked
+   */
+  onDeleteClick?: () => void;
 }
 
 /**
@@ -54,7 +58,11 @@ interface CampaignHeaderProps {
  * Renders campaign header with name, metadata, and action buttons.
  * Displays ROI with color indicator (green: positive, red: negative, gray: null).
  */
-export function CampaignHeader({ campaign, roi }: CampaignHeaderProps) {
+export function CampaignHeader({
+  campaign,
+  roi,
+  onDeleteClick,
+}: CampaignHeaderProps) {
   // Format date to human-readable string (YYYY-MM-DD -> MMM DD, YYYY)
   const formatDate = (dateString: string | null) => {
     if (!dateString) return null;
@@ -203,13 +211,14 @@ export function CampaignHeader({ campaign, roi }: CampaignHeaderProps) {
             Edit
           </Link>
 
-          {/* Delete Button - placeholder for future implementation */}
+          {/* Delete Button */}
           <button
             type="button"
-            className="inline-flex items-center px-4 py-2 border border-red-300 dark:border-red-700 rounded-lg text-sm font-medium text-red-700 dark:text-red-300 bg-white dark:bg-gray-800 hover:bg-red-50 dark:hover:bg-red-900 focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors"
+            onClick={onDeleteClick}
+            className="inline-flex items-center px-4 py-2 border border-red-300 dark:border-red-700 rounded-lg text-sm font-medium text-red-700 dark:text-red-300 bg-white dark:bg-gray-800 hover:bg-red-50 dark:hover:bg-red-900 focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             data-testid="campaign-delete-button"
-            disabled
-            title="Delete functionality coming soon"
+            disabled={!onDeleteClick}
+            title={onDeleteClick ? 'Delete campaign' : 'Delete functionality not available'}
           >
             <Icon icon="heroicons:trash" className="w-4 h-4 mr-2" />
             Delete
