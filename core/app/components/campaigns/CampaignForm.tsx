@@ -295,7 +295,7 @@ export function CampaignForm({
           htmlFor="budgetTotal"
           className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
         >
-          Total Budget (JPY)
+          Total Budget
         </label>
         <input
           type="text"
