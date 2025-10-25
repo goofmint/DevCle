@@ -39,6 +39,11 @@ interface CampaignFormProps {
   onCancel: () => void;
   /** Submission state (disables form when true) */
   isSubmitting: boolean;
+  /** Submit button text (defaults based on mode) */
+  submitButtonText?: {
+    idle: string;
+    submitting: string;
+  };
 }
 
 /**
@@ -52,7 +57,16 @@ export function CampaignForm({
   onSubmit,
   onCancel,
   isSubmitting,
+  submitButtonText,
 }: CampaignFormProps) {
+  // Determine if this is edit mode (has initialData) or add mode
+  const isEditMode = !!initialData && Object.keys(initialData).length > 0;
+
+  // Set button text based on mode (can be overridden via props)
+  const buttonText = submitButtonText || {
+    idle: isEditMode ? 'Update' : 'Create',
+    submitting: isEditMode ? 'Updating...' : 'Creating...',
+  };
   // Form field state
   const [formData, setFormData] = useState<Partial<CampaignFormData>>({
     name: initialData?.name ?? '',
@@ -332,12 +346,12 @@ export function CampaignForm({
                 icon="mdi:loading"
                 className="w-5 h-5 mr-2 animate-spin"
               />
-              Creating...
+              {buttonText.submitting}
             </>
           ) : (
             <>
               <Icon icon="mdi:check" className="w-5 h-5 mr-2" />
-              Create
+              {buttonText.idle}
             </>
           )}
         </button>
