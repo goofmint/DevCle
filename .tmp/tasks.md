@@ -709,6 +709,7 @@
 - **完了条件**: キャンペーンを削除でき、確認ダイアログが表示される
 - **依存**: Task 7.4
 - **推定時間**: 1 時間
+- **ドキュメント**: [.tmp/tasks/task-7.4.5-campaign-delete.md](.tmp/tasks/task-7.4.5-campaign-delete.md)
 
 ### Task 7.5: Funnel ページ実装
 
