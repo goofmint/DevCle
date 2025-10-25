@@ -648,14 +648,15 @@
 - **完了日**: 2025-10-21
 - **ドキュメント**: [.tmp/tasks/task-7.3.4-activity-timeline-dynamic.md](.tmp/tasks/task-7.3.4-activity-timeline-dynamic.md)
 
-### Task 7.4: Campaigns ページ実装
+### Task 7.4: Campaigns ページ実装 ✅
 
-- [ ] `app/routes/dashboard/campaigns.tsx`作成
-- [ ] 施策リスト表示
-- [ ] ROI 表示（色分け: 正/負）
-- **完了条件**: 施策リストが表示され、ROI が確認できる
+- [x] `app/routes/dashboard.campaigns._index.tsx`作成
+- [x] 施策リスト表示
+- [x] ROI 表示（色分け: 正/負）
+- **完了条件**: 施策リストが表示され、ROI が確認できる ✓
 - **依存**: Task 7.1, Task 5.4
 - **推定時間**: 3 時間
+- **完了日**: 2025-10-22
 
 ### Task 7.4.1: 新規 API 実装 ✅
 
@@ -692,23 +693,26 @@
 - **完了日**: 2025-10-24
 - **ドキュメント**: [.tmp/tasks/task-7.4.3-campaign-add-form.md](.tmp/tasks/task-7.4.3-campaign-add-form.md)
 
-### Task 7.4.4: キャンペーンの編集
+### Task 7.4.4: キャンペーンの編集 ✅
 
-- [ ] キャンペーン編集フォーム実装
-- [ ] 既存データの読み込み
-- [ ] 更新処理実装
-- **完了条件**: キャンペーンの編集フォームが機能し、既存キャンペーンを更新できる
+- [x] キャンペーン編集フォーム実装
+- [x] 既存データの読み込み
+- [x] 更新処理実装
+- **完了条件**: キャンペーンの編集フォームが機能し、既存キャンペーンを更新できる ✓
 - **依存**: Task 7.4
 - **推定時間**: 2 時間
+- **完了日**: 2025-10-24
+- **ドキュメント**: [.tmp/tasks/task-7.4.4-campaign-edit-form.md](.tmp/tasks/task-7.4.4-campaign-edit-form.md)
 
-### Task 7.4.5: キャンペーンの削除
+### Task 7.4.5: キャンペーンの削除 ✅
 
-- [ ] 削除確認ダイアログ実装
-- [ ] 削除処理実装
-- [ ] CASCADE 削除（関連データの処理）
-- **完了条件**: キャンペーンを削除でき、確認ダイアログが表示される
+- [x] 削除確認ダイアログ実装
+- [x] 削除処理実装
+- [x] CASCADE 削除（関連データの処理）
+- **完了条件**: キャンペーンを削除でき、確認ダイアログが表示される ✓
 - **依存**: Task 7.4
 - **推定時間**: 1 時間
+- **完了日**: 2025-10-25
 - **ドキュメント**: [.tmp/tasks/task-7.4.5-campaign-delete.md](.tmp/tasks/task-7.4.5-campaign-delete.md)
 
 ### Task 7.5: Funnel ページ実装
