@@ -33,6 +33,8 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       # Database host points to postgres service in docker network
       DATABASE_HOST: postgres
+      # Redis connection URL points to redis service in docker network
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
       # Encryption key for sensitive data (from .env.test)
       ENCRYPTION_KEY: ${ENCRYPTION_KEY}
     volumes:
