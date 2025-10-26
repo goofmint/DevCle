@@ -234,7 +234,7 @@ interface HookExecutionResultRecord {
 - [ ] `unregisterHook()` 実装
 - [ ] `listHooks()` 実装
 - [ ] `plugin_runs` テーブルへのログ記録実装
-- [ ] Unit Tests 全パス（最低 10 tests）
+- [ ] Unit Tests 全パス
 - [ ] `pnpm typecheck` パス
 - [ ] `pnpm lint` パス
 
