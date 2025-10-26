@@ -12,8 +12,8 @@
 
 ### 責務
 
-- **プラグインの検出**: `node_modules/` から `@drm/plugin-*` パッケージをスキャン
-- **プラグインの読み込み**: package.json のメタデータを読み取り、モジュールを動的ロード
+- **プラグインの検出**: `packages.json` からプラグインをスキャン（プラグイン名が `drowl-plugin-` で始まる NPM パッケージを対象）
+- **プラグインの読み込み**: `plugin.json` のメタデータを読み取り、プラグインモジュールを動的ロード
 - **メタデータ管理**: 検出されたプラグイン情報をキャッシュ
 
 ---
@@ -25,24 +25,24 @@
 #### インタフェース
 
 - `PluginMetadata`: プラグインメタデータ（name, version, displayName, description, author, license, drm config）
-- `LoadedPlugin`: ロード済みプラグイン（metadata, module, packageJsonPath）
+- `LoadedPlugin`: ロード済みプラグイン（metadata, module, pluginJsonPath）
 
 #### 関数
 
 **`discoverPlugins(): Promise<PluginMetadata[]>`**
-- `node_modules/@drm/plugin-*` をスキャン
+- `packages.json` から `drowl-plugin-*` で始まるパッケージをスキャン
 - 本番環境では `/var/lib/drm/cloud-plugins/` もスキャン
-- package.json を読み取り、メタデータを抽出
+- 各プラグインの `plugin.json` を読み取り、メタデータを抽出
 - プラグイン名でソートして返す
 
 **`loadPlugin(packageName: string): Promise<LoadedPlugin>`**
-- `require.resolve()` で package.json パスを解決
+- `require.resolve()` で `plugin.json` パスを解決
 - `getPluginMetadata()` でメタデータ取得
 - `import()` でモジュールを動的ロード
 - `LoadedPlugin` オブジェクトを返す
 
-**`getPluginMetadata(packageJsonPath: string): Promise<PluginMetadata>`**
-- package.json ファイルを読み取り
+**`getPluginMetadata(pluginJsonPath: string): Promise<PluginMetadata>`**
+- `plugin.json` ファイルを読み取り
 - JSON パース & 必須フィールド検証（name, version）
 - `drm` フィールドから設定を抽出
 - `PluginMetadata` を返す
@@ -51,8 +51,8 @@
 
 ## エラーハンドリング
 
-- **プラグインが見つからない**: package.json 不在、require.resolve() 失敗
-- **package.json 不正**: JSON パースエラー、必須フィールド欠如
+- **プラグインが見つからない**: `plugin.json` 不在、require.resolve() 失敗
+- **plugin.json 不正**: JSON パースエラー、必須フィールド欠如
 - **モジュールロードエラー**: import() 失敗、default export なし
 
 ---
@@ -70,7 +70,7 @@
 ### Unit Tests (`core/plugin-system/loader.test.ts`)
 
 - `discoverPlugins()`: プラグイン検出、空配列、フィルタリング、ソート（4 tests）
-- `loadPlugin()`: 正常ロード、プラグイン未検出、package.json 不正、import 失敗（4 tests）
+- `loadPlugin()`: 正常ロード、プラグイン未検出、plugin.json 不正、import 失敗（4 tests）
 - `getPluginMetadata()`: メタデータ抽出、ファイル不在、必須フィールド欠如、drm フィールド（4 tests）
 
 ### Integration Tests
@@ -98,19 +98,19 @@
 
 ### 命名規則
 
-- OSS: `@drm/plugin-{name}` (例: `@drm/plugin-google-analytics`)
-- Cloud: `@drm/plugin-cloud-{name}` (例: `@drm/plugin-cloud-slack`)
+- OSS: `drowl-plugin-{name}` (例: `drowl-plugin-google-analytics`)
+- Cloud: `drowl-plugin-cloud-{name}` (例: `drowl-plugin-cloud-slack`)
 
 ### 配置ディレクトリ
 
-- OSS: `node_modules/@drm/plugin-*`
+- OSS: `packages.json` に登録されたプラグイン
 - Cloud: `/var/lib/drm/cloud-plugins/` (本番のみ)
 
-### package.json 例
+### plugin.json 例
 
 ```json
 {
-  "name": "@drm/plugin-google-analytics",
+  "name": "drowl-plugin-google-analytics",
   "version": "1.0.0",
   "description": "Google Analytics integration for DRM",
   "main": "dist/index.js",
