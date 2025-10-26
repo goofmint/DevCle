@@ -741,16 +741,17 @@
 - **ドキュメント**: [.tmp/tasks/task-8.1-plugin-loader.md](.tmp/tasks/task-8.1-plugin-loader.md)
 - **完了日**: 2025-10-26
 
-### Task 8.2: Hook Registry 実装
+### Task 8.2: Hook Registry 実装 ✅
 
-- [ ] `core/plugin-system/hooks.ts`作成
-- [ ] `registerHook(name, handler)`実装
-- [ ] `executeHook(name, args)`実装
-- [ ] プラグインフックの実行ログ記録（plugin_runs テーブル）
-- **完了条件**: フックが登録・実行される
+- [x] `core/plugin-system/hooks.ts`作成
+- [x] `registerHook(name, handler)`実装
+- [x] `executeHook(name, args)`実装
+- [x] プラグインフックの実行ログ記録（plugin_runs テーブル）
+- **完了条件**: フックが登録・実行される ✓
 - **依存**: Task 8.1
 - **推定時間**: 2 時間
 - **ドキュメント**: [.tmp/tasks/task-8.2-hook-registry.md](.tmp/tasks/task-8.2-hook-registry.md)
+- **完了日**: 2025-10-26
 
 ### Task 8.3: Job Scheduler 実装（BullMQ）
 
