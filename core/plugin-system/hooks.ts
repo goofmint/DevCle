@@ -198,7 +198,8 @@ export async function executeHook<T = unknown>(
 
   // If no handlers registered, return early with empty success result
   if (handlers.length === 0) {
-    // Still log to plugin_runs for monitoring (system-level hook execution)
+    // System hooks (no handlers) do not create plugin_runs DB records.
+    // logHookExecution returns a placeholder runId for monitoring.
     const emptyResult = await logHookExecution(
       hookName,
       tenantId,
@@ -325,18 +326,69 @@ export function listHooks(): Map<string, Array<{ pluginId: string; handler: Hook
 }
 
 /**
+ * Stable stringify helper
+ *
+ * Recursively sorts object keys, handles arrays, null/undefined, and
+ * detects circular references. Produces deterministic JSON strings
+ * for consistent hashing.
+ *
+ * @param value - Value to stringify
+ * @param seen - WeakSet to track circular references
+ * @returns Stable JSON string
+ * @private
+ */
+function stableStringify(value: unknown, seen: WeakSet<object> = new WeakSet()): string {
+  // Handle primitives
+  if (value === null) return 'null';
+  if (value === undefined) return 'undefined';
+  if (typeof value === 'string') return JSON.stringify(value);
+  if (typeof value === 'number') return String(value);
+  if (typeof value === 'boolean') return String(value);
+  if (typeof value === 'function') return '[Function]';
+  if (typeof value === 'symbol') return '[Symbol]';
+
+  // Handle arrays
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stableStringify(item, seen)).join(',')}]`;
+  }
+
+  // Handle objects
+  if (typeof value === 'object') {
+    // Check for circular reference
+    if (seen.has(value)) {
+      return '[Circular]';
+    }
+    seen.add(value);
+
+    // Sort keys and stringify recursively
+    const keys = Object.keys(value).sort();
+    const pairs = keys.map((key) => {
+      const objValue = value as Record<string, unknown>;
+      return `${JSON.stringify(key)}:${stableStringify(objValue[key], seen)}`;
+    });
+
+    return `{${pairs.join(',')}}`;
+  }
+
+  // Fallback for unknown types
+  return '[Unknown]';
+}
+
+/**
  * Compute SHA-256 hash of arguments for deduplication
  *
  * Used to detect duplicate hook executions with identical arguments.
- * Converts arguments to JSON and computes SHA-256 hash.
+ * Converts arguments to canonical JSON string via stableStringify
+ * (which recursively sorts keys, handles null/undefined, and detects
+ * circular references) before computing SHA-256 hash.
  *
  * @param args - Hook arguments to hash
  * @returns Hex-encoded SHA-256 hash
  * @private
  */
 function computeArgsHash(args: unknown): string {
-  // Convert args to stable JSON string (sorted keys for consistency)
-  const argsJson = JSON.stringify(args, Object.keys(args as object).sort());
+  // Convert args to stable JSON string (deterministic for all inputs)
+  const argsJson = stableStringify(args);
 
   // Compute SHA-256 hash
   const hash = createHash('sha256');
