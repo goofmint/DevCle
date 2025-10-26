@@ -35,6 +35,23 @@ describe('Activity Type Service', () => {
     await runInTenant(TEST_TENANT_ID, async (tx) => {
       await tx.delete(schema.activityTypes);
     });
+
+    // Seed funnel_stages table (required for foreign key constraints)
+    await runInTenant(TEST_TENANT_ID, async (tx) => {
+      // Clear existing activity funnel map first (foreign key dependency)
+      await tx.delete(schema.activityFunnelMap);
+
+      // Clear existing funnel stages
+      await tx.delete(schema.funnelStages);
+
+      // Insert standard funnel stages
+      await tx.insert(schema.funnelStages).values([
+        { stageKey: 'awareness', orderNo: 1, title: 'Awareness' },
+        { stageKey: 'engagement', orderNo: 2, title: 'Engagement' },
+        { stageKey: 'adoption', orderNo: 3, title: 'Adoption' },
+        { stageKey: 'advocacy', orderNo: 4, title: 'Advocacy' },
+      ]);
+    });
   });
 
   describe('createActivityType', () => {
