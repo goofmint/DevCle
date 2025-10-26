@@ -1,0 +1,9 @@
+{
+  "name": "drowl-plugin-test-valid",
+  "version": "1.0.0",
+  "displayName": "Test Valid Plugin",
+  "description": "A valid test plugin for unit testing",
+  "author": "Test Author",
+  "license": "MIT",
+  "main": "index.js"
+}

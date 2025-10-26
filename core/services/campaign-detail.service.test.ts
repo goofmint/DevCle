@@ -181,9 +181,9 @@ describe('Campaign Detail Service - getBudgets()', () => {
   });
 
   it('should return empty array for campaign with no budgets', async () => {
-    // Use a different seeded campaign without budgets
-    const blogCampaignId = '10000000-0000-4000-8000-000000000002';
-    const result = await getBudgets(TEST_TENANT_ID, blogCampaignId);
+    // Use sponsor campaign which has no budgets (community-driven)
+    const sponsorCampaignId = '10000000-0000-4000-8000-000000000003';
+    const result = await getBudgets(TEST_TENANT_ID, sponsorCampaignId);
 
     expect(result.budgets).toEqual([]);
     expect(result.total).toBe(0);

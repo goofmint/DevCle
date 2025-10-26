@@ -1,0 +1,5 @@
+{
+  "name": "drowl-plugin-no-displayname",
+  "version": "1.0.0",
+  "description": "Test plugin without displayName field"
+}

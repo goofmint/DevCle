@@ -738,6 +738,7 @@
 - **完了条件**: プラグインが検出される
 - **依存**: Task 3.6
 - **推定時間**: 3 時間
+- **ドキュメント**: [.tmp/tasks/task-8.1-plugin-loader.md](.tmp/tasks/task-8.1-plugin-loader.md)
 
 ### Task 8.2: Hook Registry 実装
 

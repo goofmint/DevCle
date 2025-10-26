@@ -1,0 +1,6 @@
+{
+  "name": "drowl-plugin-test-no-main",
+  "version": "1.0.0",
+  "displayName": "Test No Main Plugin",
+  "description": "A test plugin without main field"
+}
