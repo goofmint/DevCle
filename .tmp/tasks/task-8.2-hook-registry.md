@@ -97,6 +97,99 @@ interface HookExecutionResult {
 
 ---
 
+## `plugin_runs` テーブルスキーマ
+
+Hook Registry は既存の `plugin_runs` テーブルにフック実行ログを記録します。
+
+### テーブル構造
+
+| カラム名 | 型 | 必須 | デフォルト | 説明 |
+|---------|-----|------|-----------|------|
+| `run_id` | UUID | ✓ | `uuid_generate_v4()` | 実行ログの一意識別子（Primary Key） |
+| `tenant_id` | TEXT | ✓ | - | テナント ID（FK to `tenants.tenant_id`, CASCADE DELETE） |
+| `plugin_id` | UUID | ✓ | - | プラグイン ID（FK to `plugins.plugin_id`, CASCADE DELETE） |
+| `trigger` | TEXT | ✓ | - | トリガー種別（"hook" / "cron" / "manual" / "webhook"） |
+| `started_at` | TIMESTAMPTZ | ✓ | `now()` | 実行開始時刻 |
+| `finished_at` | TIMESTAMPTZ |  | - | 実行終了時刻（完了時に更新） |
+| `status` | TEXT | ✓ | `"running"` | 実行ステータス（"running" / "success" / "failed" / "partial"） |
+| `result` | JSONB |  | - | 実行結果の詳細情報（構造は下記参照） |
+
+### インデックス
+
+- `idx_plugin_runs_tenant_plugin_time` - `(tenant_id, plugin_id, started_at DESC)`
+  - 用途: テナント・プラグインごとの最近の実行ログを高速に取得
+
+### `result` フィールドの構造（Hook Registry での使用）
+
+```typescript
+interface HookExecutionResultRecord {
+  hookName: string;           // 実行されたフック名（例: "after:activity:create"）
+  argsHash: string;           // 引数のハッシュ値（重複実行検出用、SHA-256）
+  errors: Array<{             // エラー詳細（空配列の場合は全て成功）
+    pluginId: string;
+    errorMessage: string;
+    stack?: string;           // スタックトレース（開発環境のみ）
+  }>;
+  handlerCount: number;       // 実行されたハンドラ数
+  successCount: number;       // 成功したハンドラ数
+  failureCount: number;       // 失敗したハンドラ数
+}
+```
+
+### サンプルログ行
+
+#### 成功例
+
+```json
+{
+  "run_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "tenant_id": "default",
+  "plugin_id": "550e8400-e29b-41d4-a716-446655440000",
+  "trigger": "hook",
+  "started_at": "2025-10-26T12:34:56.789Z",
+  "finished_at": "2025-10-26T12:34:57.123Z",
+  "status": "success",
+  "result": {
+    "hookName": "after:activity:create",
+    "argsHash": "5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8",
+    "errors": [],
+    "handlerCount": 3,
+    "successCount": 3,
+    "failureCount": 0
+  }
+}
+```
+
+#### エラー例（一部失敗）
+
+```json
+{
+  "run_id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+  "tenant_id": "default",
+  "plugin_id": "550e8400-e29b-41d4-a716-446655440000",
+  "trigger": "hook",
+  "started_at": "2025-10-26T12:35:00.000Z",
+  "finished_at": "2025-10-26T12:35:01.456Z",
+  "status": "partial",
+  "result": {
+    "hookName": "before:campaign:update",
+    "argsHash": "a3c5b2f8e9d1c4a7b6f3e2d8c1a9b7f6e5d4c3a2b1f9e8d7c6a5b4f3e2d1c0b9",
+    "errors": [
+      {
+        "pluginId": "660e8400-e29b-41d4-a716-446655440001",
+        "errorMessage": "Failed to send Slack notification: Connection timeout",
+        "stack": "Error: Connection timeout\n    at SlackClient.send (/app/plugins/slack/client.ts:45:11)"
+      }
+    ],
+    "handlerCount": 2,
+    "successCount": 1,
+    "failureCount": 1
+  }
+}
+```
+
+---
+
 ## エラーハンドリング
 
 - **ハンドラ実行エラー**: ログに記録し、次のハンドラを実行（Fail-Safe）
