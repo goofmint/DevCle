@@ -150,9 +150,14 @@ export async function updatePluginEnabled(
         version: pluginConfig.basicInfo.version,
       };
     } catch (error) {
-      // If filesystem read fails, return DB data only
+      // If filesystem read fails, return DB data with fallback values
+      // Note: DB schema doesn't have 'version' field, so we use a default value
       console.warn(`Failed to read plugin.json for ${updated.key}:`, error);
-      return updated;
+      return {
+        ...updated,
+        name: updated.name || updated.key || 'unknown-plugin',
+        version: '0.0.0',
+      };
     }
   });
 }
