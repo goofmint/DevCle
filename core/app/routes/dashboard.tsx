@@ -35,7 +35,13 @@ import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline';
 import { requireAuth } from '~/auth.middleware';
 import { DashboardSidebar } from '~/components/dashboard/Sidebar';
 import { DashboardHeader } from '~/components/dashboard/Header';
-import type { DashboardLayoutData, NavigationItem, User } from '~/types/dashboard';
+import type { DashboardLayoutData, NavigationItem, NavigationItemChild, User } from '~/types/dashboard';
+import {
+  getPluginMenuItems,
+  filterMenuItemsByPermission,
+  type PluginMenuItem,
+  type PluginMenuItemChild,
+} from '../../plugin-system/menu.js';
 
 /**
  * Meta function - Sets the page title
@@ -110,8 +116,9 @@ const CORE_NAVIGATION_ITEMS: NavigationItem[] = [
  * Steps:
  * 1. Authenticate user (requireAuth throws redirect if not authenticated)
  * 2. Get user information from session
- * 3. Get navigation items (core + plugin items, but plugins are Task 8.1)
- * 4. Return data for the dashboard layout
+ * 3. Get plugin menu items and filter by permissions
+ * 4. Merge core navigation items with plugin menu items
+ * 5. Return data for the dashboard layout
  */
 export async function loader({ request }: LoaderFunctionArgs) {
   // Authenticate user
@@ -119,28 +126,100 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const authUser = await requireAuth(request);
 
   // Convert auth user to dashboard User type
+  // Admin users get wildcard capability for permission filtering
   const user: User = {
     userId: authUser.userId,
     email: authUser.email,
     displayName: authUser.displayName || authUser.email,
     role: authUser.role,
     tenantId: authUser.tenantId,
-    // avatarUrl is optional, so we don't include it here
-    // TODO: Add avatar support in future
+    capabilities: authUser.role === 'admin' ? ['*'] : [],
   };
 
-  // Get navigation items
-  // For now, just return core items
-  // Task 8.1 will implement plugin-registered items
-  const navigationItems = [...CORE_NAVIGATION_ITEMS].sort(
-    (a, b) => (a.order || 0) - (b.order || 0)
+  // Get plugin menu items with error handling
+  // If plugin menu loading fails, continue with empty array (graceful degradation)
+  let pluginMenuItems: PluginMenuItem[] = [];
+  try {
+    // Load all plugin menu items for this tenant
+    const rawPluginMenus = await getPluginMenuItems(authUser.tenantId);
+
+    // Filter by user permissions
+    const userCapabilities = user.capabilities || [];
+    pluginMenuItems = filterMenuItemsByPermission(rawPluginMenus, userCapabilities);
+  } catch (error) {
+    // Log error but don't throw - page should load even if plugin menus fail
+    console.error('[Dashboard Loader] Failed to load plugin menu items:', error);
+    pluginMenuItems = [];
+  }
+
+  // Convert plugin menu items to NavigationItems
+  const pluginNavigationItems: NavigationItem[] = pluginMenuItems.map((pluginMenu) =>
+    convertPluginMenuToNavigationItem(pluginMenu)
   );
+
+  // Merge core navigation items with plugin items
+  // Core items have order 10-100, plugin items have order 500-999
+  const allNavigationItems = [
+    ...CORE_NAVIGATION_ITEMS,
+    ...pluginNavigationItems,
+  ].sort((a, b) => (a.order || 0) - (b.order || 0));
 
   // Return dashboard data
   return json<DashboardLayoutData>({
     user,
-    navigationItems,
+    navigationItems: allNavigationItems,
   });
+}
+
+/**
+ * Convert PluginMenuItem to NavigationItem
+ *
+ * Maps plugin menu structure to navigation item structure.
+ * - Generates unique key from plugin key and path
+ * - Converts children if present
+ * - Sets order to 500 (plugin items appear after core items but before settings)
+ *
+ * @param pluginMenu - Plugin menu item from plugin.json
+ * @returns NavigationItem for sidebar rendering
+ * @private
+ */
+function convertPluginMenuToNavigationItem(
+  pluginMenu: PluginMenuItem
+): NavigationItem {
+  // Generate unique key: pluginKey + path hash
+  // This ensures uniqueness even if multiple plugins have same label
+  const key = `plugin-${pluginMenu.pluginKey}-${pluginMenu.path.replace(/\//g, '-')}`;
+
+  // Create base navigation item
+  const navItem: NavigationItem = {
+    key,
+    label: pluginMenu.label,
+    path: pluginMenu.path,
+    icon: pluginMenu.icon || 'puzzle-piece', // Default icon for plugins
+    pluginId: pluginMenu.pluginKey,
+    order: 500, // Plugin items appear after core items (10-100) but before settings (1000)
+  };
+
+  // Add children only if they exist (exactOptionalPropertyTypes compliance)
+  if (pluginMenu.children && pluginMenu.children.length > 0) {
+    navItem.children = pluginMenu.children.map((child: PluginMenuItemChild) => {
+      const navChild: NavigationItemChild = {
+        key: `plugin-${child.pluginKey}-${child.path.replace(/\//g, '-')}`,
+        label: child.label,
+        path: child.path,
+        pluginId: child.pluginKey,
+      };
+
+      // Add icon only if present (exactOptionalPropertyTypes compliance)
+      if (child.icon !== undefined) {
+        navChild.icon = child.icon;
+      }
+
+      return navChild;
+    });
+  }
+
+  return navItem;
 }
 
 /**

@@ -6,10 +6,58 @@
  */
 
 /**
- * Navigation item type
+ * Child navigation item type (Level 2)
  *
- * Represents a single navigation item in the sidebar.
+ * Represents a second-level navigation item in the sidebar.
+ * Cannot have children (maximum 2 levels enforced).
+ */
+export interface NavigationItemChild {
+  /**
+   * Unique key for the navigation item
+   * Used for React keys and identification
+   */
+  key: string;
+
+  /**
+   * Display label
+   * Shown in the sidebar navigation
+   */
+  label: string;
+
+  /**
+   * Route path
+   * The URL path this item links to
+   * Example: '/dashboard/plugins/github/settings'
+   */
+  path: string;
+
+  /**
+   * Icon name (from icon library or Iconify)
+   * Example: 'users', 'mdi:account-multiple'
+   */
+  icon?: string;
+
+  /**
+   * Badge text (optional, for notifications)
+   * Displayed as a small badge next to the label
+   * Example: '3' for 3 unread notifications
+   */
+  badge?: string;
+
+  /**
+   * Plugin ID (if registered by a plugin)
+   * Undefined for core navigation items
+   * Set by plugins when registering custom navigation items
+   */
+  pluginId?: string;
+}
+
+/**
+ * Navigation item type (Level 1)
+ *
+ * Represents a top-level navigation item in the sidebar.
  * Can be a core item or a plugin-registered item.
+ * Can have children (max 2 levels total).
  */
 export interface NavigationItem {
   /**
@@ -32,9 +80,10 @@ export interface NavigationItem {
   path: string;
 
   /**
-   * Icon name (from icon library)
-   * Should match Heroicons icon names
-   * Example: 'home', 'users', 'megaphone'
+   * Icon name (from icon library or Iconify)
+   * Should match Heroicons icon names for core items
+   * Can be Iconify icon names for plugin items
+   * Example: 'home', 'users', 'mdi:chart-line'
    */
   icon: string;
 
@@ -66,6 +115,13 @@ export interface NavigationItem {
    * Bottom items: 1000+
    */
   order?: number;
+
+  /**
+   * Child navigation items (Level 2 only, no further nesting)
+   * Plugin menu items can have children
+   * Maximum depth: 2 levels
+   */
+  children?: NavigationItemChild[];
 }
 
 /**
@@ -132,4 +188,12 @@ export interface User {
    * If not provided, initials will be shown instead
    */
   avatarUrl?: string;
+
+  /**
+   * User capabilities (permissions)
+   * Used for filtering plugin menu items and other permission checks
+   * Admin users typically have ["*"] (wildcard)
+   * Example: ["analytics:read", "campaigns:write"]
+   */
+  capabilities?: string[];
 }
