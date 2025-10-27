@@ -6,9 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **DRM (Developer Relationship Management)** is a DevRel analytics tool with a 3-tier architecture:
 - `/core/` - OSS core functionality (ID resolution, funnel analysis, data management)
-  this is git submodule. The real source is at: ../drm-core
+  this is git submodule. The real source is at: ./core
 - `/plugins/` - Cloud plugins for external API integrations and AI analysis
-  this is git submodule. The real source is at: ../drm-plugins
+  this is git submodule. The real source is at: ../plugins
 
 The project aims to provide both individual/organization funnel analysis and anonymous campaign contribution analysis without first-party cookies, using server-to-server integration.
 
@@ -49,7 +49,6 @@ This is an **early-stage project** with specification documents in `.tmp/` but m
 
 ### Plugin System
 - Core never changes; all extensions via plugins
-- OSS plugins from `/plugins`, Cloud plugins from `/var/lib/drm/cloud-plugins`
 - Signature verification (RSA256) for commercial plugins
 
 ### Multi-Tenant by Default

@@ -30,7 +30,8 @@
   "mounts": [
     "source=claude-code-bashhistory-${devcontainerId},target=/commandhistory,type=volume",
     "source=claude-code-config-${devcontainerId},target=/home/node/.claude,type=volume",
-    "type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock"
+    "type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock",
+    "type=bind,source=${localWorkspaceFolder}/../plugins,target=/plugins"
   ],
   "containerEnv": {
     "NODE_OPTIONS": "--max-old-space-size=4096",

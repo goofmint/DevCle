@@ -22,6 +22,7 @@
     "db:seed": "tsx db/seed.ts"
   },
   "dependencies": {
+    "drowl-plugin-test": "file:../plugins/drowl-plugin-test",
     "@aws-sdk/client-s3": "^3.913.0",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",

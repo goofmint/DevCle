@@ -1,0 +1,20 @@
+{
+  "name": "drm-workspace",
+  "version": "0.1.0",
+  "private": true,
+  "description": "DRM (Developer Relationship Management) - DevRel analytics tool",
+  "type": "module",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "scripts": {
+    "dev": "cd core && pnpm dev",
+    "build": "cd core && pnpm build",
+    "test": "cd core && pnpm test",
+    "typecheck": "cd core && pnpm typecheck"
+  },
+  "dependencies": {
+    "drowl-plugin-test": "file:./plugins/drowl-plugin-test"
+  }
+}

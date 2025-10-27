@@ -16,7 +16,7 @@
  * 5. Design is consistent (no layout issues, proper spacing)
  */
 
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 
 // Base URL for the application (use HTTPS for E2E tests)
 const BASE_URL = process.env['BASE_URL'] || 'https://devcle.test';
@@ -26,7 +26,7 @@ const BASE_URL = process.env['BASE_URL'] || 'https://devcle.test';
  *
  * Logs in with test credentials and navigates to plugins page.
  */
-async function loginAndNavigate(page: Parameters<typeof test>[1]['page']) {
+async function loginAndNavigate(page: Page) {
   // Navigate to login page
   await page.goto(`${BASE_URL}/login`);
   await page.waitForLoadState('networkidle');
