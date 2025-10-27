@@ -1,13 +1,15 @@
 /**
- * Plugin Detail API - Get Plugin Details
+ * Plugin Detail API - Get Plugin Details and Toggle Plugin Status
  *
  * Provides detailed information about a specific plugin, including:
  * - Plugin configuration and status (with sensitive config redacted)
  * - Registered hooks
  * - Registered scheduled jobs with last run timestamps
  *
- * Endpoint:
+ * Endpoints:
  * - GET /api/plugins/:id - Get plugin details
+ * - PUT /api/plugins/:id - Enable plugin
+ * - DELETE /api/plugins/:id - Disable plugin
  *
  * Security:
  * - Authentication required (requireAuth)
@@ -19,6 +21,7 @@
 import {
   json,
   type LoaderFunctionArgs,
+  type ActionFunctionArgs,
 } from '@remix-run/node';
 import { requireAuth } from '~/auth.middleware.js';
 import { isValidUUID } from '~/utils/validation.js';
@@ -162,6 +165,109 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     const errorResponse: ApiErrorResponse = {
       status: 500,
       message: 'Failed to get plugin details',
+    };
+    return json(errorResponse, { status: 500 });
+  }
+}
+
+/**
+ * PUT /api/plugins/:id - Enable plugin
+ * DELETE /api/plugins/:id - Disable plugin
+ *
+ * Toggles the enabled status of a plugin.
+ *
+ * Response:
+ * 200 OK
+ * {
+ *   success: true,
+ *   plugin: { ... updated plugin data ... }
+ * }
+ *
+ * Error Responses:
+ * - 400 Bad Request: Invalid plugin ID format
+ * - 401 Unauthorized: Not authenticated
+ * - 404 Not Found: Plugin not found
+ * - 500 Internal Server Error: Database error
+ */
+export async function action({ request, params }: ActionFunctionArgs) {
+  try {
+    // 1. Authentication check
+    const user = await requireAuth(request);
+    const tenantId = user.tenantId;
+
+    // 2. Validate plugin ID format
+    const pluginId = params['id'];
+    if (!isValidUUID(pluginId)) {
+      const errorResponse: ApiErrorResponse = {
+        status: 400,
+        message: 'Invalid plugin ID format (must be UUID)',
+        code: 'INVALID_UUID',
+      };
+      return json(errorResponse, { status: 400 });
+    }
+
+    // 3. Determine new enabled status based on HTTP method
+    const method = request.method;
+    const newEnabled = method === 'PUT'; // PUT = enable, DELETE = disable
+
+    // 4. Update plugin in database
+    const updatedPlugin = await withTenantContext(tenantId, async (tx) => {
+      // First check if plugin exists
+      const existing = await tx
+        .select()
+        .from(schema.plugins)
+        .where(eq(schema.plugins.pluginId, pluginId))
+        .limit(1);
+
+      if (existing.length === 0) {
+        return null;
+      }
+
+      // Update enabled status
+      const updated = await tx
+        .update(schema.plugins)
+        .set({
+          enabled: newEnabled,
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.plugins.pluginId, pluginId))
+        .returning();
+
+      return updated[0];
+    });
+
+    // 5. Check if plugin exists
+    if (!updatedPlugin) {
+      const errorResponse: ApiErrorResponse = {
+        status: 404,
+        message: 'Plugin not found',
+        code: 'PLUGIN_NOT_FOUND',
+      };
+      return json(errorResponse, { status: 404 });
+    }
+
+    // 6. Transform plugin data to API format (redact sensitive config)
+    const plugin: PluginInfo = {
+      pluginId: updatedPlugin.pluginId,
+      key: updatedPlugin.key,
+      name: updatedPlugin.name,
+      version: '1.0.0',
+      enabled: updatedPlugin.enabled,
+      config: redactConfig(updatedPlugin.config),
+      installedAt: updatedPlugin.createdAt.toISOString(),
+      updatedAt: updatedPlugin.updatedAt.toISOString(),
+    };
+
+    // 7. Return success response
+    return json({ success: true, plugin }, { status: 200 });
+  } catch (error) {
+    // Log error for debugging
+    console.error('Error toggling plugin:', error);
+
+    // Return generic error response
+    const errorResponse: ApiErrorResponse = {
+      status: 500,
+      message: 'Failed to update plugin',
     };
     return json(errorResponse, { status: 500 });
   }

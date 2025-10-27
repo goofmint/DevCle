@@ -191,8 +191,9 @@ test('dark mode has correct color contrast', async ({ page }) => {
   });
 
   // Verify light mode has light background and dark text
+  // Note: Tailwind 4.x uses OKLCH color space by default
   expect(lightBgColor).toMatch(/rgb\(255, 255, 255\)/); // white
-  expect(lightTextColor).toMatch(/rgb\((17|31|55), (24|41|71), (39|55|87)\)/); // gray-900
+  expect(lightTextColor).toMatch(/oklch\(0\.\d+\s+[\d.]+\s+[\d.]+\)|rgb\((17|31|55), (24|41|71), (39|55|87)\)/); // dark text (oklch or rgb)
 
   // Switch to dark mode (toggle dark mode button)
   const darkModeToggle = page.locator('button[aria-label*="theme"]').or(
@@ -215,8 +216,9 @@ test('dark mode has correct color contrast', async ({ page }) => {
     });
 
     // Verify dark mode has dark background and light text
-    expect(darkBgColor).toMatch(/rgb\((31|55), (41|65), (51|85)\)/); // gray-800
-    expect(darkTextColor).toMatch(/rgb\((243|249|255), (244|250|255), (246|251|255)\)/); // gray-100
+    // Note: Tailwind 4.x uses OKLCH color space by default
+    expect(darkBgColor).toMatch(/oklch\(0\.\d+\s+[\d.]+\s+[\d.]+\)|rgb\((31|55), (41|65), (51|85)\)/); // dark background (oklch or rgb)
+    expect(darkTextColor).toMatch(/oklch\(0\.\d+\s+[\d.]+\s+[\d.]+\)|rgb\((243|249|255), (244|250|255), (246|251|255)\)/); // light text (oklch or rgb)
   }
 });
 
