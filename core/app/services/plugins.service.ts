@@ -8,21 +8,65 @@
 import { withTenantContext } from '../../db/connection.js';
 import * as schema from '../../db/schema/index.js';
 import { eq, and } from 'drizzle-orm';
+import {
+  listAvailablePlugins,
+  getPluginConfig,
+  pluginExists,
+} from '../../services/plugin/plugin-config.service.js';
 
 /**
  * List all plugins for a tenant
  *
+ * Reads from filesystem (plugin.json) as source of truth and merges with DB state.
+ * Only returns plugins that actually exist in the filesystem.
+ *
  * @param tenantId - Tenant ID
- * @returns Array of plugin records
+ * @returns Array of plugin records with merged data from filesystem and DB
  */
 export async function listPlugins(tenantId: string) {
-  return await withTenantContext(tenantId, async (tx) => {
+  // 1. Get all available plugins from filesystem
+  const availablePluginKeys = await listAvailablePlugins();
+
+  // 2. Get DB state for all plugins
+  const dbPlugins = await withTenantContext(tenantId, async (tx) => {
     return await tx
       .select()
       .from(schema.plugins)
-      .where(eq(schema.plugins.tenantId, tenantId))
-      .orderBy(schema.plugins.createdAt);
+      .where(eq(schema.plugins.tenantId, tenantId));
   });
+
+  // 3. Create a map of DB state by plugin key
+  const dbPluginMap = new Map(dbPlugins.map((p) => [p.key, p]));
+
+  // 4. Merge filesystem data with DB state
+  const mergedPlugins = [];
+  for (const pluginKey of availablePluginKeys) {
+    try {
+      // Get plugin config from filesystem
+      const config = await getPluginConfig(pluginKey, tenantId);
+
+      // Get DB state (if exists)
+      const dbPlugin = dbPluginMap.get(pluginKey);
+
+      // Merge data
+      mergedPlugins.push({
+        pluginId: dbPlugin?.pluginId ?? '',
+        tenantId,
+        key: pluginKey,
+        name: config.basicInfo.name,
+        version: config.basicInfo.version,
+        enabled: dbPlugin?.enabled ?? false,
+        config: dbPlugin?.config ?? {},
+        createdAt: dbPlugin?.createdAt ?? new Date(),
+        updatedAt: dbPlugin?.updatedAt ?? new Date(),
+      });
+    } catch (error) {
+      // Skip plugins that can't be loaded
+      console.warn(`Failed to load plugin ${pluginKey}:`, error);
+    }
+  }
+
+  return mergedPlugins;
 }
 
 /**
@@ -54,11 +98,13 @@ export async function getPluginById(tenantId: string, pluginId: string) {
 /**
  * Update plugin enabled status
  *
+ * Merges DB state with filesystem data (plugin.json) for response.
+ *
  * @param tenantId - Tenant ID
  * @param pluginId - Plugin ID
  * @param enabled - New enabled status
  * @param config - Optional configuration update
- * @returns Updated plugin record or null if not found
+ * @returns Updated plugin record with data from filesystem, or null if not found
  */
 export async function updatePluginEnabled(
   tenantId: string,
@@ -89,7 +135,30 @@ export async function updatePluginEnabled(
       )
       .returning();
 
-    return updated ?? null;
+    if (!updated) {
+      return null;
+    }
+
+    // Get plugin metadata from filesystem
+    try {
+      const pluginConfig = await getPluginConfig(updated.key, tenantId);
+
+      // Merge DB state with filesystem data
+      return {
+        ...updated,
+        name: pluginConfig.basicInfo.name,
+        version: pluginConfig.basicInfo.version,
+      };
+    } catch (error) {
+      // If filesystem read fails, return DB data with fallback values
+      // Note: DB schema doesn't have 'version' field, so we use a default value
+      console.warn(`Failed to read plugin.json for ${updated.key}:`, error);
+      return {
+        ...updated,
+        name: updated.name || updated.key || 'unknown-plugin',
+        version: '0.0.0',
+      };
+    }
   });
 }
 

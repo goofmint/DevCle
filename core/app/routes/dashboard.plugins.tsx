@@ -12,6 +12,7 @@
  */
 
 import { useEffect, useState } from 'react';
+import { Link } from '@remix-run/react';
 import { Icon } from '@iconify/react';
 import type { PluginInfo } from '../types/plugin-api.js';
 
@@ -167,9 +168,12 @@ export default function PluginsPage() {
             {/* Plugin header */}
             <div className="flex items-start justify-between mb-4">
               <div className="flex-1">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                <Link
+                  to={`/dashboard/plugins/${plugin.key}/config`}
+                  className="text-lg font-semibold text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                >
                   {plugin.name}
-                </h3>
+                </Link>
                 <p className="text-sm text-gray-500 dark:text-gray-400">{plugin.key}</p>
               </div>
               <div
