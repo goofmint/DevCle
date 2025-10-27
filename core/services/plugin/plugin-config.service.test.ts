@@ -141,6 +141,9 @@ async function cleanupTestPlugins(): Promise<void> {
 
 describe('plugin-config.service', () => {
   beforeAll(async () => {
+    // Configure service to use test plugins directory
+    process.env.PLUGINS_DIR = TEST_PLUGINS_DIR;
+
     // Create test plugins
     await createTestPlugin(
       'test-complete-plugin',
@@ -152,12 +155,15 @@ describe('plugin-config.service', () => {
   afterAll(async () => {
     // Clean up test plugins
     await cleanupTestPlugins();
+
+    // Restore environment
+    delete process.env.PLUGINS_DIR;
   });
 
   describe('pluginExists', () => {
     it('should return true for existing plugins', async () => {
-      // Use real plugin from /workspace/plugins
-      const exists = await pluginExists('drowl-plugin-test');
+      // Use test plugin from TEST_PLUGINS_DIR
+      const exists = await pluginExists('test-complete-plugin');
       expect(exists).toBe(true);
     });
 
@@ -169,14 +175,16 @@ describe('plugin-config.service', () => {
 
   describe('getPluginConfig', () => {
     it('should successfully read and parse complete plugin config', async () => {
-      // Note: This test uses actual file system, not mock
-      // We'll use the existing drowl-plugin-test plugin
-      const config = await getPluginConfig('drowl-plugin-test', 'default');
+      // Test with complete plugin fixture
+      const config = await getPluginConfig('test-complete-plugin', 'default');
 
       expect(config).toBeDefined();
       expect(config.basicInfo).toBeDefined();
-      expect(config.basicInfo.name).toBe('drowl-plugin-test');
-      expect(config.basicInfo.version).toBeDefined();
+      expect(config.basicInfo.id).toBe('test-complete-plugin');
+      expect(config.basicInfo.name).toBe('Complete Test Plugin');
+      expect(config.basicInfo.version).toBe('1.0.0');
+      expect(config.basicInfo.vendor).toBe('Test Vendor');
+      expect(config.basicInfo.license).toBe('MIT');
     });
 
     it('should throw error for non-existing plugin', async () => {
@@ -186,12 +194,15 @@ describe('plugin-config.service', () => {
     });
 
     it('should handle plugin with minimal fields', async () => {
-      const config = await getPluginConfig('drowl-plugin-test', 'default');
+      const config = await getPluginConfig('test-minimal-plugin', 'default');
 
       // Should provide default values for missing fields
       expect(config.capabilities).toBeDefined();
       expect(config.settingsSchema).toBeDefined();
       expect(config.routes).toBeDefined();
+      expect(Array.isArray(config.capabilities.scopes)).toBe(true);
+      expect(Array.isArray(config.settingsSchema)).toBe(true);
+      expect(Array.isArray(config.routes)).toBe(true);
     });
   });
 
@@ -199,9 +210,11 @@ describe('plugin-config.service', () => {
     it('should list available plugins', async () => {
       const plugins = await listAvailablePlugins();
 
-      // Should at least include drowl-plugin-test
-      expect(plugins).toContain('drowl-plugin-test');
+      // Should include both test plugins
+      expect(plugins).toContain('test-complete-plugin');
+      expect(plugins).toContain('test-minimal-plugin');
       expect(Array.isArray(plugins)).toBe(true);
+      expect(plugins.length).toBe(2);
     });
 
     it('should exclude hidden directories', async () => {

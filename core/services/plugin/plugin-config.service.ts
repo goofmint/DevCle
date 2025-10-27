@@ -5,26 +5,66 @@
 
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type {
   PluginConfigInfo,
   PluginManifest,
   PluginBasicInfo,
 } from './plugin-config.types.js';
 
-/**
- * Base directory for plugins
- * Plugins are located in /workspace/plugins directory
- */
-const PLUGINS_BASE_DIR = path.resolve(process.cwd(), '..', 'plugins');
+// Get __dirname equivalent in ESM
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 /**
- * Get the plugin directory path
+ * Get base directory for plugins
+ * Can be overridden via PLUGINS_DIR environment variable
+ * Default: /workspace/plugins (relative to project root)
+ *
+ * @returns Absolute path to plugins directory
+ */
+function getPluginsBaseDir(): string {
+  return process.env.PLUGINS_DIR
+    ? path.resolve(process.env.PLUGINS_DIR)
+    : path.resolve(__dirname, '..', '..', '..', 'plugins');
+}
+
+/**
+ * Get the plugin directory path with path traversal protection
  *
  * @param pluginId - Plugin identifier
  * @returns Absolute path to plugin directory
+ * @throws {Error} If pluginId contains path traversal attempts
  */
 function getPluginDirectory(pluginId: string): string {
-  return path.join(PLUGINS_BASE_DIR, pluginId);
+  // Validate pluginId
+  if (!pluginId) {
+    throw new Error(`Invalid plugin ID: cannot be empty`);
+  }
+
+  // Use path.basename to extract only the final component, preventing traversal
+  const sanitizedId = path.basename(pluginId);
+
+  // Additional validation: ensure no path separators or dots remain
+  if (sanitizedId.includes('..') || sanitizedId.includes('/') || sanitizedId.includes('\\')) {
+    throw new Error(`Invalid plugin ID: path traversal detected`);
+  }
+
+  // Validate against allowed plugin ID pattern (alphanumeric, hyphens, underscores, dots)
+  if (!/^[a-zA-Z0-9._-]+$/.test(sanitizedId)) {
+    throw new Error(`Invalid plugin ID: contains disallowed characters`);
+  }
+
+  // Build absolute path and verify it's inside plugins base directory
+  const pluginsBaseDir = getPluginsBaseDir();
+  const resolvedPath = path.resolve(pluginsBaseDir, sanitizedId);
+  const normalizedBase = path.resolve(pluginsBaseDir);
+
+  if (!resolvedPath.startsWith(normalizedBase + path.sep) && resolvedPath !== normalizedBase) {
+    throw new Error(`Invalid plugin ID: path traversal detected`);
+  }
+
+  return resolvedPath;
 }
 
 /**
@@ -64,8 +104,23 @@ async function readPluginManifest(pluginId: string): Promise<PluginManifest> {
   const manifestPath = getPluginManifestPath(pluginId);
 
   try {
-    const content = await fs.readFile(manifestPath, 'utf-8');
-    const manifest = JSON.parse(content) as PluginManifest;
+    let content = await fs.readFile(manifestPath, 'utf-8');
+
+    // Strip UTF-8 BOM if present
+    if (content.charCodeAt(0) === 0xFEFF) {
+      content = content.slice(1);
+    }
+
+    // Parse JSON with normalized error handling
+    let manifest: PluginManifest;
+    try {
+      manifest = JSON.parse(content) as PluginManifest;
+    } catch (parseError) {
+      // Normalize parse errors to avoid exposing unstable SyntaxError messages
+      throw new Error(
+        `Plugin manifest for '${pluginId}' is malformed: invalid JSON format`
+      );
+    }
 
     // Use 'name' as 'id' if 'id' is not provided (backward compatibility)
     if (!manifest.id && manifest.name) {
@@ -75,7 +130,7 @@ async function readPluginManifest(pluginId: string): Promise<PluginManifest> {
     // Validate required fields
     if (!manifest.id || !manifest.name || !manifest.version) {
       throw new Error(
-        'Invalid plugin.json: missing required fields (id, name, version)'
+        `Plugin manifest for '${pluginId}' is invalid: missing required fields (id, name, version)`
       );
     }
 
@@ -85,12 +140,10 @@ async function readPluginManifest(pluginId: string): Promise<PluginManifest> {
       if ('code' in error && error.code === 'ENOENT') {
         throw new Error(`Plugin not found: ${pluginId}`);
       }
-      if (error instanceof SyntaxError) {
-        throw new Error(`Invalid plugin.json format: ${error.message}`);
-      }
+      // Re-throw our normalized errors
       throw error;
     }
-    throw new Error(`Failed to read plugin manifest: ${String(error)}`);
+    throw new Error(`Failed to read plugin manifest for '${pluginId}': ${String(error)}`);
   }
 }
 
@@ -157,7 +210,8 @@ export async function getPluginConfig(
  */
 export async function listAvailablePlugins(): Promise<string[]> {
   try {
-    const entries = await fs.readdir(PLUGINS_BASE_DIR, {
+    const pluginsBaseDir = getPluginsBaseDir();
+    const entries = await fs.readdir(pluginsBaseDir, {
       withFileTypes: true,
     });
 

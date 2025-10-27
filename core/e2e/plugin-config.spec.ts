@@ -23,7 +23,7 @@ test.describe('Plugin Config Page', () => {
   });
 
   test('should display plugin configuration page correctly', async ({ page }) => {
-    await page.goto('https://devcle.test/dashboard/plugins/drowl-plugin-test/config');
+    await page.goto(`${BASE_URL}/dashboard/plugins/drowl-plugin-test/config`);
 
     // Wait for loading to complete
     await page.waitForSelector('h1:has-text("Plugin Configuration")');
@@ -48,7 +48,7 @@ test.describe('Plugin Config Page', () => {
   });
 
   test('should show error for non-existing plugin', async ({ page }) => {
-    await page.goto('https://devcle.test/dashboard/plugins/non-existing-plugin/config');
+    await page.goto(`${BASE_URL}/dashboard/plugins/non-existing-plugin/config`);
 
     // Wait for error message
     await page.waitForSelector('h3:has-text("Error")');
@@ -59,7 +59,7 @@ test.describe('Plugin Config Page', () => {
   });
 
   test('should have proper dark mode styling', async ({ page }) => {
-    await page.goto('https://devcle.test/dashboard/plugins/drowl-plugin-test/config');
+    await page.goto(`${BASE_URL}/dashboard/plugins/drowl-plugin-test/config`);
     await page.waitForSelector('h1:has-text("Plugin Configuration")');
 
     // Check text color in dark mode
@@ -84,7 +84,7 @@ test.describe('Plugin Config Page', () => {
     });
 
     // Navigate to the page
-    await page.goto('https://devcle.test/dashboard/plugins/drowl-plugin-test/config', { waitUntil: 'domcontentloaded' });
+    await page.goto(`${BASE_URL}/dashboard/plugins/drowl-plugin-test/config`, { waitUntil: 'domcontentloaded' });
 
     // Check that the loading spinner was visible at some point
     // Since API is delayed, spinner should show up initially
@@ -106,7 +106,7 @@ test.describe('Plugin Config Page', () => {
   });
 
   test('should have proper layout without visual偏り', async ({ page }) => {
-    await page.goto('https://devcle.test/dashboard/plugins/drowl-plugin-test/config');
+    await page.goto(`${BASE_URL}/dashboard/plugins/drowl-plugin-test/config`);
     await page.waitForSelector('h1:has-text("Plugin Configuration")');
 
     // Check sections are properly aligned

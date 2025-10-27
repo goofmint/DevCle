@@ -19,14 +19,27 @@ export default function PluginConfigPage() {
     if (!id) return;
 
     fetch(`/api/plugins/${id}/config`)
-      .then((res) => {
+      .then(async (res) => {
         if (!res.ok) {
-          throw new Error(`Failed to load plugin: ${res.statusText}`);
+          // Try to parse error from API response
+          try {
+            const errorData = await res.json();
+            throw new Error(errorData.error || 'Failed to load plugin');
+          } catch {
+            throw new Error('Failed to load plugin');
+          }
         }
         return res.json();
       })
       .then((data) => setConfig(data))
-      .catch((err) => setError(err.message))
+      .catch((err) => {
+        // Log full error for debugging
+        console.error('Plugin config load error:', err);
+
+        // Sanitize error message for user display
+        const userMessage = err.message || 'An unexpected error occurred';
+        setError(userMessage);
+      })
       .finally(() => setLoading(false));
   }, [id]);
 

@@ -27,8 +27,14 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
   // Get plugin ID from params
   const { id: pluginId } = params;
 
+  // Validate plugin ID
   if (!pluginId) {
     return json({ error: 'Plugin ID is required' }, { status: 400 });
+  }
+
+  // Prevent path traversal
+  if (pluginId.includes('..') || pluginId.includes('/') || pluginId.includes('\\')) {
+    return json({ error: 'Invalid plugin ID' }, { status: 400 });
   }
 
   try {
@@ -39,11 +45,18 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
   } catch (error) {
     // Handle specific errors
     if (error instanceof Error) {
+      // Path traversal detected
+      if (error.message.includes('path traversal')) {
+        return json({ error: 'Invalid plugin ID' }, { status: 400 });
+      }
+
+      // Plugin not found
       if (error.message.includes('Plugin not found')) {
         return json({ error: 'Plugin not found' }, { status: 404 });
       }
 
-      if (error.message.includes('Invalid plugin.json')) {
+      // Malformed or invalid manifest
+      if (error.message.includes('malformed') || error.message.includes('invalid')) {
         return json(
           { error: 'Invalid plugin configuration' },
           { status: 500 }
