@@ -177,7 +177,7 @@ describe('Plugin Management API - List and Enable/Disable', () => {
   });
 
   describe('GET /api/plugins - List plugins', () => {
-    it('should return empty list when no plugins exist', async () => {
+    it('should return plugins from filesystem even when DB is empty', async () => {
       const { userId, cookie } = await createAuthSession();
       createdUsers.push(userId);
 
@@ -189,17 +189,22 @@ describe('Plugin Management API - List and Enable/Disable', () => {
 
       const data: unknown = await response.json();
       assertPluginListResponse(data);
-      expect(data.plugins).toEqual([]);
+
+      // Should return plugins from filesystem (at least drowl-plugin-test)
+      expect(data.plugins.length).toBeGreaterThan(0);
+
+      // Plugins not in DB should have enabled=false by default
+      const filesystemPlugin = data.plugins[0];
+      expect(filesystemPlugin.enabled).toBe(false);
     });
 
-    it('should return list of plugins', async () => {
+    it('should return list of plugins with merged filesystem and DB data', async () => {
       const { userId, cookie } = await createAuthSession();
       createdUsers.push(userId);
 
-      // Create test plugins
-      const plugin1Id = await createTestPlugin('slack', 'Slack Integration', true);
-      const plugin2Id = await createTestPlugin('github', 'GitHub Integration', false);
-      createdPlugins.push(plugin1Id, plugin2Id);
+      // Create DB entry for an existing filesystem plugin (drowl-plugin-test)
+      const pluginId = await createTestPlugin('drowl-plugin-test', 'Test Plugin', true);
+      createdPlugins.push(pluginId);
 
       const request = new Request('http://localhost/api/plugins');
       request.headers.set('cookie', cookie);
@@ -209,17 +214,16 @@ describe('Plugin Management API - List and Enable/Disable', () => {
 
       const data: unknown = await response.json();
       assertPluginListResponse(data);
-      expect(data.plugins).toHaveLength(2);
 
-      // Verify plugin data
-      const slackPlugin = data.plugins.find(p => p.key === 'slack');
-      expect(slackPlugin).toBeDefined();
-      expect(slackPlugin?.enabled).toBe(true);
-      expect(slackPlugin?.name).toBe('Slack Integration');
+      // Should have at least the one we registered
+      expect(data.plugins.length).toBeGreaterThanOrEqual(1);
 
-      const githubPlugin = data.plugins.find(p => p.key === 'github');
-      expect(githubPlugin).toBeDefined();
-      expect(githubPlugin?.enabled).toBe(false);
+      // Verify plugin data merges filesystem (name, version) with DB (enabled)
+      const testPlugin = data.plugins.find(p => p.key === 'drowl-plugin-test');
+      expect(testPlugin).toBeDefined();
+      expect(testPlugin?.enabled).toBe(true); // From DB
+      expect(testPlugin?.name).toBe('drowl-plugin-test'); // From plugin.json
+      expect(testPlugin?.version).toBe('1.0.0'); // From plugin.json
     });
 
   });

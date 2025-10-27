@@ -66,7 +66,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     const user = await requireAuth(request);
     const tenantId = user.tenantId;
 
-    // 2. Query plugins via service
+    // 2. Query plugins via service (reads from filesystem + DB state)
     const pluginsData = await listPlugins(tenantId);
 
     // 3. Transform to API response format (omit config for security)
@@ -74,7 +74,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       pluginId: plugin.pluginId,
       key: plugin.key,
       name: plugin.name,
-      version: '1.0.0', // Version is not stored in database yet
+      version: plugin.version, // Now read from plugin.json
       enabled: plugin.enabled,
       installedAt: plugin.createdAt.toISOString(),
       updatedAt: plugin.updatedAt.toISOString(),
@@ -187,7 +187,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
       pluginId: updatedPlugin.pluginId,
       key: updatedPlugin.key,
       name: updatedPlugin.name,
-      version: '1.0.0',
+      version: updatedPlugin.version,
       enabled: updatedPlugin.enabled,
       config: redactConfig(updatedPlugin.config),
       installedAt: updatedPlugin.createdAt.toISOString(),
