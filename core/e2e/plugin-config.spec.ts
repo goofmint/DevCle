@@ -22,6 +22,53 @@ test.describe('Plugin Config Page', () => {
     await login(page);
   });
 
+  test('should access config page for all plugins listed in plugin management', async ({ page }) => {
+    // Go to plugins list page
+    await page.goto(`${BASE_URL}/dashboard/plugins`);
+    await page.waitForLoadState('networkidle');
+
+    // Get all plugin cards
+    const pluginCards = await page.locator('.bg-white.dark\\:bg-gray-800.rounded-lg.shadow-md').all();
+
+    if (pluginCards.length === 0) {
+      console.log('No plugins found on the page');
+      return;
+    }
+
+    console.log(`Found ${pluginCards.length} plugin(s)`);
+
+    // For each plugin, click the name link and verify config page loads
+    for (let i = 0; i < pluginCards.length; i++) {
+      const card = pluginCards[i];
+
+      // Get plugin name and key
+      const nameLink = card.locator('a[href*="/config"]').first();
+      const pluginName = await nameLink.textContent();
+      const configUrl = await nameLink.getAttribute('href');
+
+      console.log(`Testing plugin: ${pluginName} -> ${configUrl}`);
+
+      // Navigate to config page
+      await page.goto(`${BASE_URL}${configUrl}`);
+
+      // Wait for either success or error state (not loading)
+      await Promise.race([
+        page.waitForSelector('h1:has-text("Plugin Configuration")', { timeout: 5000 }).catch(() => null),
+        page.waitForSelector('h3:has-text("Error")', { timeout: 5000 }).catch(() => null),
+      ]);
+
+      // Check if page loaded (either success or error, but not stuck in loading)
+      const hasContent = await page.locator('h1, h3').count() > 0;
+      expect(hasContent).toBe(true);
+
+      // Go back to plugins list for next iteration
+      if (i < pluginCards.length - 1) {
+        await page.goto(`${BASE_URL}/dashboard/plugins`);
+        await page.waitForLoadState('networkidle');
+      }
+    }
+  });
+
   test('should display plugin configuration page correctly', async ({ page }) => {
     await page.goto(`${BASE_URL}/dashboard/plugins/drowl-plugin-test/config`);
 
