@@ -773,12 +773,12 @@
 
 ### Task 8.4: Plugin 管理 API 実装
 
-- [ ] `app/routes/api/plugins.ts`作成
-- [ ] `GET /api/plugins`（インストール済みプラグイン一覧）
-- [ ] `PUT /api/plugins/:id`（プラグイン有効化）
-- [ ] `DELETE /api/plugins/:id`（プラグイン無効化）
-- [ ] `GET /api/plugins/:id`（プラグイン設定取得）
-- [ ] `GET /api/plugins/:id/logs`（実行ログ取得）
+- [x] `app/routes/api/plugins.ts`作成
+- [x] `GET /api/plugins`（インストール済みプラグイン一覧）
+- [x] `PUT /api/plugins/:id`（プラグイン有効化）
+- [x] `DELETE /api/plugins/:id`（プラグイン無効化）
+- [x] `GET /api/plugins/:id`（プラグイン設定取得）
+- [x] `GET /api/plugins/:id/logs`（実行ログ取得）
 - **完了条件**: API が機能し、プラグインが有効化/無効化できる
 - **依存**: Task 8.3
 - **推定時間**: 3 時間
