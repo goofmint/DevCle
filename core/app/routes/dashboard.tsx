@@ -86,6 +86,13 @@ const CORE_NAVIGATION_ITEMS: NavigationItem[] = [
     order: 40,
   },
   {
+    key: 'plugins',
+    label: 'Plugins',
+    path: '/dashboard/plugins',
+    icon: 'puzzle-piece',
+    order: 50,
+  },
+  {
     key: 'system-settings',
     label: 'System Settings',
     path: '/dashboard/settings',

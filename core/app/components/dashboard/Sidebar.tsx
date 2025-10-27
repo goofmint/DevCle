@@ -32,6 +32,7 @@ import {
   MegaphoneIcon,
   FunnelIcon,
   Cog6ToothIcon,
+  PuzzlePieceIcon,
 } from '@heroicons/react/24/outline';
 import type { NavigationItem } from '~/types/dashboard';
 
@@ -46,6 +47,7 @@ const ICON_MAP: Record<string, typeof HomeIcon> = {
   users: UsersIcon,
   megaphone: MegaphoneIcon,
   funnel: FunnelIcon,
+  'puzzle-piece': PuzzlePieceIcon,
   cog: Cog6ToothIcon,
 };
 
