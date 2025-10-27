@@ -68,29 +68,76 @@ test('sidebar renders with core navigation items', async ({ page }) => {
  *
  * This test verifies that the drowl-plugin-test plugin menus are displayed correctly.
  * The plugin has 3 menu items: Overview, Settings, Activity Logs
+ * They are grouped under a collapsible plugin name header.
  */
 test('drowl-plugin-test menu items appear in sidebar', async ({ page }) => {
   await loginAndNavigate(page);
 
   const sidebar = page.locator('aside[data-testid="sidebar"]');
 
+  // Verify plugin name header exists as collapsible button
+  const pluginHeader = sidebar.locator('button:has-text("drowl-plugin-test")');
+  await expect(pluginHeader).toBeVisible();
+
+  // Verify chevron icon exists (indicates collapsible)
+  const chevronIcon = pluginHeader.locator('svg').last();
+  await expect(chevronIcon).toBeVisible();
+
+  // Verify child menu items exist within the group
+  // The group has aria-label="drowl-plugin-test submenu"
+  const menuGroup = sidebar.locator('div[role="group"][aria-label="drowl-plugin-test submenu"]');
+
   // Verify Overview menu item exists with correct link
-  const overviewLink = sidebar.locator('a[href="/dashboard/plugins/drowl-plugin-test/overview"]');
+  const overviewLink = menuGroup.locator('a[href="/dashboard/plugins/drowl-plugin-test/overview"]');
   await expect(overviewLink).toBeVisible();
   await expect(overviewLink).toContainText('Overview');
 
   // Verify Settings menu item exists with correct link
-  const settingsLink = sidebar.locator('a[href="/dashboard/plugins/drowl-plugin-test/settings"]');
+  const settingsLink = menuGroup.locator('a[href="/dashboard/plugins/drowl-plugin-test/settings"]');
   await expect(settingsLink).toBeVisible();
   await expect(settingsLink).toContainText('Settings');
 
   // Verify Activity Logs menu item exists with correct link
-  const logsLink = sidebar.locator('a[href="/dashboard/plugins/drowl-plugin-test/logs"]');
+  const logsLink = menuGroup.locator('a[href="/dashboard/plugins/drowl-plugin-test/logs"]');
   await expect(logsLink).toBeVisible();
   await expect(logsLink).toContainText('Activity Logs');
+});
 
-  // Note: Icon verification skipped as Iconify may not be loaded in test environment
-  // The important part is that the links exist with correct hrefs and labels
+/**
+ * Test: Plugin name header is collapsible
+ *
+ * Verifies that clicking the plugin name header toggles visibility of child menu items.
+ */
+test('plugin name header is collapsible', async ({ page }) => {
+  await loginAndNavigate(page);
+
+  const sidebar = page.locator('aside[data-testid="sidebar"]');
+
+  // Find plugin header button
+  const pluginHeader = sidebar.locator('button:has-text("drowl-plugin-test")');
+  await expect(pluginHeader).toBeVisible();
+
+  // Verify child menu items are visible by default (expanded)
+  const menuGroup = sidebar.locator('div[role="group"][aria-label="drowl-plugin-test submenu"]');
+  await expect(menuGroup).toBeVisible();
+
+  // Verify chevron icon is pointing down (expanded state)
+  const chevronDown = pluginHeader.locator('svg[class*="w-4"]').last();
+  await expect(chevronDown).toBeVisible();
+
+  // Click to collapse
+  await pluginHeader.click();
+  await page.waitForTimeout(100);
+
+  // Verify child menu items are hidden
+  await expect(menuGroup).not.toBeVisible();
+
+  // Click to expand again
+  await pluginHeader.click();
+  await page.waitForTimeout(100);
+
+  // Verify child menu items are visible again
+  await expect(menuGroup).toBeVisible();
 });
 
 /**

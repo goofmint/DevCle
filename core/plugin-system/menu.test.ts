@@ -213,6 +213,7 @@ describe('filterMenuItemsByPermission', () => {
       path: `/dashboard/plugins/test/${label.toLowerCase()}`,
       icon: 'mdi:test',
       pluginKey: 'test-plugin',
+      pluginName: 'Test Plugin',
     };
 
     // Add capabilities only if provided (exactOptionalPropertyTypes compliance)
@@ -269,6 +270,7 @@ describe('filterMenuItemsByPermission', () => {
         path: '/dashboard/plugins/github',
         icon: 'mdi:github',
         pluginKey: 'github',
+        pluginName: 'GitHub Plugin',
         children: [
           {
             label: 'Issues',
@@ -305,6 +307,7 @@ describe('filterMenuItemsByPermission', () => {
         path: '/dashboard/plugins/github',
         icon: 'mdi:github',
         pluginKey: 'github',
+        pluginName: 'GitHub Plugin',
         children: [
           {
             label: 'Admin Only',
@@ -435,20 +438,26 @@ describe('getPluginMenuItems (integration)', () => {
     const testPluginMenus = menuItems.filter((item) => item.pluginKey === 'drowl-plugin-test');
     expect(testPluginMenus).toHaveLength(3);
 
+    // Verify pluginName is set correctly (from plugin.json name field)
+    expect(testPluginMenus[0]!.pluginName).toBe('drowl-plugin-test');
+
     // Verify paths are expanded correctly
     const overview = testPluginMenus.find((item) => item.label === 'Overview');
     expect(overview).toBeDefined();
     expect(overview!.path).toBe('/dashboard/plugins/drowl-plugin-test/overview');
     expect(overview!.icon).toBe('mdi:chart-line');
+    expect(overview!.pluginName).toBe('drowl-plugin-test');
 
     const settings = testPluginMenus.find((item) => item.label === 'Settings');
     expect(settings).toBeDefined();
     expect(settings!.path).toBe('/dashboard/plugins/drowl-plugin-test/settings');
     expect(settings!.icon).toBe('mdi:cog');
+    expect(settings!.pluginName).toBe('drowl-plugin-test');
 
     const logs = testPluginMenus.find((item) => item.label === 'Activity Logs');
     expect(logs).toBeDefined();
     expect(logs!.path).toBe('/dashboard/plugins/drowl-plugin-test/logs');
     expect(logs!.icon).toBe('mdi:file-document-outline');
+    expect(logs!.pluginName).toBe('drowl-plugin-test');
   });
 });

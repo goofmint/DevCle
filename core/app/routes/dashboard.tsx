@@ -40,7 +40,6 @@ import {
   getPluginMenuItems,
   filterMenuItemsByPermission,
   type PluginMenuItem,
-  type PluginMenuItemChild,
 } from '../../plugin-system/menu.js';
 
 /**
@@ -152,10 +151,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
     pluginMenuItems = [];
   }
 
-  // Convert plugin menu items to NavigationItems
-  const pluginNavigationItems: NavigationItem[] = pluginMenuItems.map((pluginMenu) =>
-    convertPluginMenuToNavigationItem(pluginMenu)
-  );
+  // Group plugin menus by plugin and convert to NavigationItems
+  const pluginNavigationItems: NavigationItem[] = convertPluginMenusToNavigationItems(pluginMenuItems);
 
   // Merge core navigation items with plugin items
   // Core items have order 10-100, plugin items have order 500-999
@@ -172,54 +169,71 @@ export async function loader({ request }: LoaderFunctionArgs) {
 }
 
 /**
- * Convert PluginMenuItem to NavigationItem
+ * Convert plugin menus to navigation items with grouping by plugin
  *
- * Maps plugin menu structure to navigation item structure.
- * - Generates unique key from plugin key and path
- * - Converts children if present
- * - Sets order to 500 (plugin items appear after core items but before settings)
+ * Groups plugin menu items by plugin key and creates a parent navigation item
+ * for each plugin with the plugin name as the label. The actual menu items
+ * become children of this parent item.
  *
- * @param pluginMenu - Plugin menu item from plugin.json
- * @returns NavigationItem for sidebar rendering
+ * @param pluginMenus - Array of plugin menu items
+ * @returns Array of navigation items (one per plugin)
  * @private
  */
-function convertPluginMenuToNavigationItem(
-  pluginMenu: PluginMenuItem
-): NavigationItem {
-  // Generate unique key: pluginKey + path hash
-  // This ensures uniqueness even if multiple plugins have same label
-  const key = `plugin-${pluginMenu.pluginKey}-${pluginMenu.path.replace(/\//g, '-')}`;
+function convertPluginMenusToNavigationItems(
+  pluginMenus: PluginMenuItem[]
+): NavigationItem[] {
+  // Group menus by plugin key
+  const menusByPlugin = new Map<string, { name: string; menus: PluginMenuItem[] }>();
 
-  // Create base navigation item
-  const navItem: NavigationItem = {
-    key,
-    label: pluginMenu.label,
-    path: pluginMenu.path,
-    icon: pluginMenu.icon || 'puzzle-piece', // Default icon for plugins
-    pluginId: pluginMenu.pluginKey,
-    order: 500, // Plugin items appear after core items (10-100) but before settings (1000)
-  };
+  for (const menu of pluginMenus) {
+    if (!menusByPlugin.has(menu.pluginKey)) {
+      menusByPlugin.set(menu.pluginKey, {
+        name: menu.pluginName,
+        menus: [],
+      });
+    }
+    menusByPlugin.get(menu.pluginKey)!.menus.push(menu);
+  }
 
-  // Add children only if they exist (exactOptionalPropertyTypes compliance)
-  if (pluginMenu.children && pluginMenu.children.length > 0) {
-    navItem.children = pluginMenu.children.map((child: PluginMenuItemChild) => {
-      const navChild: NavigationItemChild = {
-        key: `plugin-${child.pluginKey}-${child.path.replace(/\//g, '-')}`,
-        label: child.label,
-        path: child.path,
-        pluginId: child.pluginKey,
+  // Convert each plugin group to a navigation item
+  const navigationItems: NavigationItem[] = [];
+
+  for (const [pluginKey, { name, menus }] of menusByPlugin.entries()) {
+    // Create parent navigation item for the plugin
+    const pluginNavItem: NavigationItem = {
+      key: `plugin-${pluginKey}`,
+      label: name,
+      path: `/dashboard/plugins/${pluginKey}`,
+      icon: 'puzzle-piece',
+      pluginId: pluginKey,
+      order: 500, // Plugin items appear after core items (10-100) but before settings (1000)
+    };
+
+    // Convert menu items to children
+    const children: NavigationItemChild[] = menus.map((menu) => {
+      const child: NavigationItemChild = {
+        key: `plugin-${pluginKey}-${menu.path.replace(/\//g, '-')}`,
+        label: menu.label,
+        path: menu.path,
+        pluginId: pluginKey,
       };
 
       // Add icon only if present (exactOptionalPropertyTypes compliance)
-      if (child.icon !== undefined) {
-        navChild.icon = child.icon;
+      if (menu.icon !== undefined) {
+        child.icon = menu.icon;
       }
 
-      return navChild;
+      return child;
     });
+
+    if (children.length > 0) {
+      pluginNavItem.children = children;
+    }
+
+    navigationItems.push(pluginNavItem);
   }
 
-  return navItem;
+  return navigationItems;
 }
 
 /**

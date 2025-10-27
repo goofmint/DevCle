@@ -29,6 +29,7 @@
  * +------------------+
  */
 
+import { useState } from 'react';
 import { NavLink } from '@remix-run/react';
 import {
   HomeIcon,
@@ -37,6 +38,8 @@ import {
   FunnelIcon,
   Cog6ToothIcon,
   PuzzlePieceIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
 } from '@heroicons/react/24/outline';
 import { Icon } from '@iconify/react';
 import type { NavigationItem, NavigationItemChild } from '~/types/dashboard';
@@ -94,6 +97,23 @@ export function DashboardSidebar({
   const mainItems = items.filter((item) => !item.isBottomItem);
   const bottomItems = items.filter((item) => item.isBottomItem);
 
+  // State for collapsed plugin groups (expandable sections)
+  // Stores keys of collapsed items (default is expanded)
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+
+  // Toggle function for collapsing/expanding groups
+  const toggleGroup = (key: string) => {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  };
+
   return (
     <aside
       data-testid="sidebar"
@@ -114,7 +134,12 @@ export function DashboardSidebar({
           className="flex-1 px-3 pt-4 pb-0 space-y-1 overflow-y-auto"
         >
           {mainItems.map((item) => (
-            <NavigationItemComponent key={item.key} item={item} />
+            <NavigationItemComponent
+              key={item.key}
+              item={item}
+              isCollapsed={collapsedGroups.has(item.key)}
+              onToggle={() => toggleGroup(item.key)}
+            />
           ))}
         </nav>
 
@@ -126,7 +151,12 @@ export function DashboardSidebar({
             className="px-3 py-4 space-y-1 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 flex-shrink-0"
           >
             {bottomItems.map((item) => (
-              <NavigationItemComponent key={item.key} item={item} />
+              <NavigationItemComponent
+                key={item.key}
+                item={item}
+                isCollapsed={false}
+                onToggle={() => {}}
+              />
             ))}
           </nav>
         )}
@@ -139,19 +169,24 @@ export function DashboardSidebar({
  * NavigationItemComponent
  *
  * Internal component that renders a single navigation item with optional children.
- * Uses NavLink for automatic active state management.
- * Supports both Heroicons (core items) and Iconify (plugin items).
+ * Supports collapsible groups for items with children.
  * Enforces maximum depth of 2 levels.
  *
  * @param item - Navigation item to render
  * @param depth - Current depth (0 = top level, 1 = child level)
+ * @param isCollapsed - Whether this group is collapsed
+ * @param onToggle - Function to toggle collapse state
  */
 function NavigationItemComponent({
   item,
   depth = 0,
+  isCollapsed = false,
+  onToggle,
 }: {
   item: NavigationItem | NavigationItemChild;
   depth?: number;
+  isCollapsed?: boolean;
+  onToggle?: () => void;
 }) {
   // Depth limit enforcement (maximum 2 levels: 0 and 1)
   // If depth > 1, render only the link without children and log warning
@@ -168,11 +203,21 @@ function NavigationItemComponent({
 
   return (
     <div>
-      {/* Parent/Top-level Link */}
-      <NavigationLink item={item} depth={depth} />
+      {/* Parent/Top-level Item */}
+      {hasChildren ? (
+        // Collapsible header for items with children
+        <CollapsibleHeader
+          item={item as NavigationItem}
+          isCollapsed={isCollapsed}
+          onToggle={onToggle || (() => {})}
+        />
+      ) : (
+        // Regular link for items without children
+        <NavigationLink item={item} depth={depth} />
+      )}
 
-      {/* Child Items (Level 2) - Only render if depth < 1 */}
-      {hasChildren && (
+      {/* Child Items (Level 2) - Only render if not collapsed */}
+      {hasChildren && !isCollapsed && (
         <div
           className="ml-4 mt-1 space-y-1 border-l border-gray-200 dark:border-gray-700 pl-3"
           role="group"
@@ -183,11 +228,62 @@ function NavigationItemComponent({
               key={child.key}
               item={child}
               depth={depth + 1}
+              isCollapsed={false}
+              onToggle={() => {}}
             />
           ))}
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * CollapsibleHeader
+ *
+ * Renders a clickable header for collapsible menu groups.
+ * Shows chevron icon to indicate collapse state.
+ */
+function CollapsibleHeader({
+  item,
+  isCollapsed,
+  onToggle,
+}: {
+  item: NavigationItem;
+  isCollapsed: boolean;
+  onToggle: () => void;
+}) {
+  const IconComponent = item.icon ? ICON_MAP[item.icon] : undefined;
+  const isIconifyIcon = item.icon?.includes(':');
+
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className="
+        w-full flex items-center px-3 py-2 text-sm font-medium rounded-lg
+        transition-colors duration-150
+        text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800
+      "
+    >
+      {/* Icon - Heroicons or Iconify */}
+      {IconComponent && (
+        <IconComponent className="w-5 h-5 mr-3 flex-shrink-0" aria-hidden="true" />
+      )}
+      {!IconComponent && isIconifyIcon && item.icon && (
+        <Icon icon={item.icon} className="w-5 h-5 mr-3 flex-shrink-0" aria-hidden="true" />
+      )}
+
+      {/* Label */}
+      <span className="flex-1 text-left">{item.label}</span>
+
+      {/* Chevron icon */}
+      {isCollapsed ? (
+        <ChevronRightIcon className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
+      ) : (
+        <ChevronDownIcon className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
+      )}
+    </button>
   );
 }
 

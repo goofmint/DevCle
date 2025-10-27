@@ -69,6 +69,9 @@ export interface PluginMenuItem {
 
   /** Plugin key (internal use, auto-assigned) */
   pluginKey: string;
+
+  /** Plugin name (human-readable, from plugin.json) */
+  pluginName: string;
 }
 
 /**
@@ -158,6 +161,9 @@ export async function getPluginMenuItems(
         unknown
       >;
 
+      // Extract plugin name
+      const pluginName = (pluginJson['name'] as string) || plugin.key;
+
       // Extract menus field
       // Support both "menus" array (plugin.md) and nested structure (task-8.6)
       let rawMenus: RawMenuItem[] = [];
@@ -188,9 +194,10 @@ export async function getPluginMenuItems(
       // Validate and transform menu items
       const validatedMenus = validateMenuDepth(rawMenus, plugin.key, 2);
 
-      // Add plugin key to all menu items
+      // Add plugin key and name to all menu items
       for (const menu of validatedMenus) {
         menu.pluginKey = plugin.key;
+        menu.pluginName = pluginName;
         if (menu.children) {
           for (const child of menu.children) {
             child.pluginKey = plugin.key;
@@ -262,6 +269,7 @@ export function validateMenuDepth(
       label: String(item.label || ''),
       path: itemPath,
       pluginKey, // Will be set by caller
+      pluginName: '', // Will be set by caller
     };
 
     // Add optional fields
