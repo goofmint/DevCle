@@ -28,7 +28,27 @@
 
 ```typescript
 /**
- * プラグインメニュー項目の定義
+ * 子メニュー項目の定義（第2階層、children フィールドなし）
+ */
+interface PluginMenuItemChild {
+  /** 表示ラベル */
+  label: string;
+
+  /** アイコン名（例: "mdi:account-multiple"） */
+  icon?: string;
+
+  /** リンク先のパス */
+  path: string;
+
+  /** 必要な権限（複数指定可能） */
+  capabilities?: string[];
+
+  /** プラグインキー（内部使用、自動付与） */
+  pluginKey: string;
+}
+
+/**
+ * プラグインメニュー項目の定義（第1階層、最大2階層まで）
  */
 interface PluginMenuItem {
   /** 表示ラベル */
@@ -43,8 +63,8 @@ interface PluginMenuItem {
   /** 必要な権限（複数指定可能） */
   capabilities?: string[];
 
-  /** 子メニュー（階層構造をサポート） */
-  children?: PluginMenuItem[];
+  /** 子メニュー（第2階層のみ、これ以上のネストは不可） */
+  children?: PluginMenuItemChild[];
 
   /** プラグインキー（内部使用、自動付与） */
   pluginKey: string;
@@ -67,15 +87,26 @@ interface PluginMenuConfig {
 **`getPluginMenuItems(tenantId: string): Promise<PluginMenuItem[]>`**
 - 有効化されているプラグインの一覧を取得（`plugins` テーブルから `enabled = true` のプラグインを取得）
 - 各プラグインの `plugin.json` から `menu` フィールドを読み込み
+- **メニュー階層の検証**: 各項目の深さをチェックし、最大2階層を超える構造を検出
+  - 第1階層の項目に `children.children` が存在する場合はエラーログを出力
+  - プラグイン名と問題のあるパス（`item.path`）を明示
+  - 3階層目以降を切り詰める（`children.children` を削除）
 - すべてのメニュー項目を配列として集約
 - プラグインキーを各項目に付与（`pluginKey` フィールド）
 - メニュー項目をソートして返す（section ごとにグループ化）
+
+**`validateMenuDepth(items: any[], pluginKey: string, maxDepth: number = 2): PluginMenuItem[]`**
+- メニュー項目の階層構造を検証し、最大深さを強制
+- `maxDepth` を超える階層が見つかった場合：
+  - エラーログを出力（プラグインキー、問題のあるパス、検出された深さ）
+  - 超過した階層を切り詰める（3階層目以降の `children` を削除）
+- 検証済みの構造を返す
 
 **`filterMenuItemsByPermission(items: PluginMenuItem[], userCapabilities: string[]): PluginMenuItem[]`**
 - メニュー項目の `capabilities` フィールドをチェック
 - ユーザーが持つ権限（`userCapabilities`）と照合
 - 権限がない項目を除外してフィルタリング
-- 子メニューにも再帰的に適用
+- 子メニュー（`children`）にも適用（再帰不要、最大2階層のため）
 
 ---
 
@@ -96,16 +127,24 @@ export async function loader({ request }: LoaderFunctionArgs) {
   // 認証チェック
   const user = await requireAuth(request);
 
-  // プラグインメニュー項目を取得
-  const pluginMenuItems = await getPluginMenuItems(user.tenantId);
+  // プラグインメニュー項目を取得（エラーハンドリング付き）
+  let pluginMenuItems: PluginMenuItem[] = [];
+  try {
+    const rawMenuItems = await getPluginMenuItems(user.tenantId);
 
-  // ユーザー権限でフィルタリング
-  const userCapabilities = user.capabilities || [];
-  const filteredMenuItems = filterMenuItemsByPermission(pluginMenuItems, userCapabilities);
+    // ユーザー権限でフィルタリング
+    const userCapabilities = user.capabilities || [];
+    pluginMenuItems = filterMenuItemsByPermission(rawMenuItems, userCapabilities);
+  } catch (error) {
+    // エラーログを出力（DB、パース、FSエラーなど）
+    console.error('[Dashboard Loader] Failed to load plugin menu items:', error);
+    // プラグインメニューが取得できなくてもページは正常にロード（空配列を使用）
+    pluginMenuItems = [];
+  }
 
   return json({
     user,
-    pluginMenuItems: filteredMenuItems,
+    pluginMenuItems,
   });
 }
 ```
@@ -179,7 +218,21 @@ export function Sidebar({ user, pluginMenuItems }: SidebarProps) {
   );
 }
 
-function MenuItem({ item }: { item: PluginMenuItem }) {
+function MenuItem({ item, depth = 0 }: { item: PluginMenuItem | PluginMenuItemChild; depth?: number }) {
+  // 深さ制限のエンフォース: 2階層を超える場合は警告ログと子要素なしレンダリング
+  if (depth > 1) {
+    console.warn(`[MenuItem] Maximum nesting depth (2) exceeded for path: ${item.path}`);
+    return (
+      <Link
+        to={item.path}
+        className="flex items-center px-4 py-2 hover:bg-gray-700"
+      >
+        {item.icon && <Icon icon={item.icon} className="mr-2" />}
+        <span>{item.label}</span>
+      </Link>
+    );
+  }
+
   return (
     <>
       <Link
@@ -190,11 +243,11 @@ function MenuItem({ item }: { item: PluginMenuItem }) {
         <span>{item.label}</span>
       </Link>
 
-      {/* 子メニュー（階層構造） */}
-      {item.children && item.children.length > 0 && (
+      {/* 子メニュー（最大2階層まで、depth < 1 の場合のみ） */}
+      {depth < 1 && 'children' in item && item.children && item.children.length > 0 && (
         <div className="ml-4">
           {item.children.map((child) => (
-            <MenuItem key={child.path} item={child} />
+            <MenuItem key={child.path} item={child} depth={depth + 1} />
           ))}
         </div>
       )}
