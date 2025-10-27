@@ -1101,9 +1101,8 @@ async function seedPlugins(): Promise<void> {
 
   // Fixed UUIDs for idempotency
   const testPluginId = '20000000-0000-4000-8000-000000000001';
-  const gaPluginId = '20000000-0000-4000-8000-000000000002';
-  const posthogPluginId = '20000000-0000-4000-8000-000000000003';
 
+  // Only seed plugins that have actual plugin.json files in /workspace/plugins/
   await db
     .insert(schema.plugins)
     .values([
@@ -1118,32 +1117,10 @@ async function seedPlugins(): Promise<void> {
           description: 'Test plugin for development',
         },
       },
-      {
-        pluginId: gaPluginId,
-        tenantId: 'default',
-        key: 'google-analytics',
-        name: 'Google Analytics',
-        enabled: false,
-        config: {
-          trackingId: null,
-          apiKey: null,
-        },
-      },
-      {
-        pluginId: posthogPluginId,
-        tenantId: 'default',
-        key: 'posthog',
-        name: 'PostHog',
-        enabled: true,
-        config: {
-          apiKey: 'phc_test_key_12345',
-          projectId: 'test-project',
-        },
-      },
     ])
     .onConflictDoNothing();
 
-  console.log('    ✅ Plugins seeded (3)');
+  console.log('    ✅ Plugins seeded (1)');
 }
 
 // ============================================================================
@@ -1281,7 +1258,7 @@ async function seed(): Promise<void> {
     console.log('\n📊 Summary:');
     console.log('  - Tenant: 1');
     console.log('  - Users: 2 (1 admin, 1 member)');
-    console.log('  - Plugins: 3');
+    console.log('  - Plugins: 1');
     console.log('  - Organizations: 3');
     console.log('  - Developers: 5');
     console.log('  - Accounts: 4');
