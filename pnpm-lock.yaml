@@ -1,0 +1,23 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .:
+    dependencies:
+      drowl-plugin-test:
+        specifier: file:./plugins/drowl-plugin-test
+        version: file:plugins/drowl-plugin-test
+
+packages:
+
+  drowl-plugin-test@file:plugins/drowl-plugin-test:
+    resolution: {directory: plugins/drowl-plugin-test, type: directory}
+    engines: {node: '>=20.0.0', pnpm: '>=8.0.0'}
+
+snapshots:
+
+  drowl-plugin-test@file:plugins/drowl-plugin-test: {}

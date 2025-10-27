@@ -753,23 +753,26 @@
 - **ドキュメント**: [.tmp/tasks/task-8.2-hook-registry.md](.tmp/tasks/task-8.2-hook-registry.md)
 - **完了日**: 2025-10-26
 
-### Task 8.3: Job Scheduler 実装（BullMQ）
+### Task 8.3: Job Scheduler 実装（BullMQ） ✅
 
-- [ ] BullMQ インストール
-- [ ] `core/plugin-system/scheduler.ts`作成
-- [ ] `registerJob(name, cron, handler)`実装
-- [ ] Redis キュー接続
-- [ ] Worker プロセス実装
-- **完了条件**: cron ジョブが登録・実行される
+- [x] BullMQ インストール
+- [x] `core/plugin-system/scheduler.ts`作成
+- [x] `registerJob(name, cron, handler)`実装
+- [x] Redis キュー接続
+- [x] Worker プロセス実装
+- **完了条件**: cron ジョブが登録・実行される ✓
 - **依存**: Task 8.2
 - **推定時間**: 4 時間
+- **ドキュメント**: [.tmp/tasks/task-8.3-job-scheduler.md](.tmp/tasks/task-8.3-job-scheduler.md)
+- **完了日**: 2025-10-26
 
 ### Task 8.4: Plugin 管理 API 実装
 
 - [ ] `app/routes/api/plugins.ts`作成
 - [ ] `GET /api/plugins`（インストール済みプラグイン一覧）
-- [ ] `POST /api/plugins/:id/enable`（プラグイン有効化）
-- [ ] `POST /api/plugins/:id/disable`（プラグイン無効化）
+- [ ] `PUT /api/plugins/:id`（プラグイン有効化）
+- [ ] `DELETE /api/plugins/:id`（プラグイン無効化）
+- [ ] `GET /api/plugins/:id`（プラグイン設定取得）
 - [ ] `GET /api/plugins/:id/logs`（実行ログ取得）
 - **完了条件**: API が機能し、プラグインが有効化/無効化できる
 - **依存**: Task 8.3
@@ -777,7 +780,7 @@
 
 ---
 
-## Phase 9: Google Analytics プラグイン実装（サンプル）
+## Phase 9: Google Analytics プラグイン実装
 
 ### Task 9.1: Google Analytics Plugin 初期化
 

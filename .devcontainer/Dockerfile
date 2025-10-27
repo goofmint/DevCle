@@ -115,11 +115,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   libxcomposite1 libxrandr2 libxdamage1 libpango-1.0-0 libharfbuzz0b \
   libgtk-3-0 libx11-xcb1 libxshmfence1 fonts-noto fonts-noto-cjk \
   && rm -rf /var/lib/apt/lists/*
-# パッケージ導入後に Playwright とブラウザ
-WORKDIR /workspace/core
-RUN npm i -D playwright && \
-  npm install -g pnpm && \
-  pnpm exec playwright install --with-deps chromium
 
 RUN (type -p wget >/dev/null || (sudo apt update && sudo apt install wget -y)) \
 	&& sudo mkdir -p -m 755 /etc/apt/keyrings \
@@ -146,4 +141,9 @@ RUN chmod +x /usr/local/bin/init-firewall.sh && \
   chmod 0440 /etc/sudoers.d/node-firewall
 WORKDIR /workspace/
 USER node
+# パッケージ導入後に Playwright とブラウザ
+WORKDIR /workspace/core
+RUN npm i -D playwright && \
+  npm install -g pnpm && \
+  pnpm exec playwright install --with-deps chromium
 RUN echo "alias cc='claude --dangerously-skip-permissions'" >> ~/.zshrc

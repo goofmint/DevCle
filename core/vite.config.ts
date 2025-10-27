@@ -49,6 +49,9 @@ export default defineConfig(({ mode }): UserConfig => {
         'devcle.test', // Development domain
         'devcle.com', // Production domain
         'localhost', // Local access
+        'core', // Docker service name (for nginx proxy)
+        '172.17.0.3', // Bridge network IP
+        '172.18.0.4', // Internal network IP
       ],
     },
 

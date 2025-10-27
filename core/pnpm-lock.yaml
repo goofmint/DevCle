@@ -65,6 +65,9 @@ importers:
       drizzle-orm:
         specifier: ^0.44.6
         version: 0.44.6(postgres@3.4.7)
+      drowl-plugin-test:
+        specifier: file:../plugins/drowl-plugin-test
+        version: file:../plugins/drowl-plugin-test
       gridstack:
         specifier: ^12.3.3
         version: 12.3.3
@@ -2948,6 +2951,10 @@ packages:
         optional: true
       sqlite3:
         optional: true
+
+  drowl-plugin-test@file:../plugins/drowl-plugin-test:
+    resolution: {directory: ../plugins/drowl-plugin-test, type: directory}
+    engines: {node: '>=20.0.0', pnpm: '>=8.0.0'}
 
   dunder-proto@1.0.1:
     resolution: {integrity: sha512-KIN/nDJBQRcXw0MLVhZE9iQHmG68qAVIBg9CqmUYjmQIhgij9U5MFvrqkUL5FbtyyzZuOeOt0zdeRe4UY7ct+A==}
@@ -8672,6 +8679,8 @@ snapshots:
   drizzle-orm@0.44.6(postgres@3.4.7):
     optionalDependencies:
       postgres: 3.4.7
+
+  drowl-plugin-test@file:../plugins/drowl-plugin-test: {}
 
   dunder-proto@1.0.1:
     dependencies:

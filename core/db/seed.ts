@@ -5,6 +5,7 @@
  * It creates:
  * - Default tenant (tenant_id = 'default')
  * - Test users for dashboard login (2: admin and member)
+ * - Sample plugins (3)
  * - Sample organizations (3)
  * - Sample developers (5)
  * - Sample accounts (4)
@@ -1082,6 +1083,69 @@ async function seedActivityFunnelMaps(): Promise<void> {
   console.log('    ✅ Activity funnel mappings seeded (11)');
 }
 
+/**
+ * Seed sample plugins
+ *
+ * Creates test plugins for plugin management testing.
+ * These plugins represent different integration types and states.
+ *
+ * Plugins:
+ * 1. Test Plugin - Enabled test plugin (from drowl-plugin-test)
+ * 2. Google Analytics - Disabled analytics plugin
+ * 3. PostHog - Enabled analytics plugin
+ */
+async function seedPlugins(): Promise<void> {
+  const db = getDb();
+
+  console.log('  🔌 Seeding plugins...');
+
+  // Fixed UUIDs for idempotency
+  const testPluginId = '20000000-0000-4000-8000-000000000001';
+  const gaPluginId = '20000000-0000-4000-8000-000000000002';
+  const posthogPluginId = '20000000-0000-4000-8000-000000000003';
+
+  await db
+    .insert(schema.plugins)
+    .values([
+      {
+        pluginId: testPluginId,
+        tenantId: 'default',
+        key: 'drowl-plugin-test',
+        name: 'Test Plugin',
+        enabled: true,
+        config: {
+          testMode: true,
+          description: 'Test plugin for development',
+        },
+      },
+      {
+        pluginId: gaPluginId,
+        tenantId: 'default',
+        key: 'google-analytics',
+        name: 'Google Analytics',
+        enabled: false,
+        config: {
+          trackingId: null,
+          apiKey: null,
+        },
+      },
+      {
+        pluginId: posthogPluginId,
+        tenantId: 'default',
+        key: 'posthog',
+        name: 'PostHog',
+        enabled: true,
+        config: {
+          apiKey: 'phc_test_key_12345',
+          projectId: 'test-project',
+        },
+      },
+    ])
+    .onConflictDoNothing();
+
+  console.log('    ✅ Plugins seeded (3)');
+}
+
 // ============================================================================
 // Main Seed Function
 // ============================================================================
@@ -1191,6 +1255,8 @@ async function seed(): Promise<void> {
 
     await seedUsers(); // User for dashboard login
 
+    await seedPlugins(); // Plugins for plugin management
+
     const orgIds = await seedOrganizations(); // Organizations for developer affiliation
 
     const devIds = await seedDevelopers(orgIds); // Developers (core entity)
@@ -1215,6 +1281,7 @@ async function seed(): Promise<void> {
     console.log('\n📊 Summary:');
     console.log('  - Tenant: 1');
     console.log('  - Users: 2 (1 admin, 1 member)');
+    console.log('  - Plugins: 3');
     console.log('  - Organizations: 3');
     console.log('  - Developers: 5');
     console.log('  - Accounts: 4');

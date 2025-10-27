@@ -22,9 +22,9 @@
 
 import { type MetaFunction } from '@remix-run/node';
 import { useState, useEffect } from 'react';
-import { FunnelChart } from '~/components/funnel/FunnelChart.tsx';
-import { DropRateCard } from '~/components/funnel/DropRateCard.tsx';
-import { TimeSeriesChart } from '~/components/funnel/TimeSeriesChart.tsx';
+import { FunnelChart } from '~/components/funnel/FunnelChart.js';
+import { DropRateCard } from '~/components/funnel/DropRateCard.js';
+import { TimeSeriesChart } from '~/components/funnel/TimeSeriesChart.js';
 
 /**
  * Meta function - Sets page title
