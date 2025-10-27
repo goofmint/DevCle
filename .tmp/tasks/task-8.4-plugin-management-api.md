@@ -47,11 +47,11 @@ interface PluginInfo {
   /** Plugin configuration (JSON) */
   config: unknown;
 
-  /** Installation timestamp */
-  installedAt: Date;
+  /** Installation timestamp (ISO 8601) */
+  installedAt: string;
 
-  /** Last update timestamp */
-  updatedAt: Date;
+  /** Last update timestamp (ISO 8601) */
+  updatedAt: string;
 }
 ```
 
@@ -129,11 +129,11 @@ interface PluginJobInfo {
   /** Cron expression (if recurring) */
   cron?: string;
 
-  /** Last execution timestamp */
-  lastRun?: Date;
+  /** Last execution timestamp (ISO 8601) */
+  lastRun?: string;
 
-  /** Next scheduled execution */
-  nextRun?: Date;
+  /** Next scheduled execution (ISO 8601) */
+  nextRun?: string;
 }
 ```
 
@@ -177,11 +177,11 @@ interface PluginLogEntry {
   /** Execution status */
   status: 'running' | 'success' | 'failed';
 
-  /** Start timestamp */
-  startedAt: Date;
+  /** Start timestamp (ISO 8601) */
+  startedAt: string;
 
-  /** Finish timestamp (null if still running) */
-  finishedAt: Date | null;
+  /** Finish timestamp (ISO 8601, null if still running) */
+  finishedAt: string | null;
 
   /** Execution duration in milliseconds (null if still running) */
   duration: number | null;
@@ -371,8 +371,20 @@ interface ApiErrorResponse {
 
 1. **認証**: すべての API エンドポイントで `requireAuth()` による認証を必須とする
 2. **テナント分離**: RLS による自動的なテナント分離を使用（`withTenantContext()`）
-3. **バリデーション**: パラメータ（plugin ID, pagination など）を検証
-4. **レート制限**: 将来的に実装（現時点では未実装）
+3. **バリデーション**: 以下のパラメータを厳密に検証
+   - **Plugin ID**: UUID 形式（正規表現: `/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i`）であることを検証
+   - **Pagination `limit`**: 整数型、1 以上 100 以下（inclusive）、ドキュメントに記載の最大値 100 を超えない
+   - **Pagination `offset`**: 整数型、0 以上
+4. **CSRF 保護**: 状態変更を伴うエンドポイント（PUT, DELETE）は以下のいずれかの方法で CSRF 攻撃を防止
+   - **オプション A (推奨)**: CSRF トークン検証
+     - ログイン時にセッションごとの CSRF トークンを生成し、セッションストアに保存
+     - フォーム送信時に `X-CSRF-Token` ヘッダーまたはリクエストボディに含める
+     - サーバー側でセッション内のトークンと照合（一致しない場合は 403 Forbidden）
+   - **オプション B**: SameSite Cookie + メソッド制限 + カスタムヘッダー
+     - セッション Cookie に `SameSite=Strict` または `SameSite=Lax` を設定
+     - 状態変更は GET メソッドを使用しない（PUT, DELETE, POST のみ）
+     - カスタムヘッダー（例: `X-Requested-With: XMLHttpRequest`）の存在を検証（クロスオリジンリクエストでは送信できない）
+5. **レート制限**: 将来的に実装（現時点では未実装）
 
 ## テスト要件
 
