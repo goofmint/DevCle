@@ -15,35 +15,63 @@
 
 ## 実装対象
 
-### 1. プラグイン設定表示ページ
+### 1. プラグイン設定取得API
 
-**ファイル**: `app/routes/dashboard/plugins.$id.config.tsx`
+**ファイル**: `app/routes/api/plugins.$id.config.ts`
 
-プラグインの設定情報を表示するページを実装します。
+プラグインの設定情報を取得するAPIエンドポイントを実装します。
 
 ```typescript
-// app/routes/dashboard/plugins.$id.config.tsx
+// app/routes/api/plugins.$id.config.ts
 import type { LoaderFunctionArgs } from '@remix-run/node';
 import { json } from '@remix-run/node';
-import { useLoaderData } from '@remix-run/react';
 
 /**
- * GET /dashboard/plugins/:id/config
+ * GET /api/plugins/:id/config
  *
- * プラグインの設定情報を取得して表示します。
+ * プラグインの設定情報を取得します。
  * - プラグインの基本情報（名前、バージョン、説明、ベンダー、ライセンス）
  * - 設定項目の一覧（settingsSchema）
  * - 追加ルーティングの一覧（routes）
  * - 必要な権限の一覧（capabilities）
+ *
+ * @returns PluginConfigInfo
  */
 export async function loader({ params, request }: LoaderFunctionArgs) {
-  // 認証チェック
-  // プラグイン情報を取得（plugin.json を読み込み）
-  // レスポンスを返す
+  // 認証チェック（requireAuth）
+  // プラグイン情報を取得（getPluginConfig）
+  // JSONレスポンスを返す
 }
+```
+
+### 2. プラグイン設定表示ページ（SPA）
+
+**ファイル**: `app/routes/dashboard/plugins.$id.config.tsx`
+
+プラグインの設定情報を表示するクライアントコンポーネントを実装します。
+
+```typescript
+// app/routes/dashboard/plugins.$id.config.tsx
+import { useEffect, useState } from 'react';
+import { useParams } from '@remix-run/react';
 
 export default function PluginConfigPage() {
-  // ローダーデータを取得
+  const { id } = useParams();
+  const [config, setConfig] = useState<PluginConfigInfo | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    // APIからプラグイン設定を取得
+    // fetch(`/api/plugins/${id}/config`)
+    //   .then(res => res.json())
+    //   .then(data => setConfig(data))
+    //   .catch(err => setError(err.message))
+    //   .finally(() => setLoading(false))
+  }, [id]);
+
+  // ローディング中の表示
+  // エラー時の表示
   // プラグイン基本情報セクションを表示
   // 設定項目セクションを表示
   // ルーティングセクションを表示
@@ -354,16 +382,18 @@ export function RoutesSection({ routes }: RoutesSectionProps) {
 ## セキュリティ考慮事項
 
 1. **認証チェック**
-   - ページアクセス時に必ず認証チェックを実施
-   - 未認証の場合はログインページへリダイレクト
+   - API呼び出し時（`GET /api/plugins/:id/config`）に必ず認証チェックを実施
+   - 未認証の場合は401 Unauthorizedを返す
+   - クライアント側でも認証状態をチェックし、未認証の場合はログインページへリダイレクト
 
 2. **権限チェック**
-   - プラグイン設定の閲覧は管理者権限が必要
-   - 一般ユーザーはアクセス不可
+   - プラグイン設定の閲覧は管理者権限が必要（将来的に実装）
+   - 現時点では認証済みユーザーであればアクセス可能
 
 3. **シークレット情報の保護**
    - settingsSchemaで`type: "secret"`の項目は、実際の値を表示しない
    - プレースホルダー（"••••••"）のみ表示
+   - APIレスポンスにもシークレット値は含めない
 
 ---
 
@@ -399,6 +429,32 @@ describe('pluginExists', () => {
 });
 ```
 
+### 統合テスト（Vitest）
+
+```typescript
+// app/routes/api/plugins.$id.config.test.ts
+
+describe('GET /api/plugins/:id/config', () => {
+  it('プラグイン設定情報を正常に取得できる', async () => {
+    // 認証済みリクエスト
+    // プラグインIDを指定してAPIを呼び出し
+    // 200 OKが返ることを確認
+    // レスポンスに基本情報、権限、設定スキーマ、ルートが含まれることを確認
+  });
+
+  it('プラグインが存在しない場合は404を返す', async () => {
+    // 認証済みリクエスト
+    // 存在しないプラグインIDを指定
+    // 404 Not Foundが返ることを確認
+  });
+
+  it('未認証の場合は401を返す', async () => {
+    // 未認証リクエスト
+    // 401 Unauthorizedが返ることを確認
+  });
+});
+```
+
 ### E2Eテスト（Playwright）
 
 ```typescript
@@ -408,20 +464,29 @@ test.describe('Plugin Config Page', () => {
   test('プラグイン設定ページが正しく表示される', async ({ page }) => {
     // ログイン
     // /dashboard/plugins/:id/config にアクセス
+    // ローディング表示が出ることを確認
     // 基本情報セクションが表示されることを確認
     // 権限セクションが表示されることを確認
     // 設定項目セクションが表示されることを確認
     // ルーティングセクションが表示されることを確認
   });
 
-  test('プラグインが存在しない場合は404エラーが表示される', async ({ page }) => {
+  test('プラグインが存在しない場合はエラーメッセージが表示される', async ({ page }) => {
+    // ログイン
     // 存在しないプラグインIDでアクセス
-    // 404エラーページが表示されることを確認
+    // エラーメッセージが表示されることを確認
   });
 
   test('未認証の場合はログインページにリダイレクトされる', async ({ page }) => {
     // ログインせずにアクセス
     // ログインページにリダイレクトされることを確認
+  });
+
+  test('ローディング状態が正しく表示される', async ({ page }) => {
+    // ログイン
+    // ページにアクセス
+    // ローディングスピナーが表示されることを確認
+    // データ取得後にローディングが消えることを確認
   });
 });
 ```
@@ -430,15 +495,18 @@ test.describe('Plugin Config Page', () => {
 
 ## 完了条件
 
-- [x] `core/services/plugin/plugin-config.service.ts` が作成され、プラグイン設定情報を取得できる
-- [x] `app/routes/dashboard/plugins.$id.config.tsx` が作成され、設定情報が表示される
-- [x] 基本情報セクションが表示される
-- [x] 権限セクションが表示される
-- [x] 設定項目セクションが表示される
-- [x] ルーティングセクションが表示される
-- [x] エラーハンドリングが適切に実装されている
-- [x] 単体テストが実装され、全てパスする
-- [x] E2Eテストが実装され、全てパスする
+- [ ] `core/services/plugin/plugin-config.service.ts` が作成され、プラグイン設定情報を取得できる
+- [ ] `app/routes/api/plugins.$id.config.ts` が作成され、APIが機能する
+- [ ] `app/routes/dashboard/plugins.$id.config.tsx` が作成され、設定情報が表示される（SPA方式）
+- [ ] 基本情報セクションが表示される
+- [ ] 権限セクションが表示される
+- [ ] 設定項目セクションが表示される
+- [ ] ルーティングセクションが表示される
+- [ ] ローディング状態とエラー状態が適切に表示される
+- [ ] エラーハンドリングが適切に実装されている
+- [ ] 単体テストが実装され、全てパスする
+- [ ] 統合テスト（API）が実装され、全てパスする
+- [ ] E2Eテストが実装され、全てパスする
 
 ---
 
