@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "preinstall": "test -d ../plugins/drowl-plugin-test || (echo 'ERROR: Plugin submodule not initialized. Run: git submodule update --init --recursive' && exit 1)",
     "dev": "remix vite:dev",
     "build": "remix vite:build",
     "start": "remix-serve ./build/server/index.js",

@@ -22,17 +22,16 @@ import {
   type ActionFunctionArgs,
 } from '@remix-run/node';
 import { requireAuth } from '~/auth.middleware.js';
-import { withTenantContext } from '../../db/connection.js';
-import * as schema from '../../db/schema/index.js';
-import { eq } from 'drizzle-orm';
-import { isValidUUID } from '../utils/validation.js';
+import { isValidUUID } from '~/utils/validation.js';
+import { listPlugins, updatePluginEnabled, redactConfig } from '~/services/plugins.service.js';
 import type {
   PluginListResponse,
+  PluginSummary,
   PluginInfo,
   EnablePluginRequest,
   PluginActionResponse,
   ApiErrorResponse,
-} from '../types/plugin-api.js';
+} from '~/types/plugin-api.js';
 
 /**
  * GET /api/plugins - List all plugins
@@ -67,23 +66,16 @@ export async function loader({ request }: LoaderFunctionArgs) {
     const user = await requireAuth(request);
     const tenantId = user.tenantId;
 
-    // 2. Query plugins table with RLS
-    const pluginsData = await withTenantContext(tenantId, async (tx) => {
-      return await tx
-        .select()
-        .from(schema.plugins)
-        .where(eq(schema.plugins.tenantId, tenantId))
-        .orderBy(schema.plugins.createdAt);
-    });
+    // 2. Query plugins via service
+    const pluginsData = await listPlugins(tenantId);
 
-    // 3. Transform database records to API response format
-    const plugins: PluginInfo[] = pluginsData.map((plugin) => ({
+    // 3. Transform to API response format (omit config for security)
+    const plugins: PluginSummary[] = pluginsData.map((plugin) => ({
       pluginId: plugin.pluginId,
       key: plugin.key,
       name: plugin.name,
       version: '1.0.0', // Version is not stored in database yet
       enabled: plugin.enabled,
-      config: plugin.config,
       installedAt: plugin.createdAt.toISOString(),
       updatedAt: plugin.updatedAt.toISOString(),
     }));
@@ -172,38 +164,13 @@ export async function action({ request, params }: ActionFunctionArgs) {
       }
     }
 
-    // 5. Update plugin in database
-    const updatedPlugin = await withTenantContext(tenantId, async (tx) => {
-      // First, verify plugin exists and belongs to tenant
-      const existing = await tx
-        .select()
-        .from(schema.plugins)
-        .where(eq(schema.plugins.pluginId, pluginId))
-        .limit(1);
-
-      if (existing.length === 0) {
-        return null;
-      }
-
-      // Update plugin status (and config if provided)
-      const updateData: Partial<typeof schema.plugins.$inferInsert> = {
-        enabled: isEnable,
-        updatedAt: new Date(),
-      };
-
-      // Only update config if explicitly provided in PUT request
-      if (isEnable && configUpdate !== undefined) {
-        updateData.config = configUpdate;
-      }
-
-      const result = await tx
-        .update(schema.plugins)
-        .set(updateData)
-        .where(eq(schema.plugins.pluginId, pluginId))
-        .returning();
-
-      return result[0];
-    });
+    // 5. Update plugin via service
+    const updatedPlugin = await updatePluginEnabled(
+      tenantId,
+      pluginId,
+      isEnable,
+      configUpdate
+    );
 
     // 6. Check if plugin was found
     if (!updatedPlugin) {
@@ -215,14 +182,14 @@ export async function action({ request, params }: ActionFunctionArgs) {
       return json(errorResponse, { status: 404 });
     }
 
-    // 7. Transform to API response format
+    // 7. Transform to API response format (redact sensitive config)
     const pluginInfo: PluginInfo = {
       pluginId: updatedPlugin.pluginId,
       key: updatedPlugin.key,
       name: updatedPlugin.name,
       version: '1.0.0',
       enabled: updatedPlugin.enabled,
-      config: updatedPlugin.config,
+      config: redactConfig(updatedPlugin.config),
       installedAt: updatedPlugin.createdAt.toISOString(),
       updatedAt: updatedPlugin.updatedAt.toISOString(),
     };

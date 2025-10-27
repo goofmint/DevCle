@@ -65,6 +65,11 @@ export interface AuthUser {
   displayName: string;
   tenantId: string;
   role: 'admin' | 'member';
+  /**
+   * User permissions (optional, for RBAC)
+   * Example: ['plugin:logs:read', 'campaign:create']
+   */
+  permissions?: string[];
 }
 
 /**

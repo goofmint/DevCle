@@ -9,9 +9,11 @@
  *
  * Security:
  * - Authentication required (requireAuth)
- * - Tenant isolation via RLS (withTenantContext)
+ * - RBAC: Requires valid role (admin or member)
+ * - Tenant isolation via service layer
  * - UUID validation for plugin IDs
  * - Pagination validation (limit: 1-100, offset: >= 0)
+ * - Sensitive data redaction in execution results
  */
 
 import {
@@ -19,20 +21,23 @@ import {
   type LoaderFunctionArgs,
 } from '@remix-run/node';
 import { requireAuth } from '~/auth.middleware.js';
-import { withTenantContext } from '../../db/connection.js';
-import * as schema from '../../db/schema/index.js';
-import { eq, and, desc, count as drizzleCount } from 'drizzle-orm';
+import {
+  ensurePluginExists,
+  listPluginLogs,
+  getPluginLogsCount,
+  sanitizeResult,
+} from '~/services/pluginLogs.service.js';
 import {
   isValidUUID,
   isValidStatus,
   parseLimit,
   parseOffset,
-} from '../utils/validation.js';
+} from '~/utils/validation.js';
 import type {
   PluginLogsResponse,
   PluginLogEntry,
   ApiErrorResponse,
-} from '../types/plugin-api.js';
+} from '~/types/plugin-api.js';
 
 /**
  * GET /api/plugins/:id/logs - Get plugin execution logs
@@ -40,6 +45,7 @@ import type {
  * Returns paginated execution logs for a specific plugin.
  * Calculates duration for completed runs (finishedAt - startedAt).
  * Extracts error message from result JSON if status is 'failed'.
+ * Redacts sensitive fields from execution results.
  *
  * Query Parameters:
  * - limit: Number of logs to return (1-100, default 50)
@@ -58,7 +64,7 @@ import type {
  *       finishedAt: "2025-01-01T00:01:00.000Z",
  *       duration: 60000,
  *       error: null,
- *       result: {...}
+ *       result: {...}  // Sanitized - sensitive fields redacted
  *     }
  *   ],
  *   total: 100,
@@ -72,6 +78,7 @@ import type {
  * Error Responses:
  * - 400 Bad Request: Invalid plugin ID or query parameters
  * - 401 Unauthorized: Not authenticated
+ * - 403 Forbidden: Insufficient permissions
  * - 404 Not Found: Plugin not found
  * - 500 Internal Server Error: Database error
  */
@@ -81,7 +88,19 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     const user = await requireAuth(request);
     const tenantId = user.tenantId;
 
-    // 2. Validate plugin ID format
+    // 2. RBAC authorization check
+    // For now, both admin and member roles can view logs
+    // Future: Implement granular permissions via permissions column
+    if (!user.role || !['admin', 'member'].includes(user.role)) {
+      const errorResponse: ApiErrorResponse = {
+        status: 403,
+        message: 'Insufficient permissions to view plugin logs',
+        code: 'FORBIDDEN',
+      };
+      return json(errorResponse, { status: 403 });
+    }
+
+    // 3. Validate plugin ID format
     const pluginId = params['id'];
     if (!isValidUUID(pluginId)) {
       const errorResponse: ApiErrorResponse = {
@@ -92,7 +111,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       return json(errorResponse, { status: 400 });
     }
 
-    // 3. Parse and validate query parameters
+    // 4. Parse and validate query parameters
     const url = new URL(request.url);
     const limit = parseLimit(url.searchParams, 50);
     const offset = parseOffset(url.searchParams, 0);
@@ -108,18 +127,10 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       return json(errorResponse, { status: 400 });
     }
 
-    // 4. Verify plugin exists and belongs to tenant
-    const pluginExists = await withTenantContext(tenantId, async (tx) => {
-      const result = await tx
-        .select({ pluginId: schema.plugins.pluginId })
-        .from(schema.plugins)
-        .where(eq(schema.plugins.pluginId, pluginId))
-        .limit(1);
-
-      return result.length > 0;
-    });
-
-    if (!pluginExists) {
+    // 5. Verify plugin exists (via service layer)
+    try {
+      await ensurePluginExists(tenantId, pluginId);
+    } catch (err) {
       const errorResponse: ApiErrorResponse = {
         status: 404,
         message: 'Plugin not found',
@@ -128,31 +139,9 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       return json(errorResponse, { status: 404 });
     }
 
-    // 5. Build query conditions
-    const conditions = [eq(schema.pluginRuns.pluginId, pluginId)];
-    if (statusParam) {
-      conditions.push(eq(schema.pluginRuns.status, statusParam));
-    }
-
-    // 6. Query plugin_runs table with pagination
-    const [logsData, totalData] = await withTenantContext(tenantId, async (tx) => {
-      // Get logs with pagination
-      const logs = await tx
-        .select()
-        .from(schema.pluginRuns)
-        .where(and(...conditions))
-        .orderBy(desc(schema.pluginRuns.startedAt))
-        .limit(limit)
-        .offset(offset);
-
-      // Get total count for pagination metadata
-      const totalResult = await tx
-        .select({ count: drizzleCount() })
-        .from(schema.pluginRuns)
-        .where(and(...conditions));
-
-      return [logs, totalResult[0]?.count || 0];
-    });
+    // 6. Query plugin logs via service (with optional status filter)
+    const logsData = await listPluginLogs(tenantId, pluginId, limit, offset, statusParam || undefined);
+    const totalData = await getPluginLogsCount(tenantId, pluginId, statusParam || undefined);
 
     // 7. Transform database records to API response format
     const logs: PluginLogEntry[] = logsData.map((run) => {
@@ -174,7 +163,10 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
         }
       }
 
-      // Build log entry, only include error if it exists
+      // Sanitize result to remove sensitive data
+      const sanitizedResult = run.result ? sanitizeResult(run.result) : undefined;
+
+      // Build log entry
       const logEntry: PluginLogEntry = {
         runId: run.runId,
         hookName: run.trigger, // 'trigger' maps to 'hookName' in API
@@ -182,10 +174,10 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
         startedAt: run.startedAt.toISOString(),
         finishedAt: run.finishedAt ? run.finishedAt.toISOString() : null,
         duration,
-        result: run.result,
+        result: sanitizedResult,
       };
 
-      // Only add error field if it exists (to avoid undefined vs string conflict)
+      // Only add error field if it exists
       if (error !== undefined) {
         logEntry.error = error;
       }
@@ -206,6 +198,11 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
     return json(response, { status: 200 });
   } catch (error) {
+    // Preserve Remix redirects
+    if (error instanceof Response) {
+      throw error;
+    }
+
     // Log error for debugging
     console.error('Error getting plugin logs:', error);
 

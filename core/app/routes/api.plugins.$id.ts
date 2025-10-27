@@ -2,17 +2,18 @@
  * Plugin Detail API - Get Plugin Details
  *
  * Provides detailed information about a specific plugin, including:
- * - Plugin configuration and status
+ * - Plugin configuration and status (with sensitive config redacted)
  * - Registered hooks
- * - Registered scheduled jobs
+ * - Registered scheduled jobs with last run timestamps
  *
  * Endpoint:
  * - GET /api/plugins/:id - Get plugin details
  *
  * Security:
  * - Authentication required (requireAuth)
- * - Tenant isolation via RLS (withTenantContext)
+ * - Tenant isolation via service layer
  * - UUID validation for plugin IDs
+ * - Config redaction for sensitive fields
  */
 
 import {
@@ -20,10 +21,12 @@ import {
   type LoaderFunctionArgs,
 } from '@remix-run/node';
 import { requireAuth } from '~/auth.middleware.js';
+import { isValidUUID } from '~/utils/validation.js';
+import { redactConfig } from '~/services/plugins.service.js';
+import { getLastRunsPerTrigger } from '~/services/pluginLogs.service.js';
 import { withTenantContext } from '../../db/connection.js';
 import * as schema from '../../db/schema/index.js';
-import { eq, desc } from 'drizzle-orm';
-import { isValidUUID } from '../utils/validation.js';
+import { eq } from 'drizzle-orm';
 import { listHooks } from '../../plugin-system/hooks.js';
 import type {
   PluginDetailResponse,
@@ -31,7 +34,7 @@ import type {
   PluginHookInfo,
   PluginJobInfo,
   ApiErrorResponse,
-} from '../types/plugin-api.js';
+} from '~/types/plugin-api.js';
 
 /**
  * GET /api/plugins/:id - Get plugin details
@@ -102,14 +105,14 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       return json(errorResponse, { status: 404 });
     }
 
-    // 5. Transform plugin data to API format
+    // 5. Transform plugin data to API format (redact sensitive config)
     const plugin: PluginInfo = {
       pluginId: pluginData.pluginId,
       key: pluginData.key,
       name: pluginData.name,
       version: '1.0.0',
       enabled: pluginData.enabled,
-      config: pluginData.config,
+      config: redactConfig(pluginData.config),
       installedAt: pluginData.createdAt.toISOString(),
       updatedAt: pluginData.updatedAt.toISOString(),
     };
@@ -130,29 +133,11 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       }
     }
 
-    // 7. Get registered jobs for this plugin (from plugin_runs table)
-    // We query the most recent run for each unique trigger (job name)
-    const jobRunsData = await withTenantContext(tenantId, async (tx) => {
-      return await tx
-        .select({
-          trigger: schema.pluginRuns.trigger,
-          startedAt: schema.pluginRuns.startedAt,
-        })
-        .from(schema.pluginRuns)
-        .where(eq(schema.pluginRuns.pluginId, pluginId))
-        .orderBy(desc(schema.pluginRuns.startedAt))
-        .limit(100); // Get recent runs to extract unique job names
-    });
+    // 7. Get registered jobs with last run timestamps (via service)
+    // Uses SQL aggregation to compute max(started_at) grouped by trigger
+    const lastRunsMap = await getLastRunsPerTrigger(tenantId, pluginId);
 
-    // Extract unique job names and their most recent run
-    const jobMap = new Map<string, Date>();
-    for (const run of jobRunsData) {
-      if (!jobMap.has(run.trigger)) {
-        jobMap.set(run.trigger, run.startedAt);
-      }
-    }
-
-    const jobs: PluginJobInfo[] = Array.from(jobMap.entries()).map(([jobName, lastRun]) => {
+    const jobs: PluginJobInfo[] = Array.from(lastRunsMap.entries()).map(([jobName, lastRun]) => {
       const job: PluginJobInfo = {
         jobName,
         lastRun: lastRun.toISOString(),

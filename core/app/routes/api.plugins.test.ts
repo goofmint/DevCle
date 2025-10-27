@@ -268,7 +268,11 @@ describe('Plugin Management API - List and Enable/Disable', () => {
 
       const data: unknown = await response.json();
       assertPluginActionResponse(data);
-      expect(data.plugin.config).toEqual(newConfig);
+      // Config should be redacted for security
+      expect(data.plugin.config).toEqual({
+        apiKey: '***REDACTED***',
+        webhookUrl: 'https://example.com/webhook',
+      });
     });
 
     it('should return 400 for invalid UUID', async () => {

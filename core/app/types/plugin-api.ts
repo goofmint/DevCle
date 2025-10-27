@@ -13,10 +13,40 @@
  */
 
 /**
+ * Plugin summary (list view)
+ *
+ * Lightweight plugin info for list endpoints.
+ * Excludes config to avoid leaking sensitive data.
+ */
+export interface PluginSummary {
+  /** Plugin UUID */
+  pluginId: string;
+
+  /** Plugin key (unique identifier, e.g., "slack", "github") */
+  key: string;
+
+  /** Plugin display name */
+  name: string;
+
+  /** Plugin version (currently unused, defaults to "1.0.0") */
+  version: string;
+
+  /** Whether plugin is enabled */
+  enabled: boolean;
+
+  /** Installation timestamp (ISO 8601) */
+  installedAt: string;
+
+  /** Last update timestamp (ISO 8601) */
+  updatedAt: string;
+}
+
+/**
  * Plugin information (API response format)
  *
  * Represents a single plugin with its configuration and status.
  * Dates are serialized as ISO 8601 strings in API responses.
+ * Used for detail/action responses where config may be needed.
  */
 export interface PluginInfo {
   /** Plugin UUID */
@@ -48,10 +78,11 @@ export interface PluginInfo {
  * Plugin list response
  *
  * Response format for GET /api/plugins
+ * Uses PluginSummary (without config) for security
  */
 export interface PluginListResponse {
   /** Array of installed plugins */
-  plugins: PluginInfo[];
+  plugins: PluginSummary[];
 }
 
 /**

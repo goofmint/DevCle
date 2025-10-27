@@ -6,24 +6,29 @@
  */
 
 /**
- * UUID validation regex
+ * UUID v4 validation regex
  *
- * Matches UUID v4 format: 8-4-4-4-12 hexadecimal characters.
+ * Matches UUID v4 format with strict version and variant checking:
+ * - 8-4-4-4-12 hexadecimal characters
+ * - Version nibble must be '4' (13th character)
+ * - Variant bits must be '8', '9', 'a', or 'b' (17th character)
  * Case-insensitive to allow both lowercase and uppercase UUIDs.
  */
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID_V4_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 /**
- * Validate UUID format
+ * Validate UUID v4 format
  *
  * Checks if the provided string is a valid UUID v4.
+ * Enforces strict version 4 validation (version nibble = 4, variant bits = 10xx).
  *
  * @param value - Value to validate
- * @returns True if valid UUID, false otherwise
+ * @returns True if valid UUID v4, false otherwise
  *
  * @example
  * ```typescript
- * isValidUUID('550e8400-e29b-41d4-a716-446655440000'); // true
+ * isValidUUID('550e8400-e29b-41d4-a716-446655440000'); // true (valid v4)
+ * isValidUUID('550e8400-e29b-11d4-a716-446655440000'); // false (v1, not v4)
  * isValidUUID('invalid-uuid'); // false
  * isValidUUID(''); // false
  * ```
@@ -32,7 +37,7 @@ export function isValidUUID(value: string | null | undefined): value is string {
   if (!value || typeof value !== 'string') {
     return false;
   }
-  return UUID_REGEX.test(value);
+  return UUID_V4_REGEX.test(value);
 }
 
 /**
