@@ -7,7 +7,7 @@
 
 import { withTenantContext } from '../../db/connection.js';
 import * as schema from '../../db/schema/index.js';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 
 /**
  * List all plugins for a tenant
@@ -22,6 +22,32 @@ export async function listPlugins(tenantId: string) {
       .from(schema.plugins)
       .where(eq(schema.plugins.tenantId, tenantId))
       .orderBy(schema.plugins.createdAt);
+  });
+}
+
+/**
+ * Get a plugin by ID with tenant isolation
+ *
+ * Encapsulates tenant-scoped DB access so loaders don't handle DB/tenant logic directly.
+ *
+ * @param tenantId - Tenant ID
+ * @param pluginId - Plugin ID
+ * @returns Plugin record or null if not found
+ */
+export async function getPluginById(tenantId: string, pluginId: string) {
+  return await withTenantContext(tenantId, async (tx) => {
+    const [plugin] = await tx
+      .select()
+      .from(schema.plugins)
+      .where(
+        and(
+          eq(schema.plugins.pluginId, pluginId),
+          eq(schema.plugins.tenantId, tenantId)
+        )
+      )
+      .limit(1);
+
+    return plugin ?? null;
   });
 }
 
@@ -56,8 +82,10 @@ export async function updatePluginEnabled(
       .update(schema.plugins)
       .set(updates)
       .where(
-        eq(schema.plugins.pluginId, pluginId) &&
+        and(
+          eq(schema.plugins.pluginId, pluginId),
           eq(schema.plugins.tenantId, tenantId)
+        )
       )
       .returning();
 

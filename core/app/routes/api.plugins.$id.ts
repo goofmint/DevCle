@@ -25,11 +25,8 @@ import {
 } from '@remix-run/node';
 import { requireAuth } from '~/auth.middleware.js';
 import { isValidUUID } from '~/utils/validation.js';
-import { redactConfig } from '~/services/plugins.service.js';
+import { redactConfig, getPluginById, updatePluginEnabled } from '~/services/plugins.service.js';
 import { getLastRunsPerTrigger } from '~/services/pluginLogs.service.js';
-import { withTenantContext } from '../../db/connection.js';
-import * as schema from '../../db/schema/index.js';
-import { eq } from 'drizzle-orm';
 import { listHooks } from '../../plugin-system/hooks.js';
 import type {
   PluginDetailResponse,
@@ -87,16 +84,8 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       return json(errorResponse, { status: 400 });
     }
 
-    // 3. Query plugin from database
-    const pluginData = await withTenantContext(tenantId, async (tx) => {
-      const result = await tx
-        .select()
-        .from(schema.plugins)
-        .where(eq(schema.plugins.pluginId, pluginId))
-        .limit(1);
-
-      return result[0] || null;
-    });
+    // 3. Query plugin from database via service layer
+    const pluginData = await getPluginById(tenantId, pluginId);
 
     // 4. Check if plugin exists
     if (!pluginData) {
@@ -210,31 +199,8 @@ export async function action({ request, params }: ActionFunctionArgs) {
     const method = request.method;
     const newEnabled = method === 'PUT'; // PUT = enable, DELETE = disable
 
-    // 4. Update plugin in database
-    const updatedPlugin = await withTenantContext(tenantId, async (tx) => {
-      // First check if plugin exists
-      const existing = await tx
-        .select()
-        .from(schema.plugins)
-        .where(eq(schema.plugins.pluginId, pluginId))
-        .limit(1);
-
-      if (existing.length === 0) {
-        return null;
-      }
-
-      // Update enabled status
-      const updated = await tx
-        .update(schema.plugins)
-        .set({
-          enabled: newEnabled,
-          updatedAt: new Date(),
-        })
-        .where(eq(schema.plugins.pluginId, pluginId))
-        .returning();
-
-      return updated[0];
-    });
+    // 4. Update plugin in database via service layer
+    const updatedPlugin = await updatePluginEnabled(tenantId, pluginId, newEnabled);
 
     // 5. Check if plugin exists
     if (!updatedPlugin) {

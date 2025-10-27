@@ -97,7 +97,12 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
         message: 'Insufficient permissions to view plugin logs',
         code: 'FORBIDDEN',
       };
-      return json(errorResponse, { status: 403 });
+      return json(errorResponse, {
+        status: 403,
+        headers: {
+          'Cache-Control': 'no-store',
+        },
+      });
     }
 
     // 3. Validate plugin ID format
@@ -108,7 +113,12 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
         message: 'Invalid plugin ID format (must be UUID)',
         code: 'INVALID_UUID',
       };
-      return json(errorResponse, { status: 400 });
+      return json(errorResponse, {
+        status: 400,
+        headers: {
+          'Cache-Control': 'no-store',
+        },
+      });
     }
 
     // 4. Parse and validate query parameters
@@ -124,7 +134,12 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
         message: 'Invalid status filter (must be "running", "success", or "failed")',
         code: 'INVALID_STATUS',
       };
-      return json(errorResponse, { status: 400 });
+      return json(errorResponse, {
+        status: 400,
+        headers: {
+          'Cache-Control': 'no-store',
+        },
+      });
     }
 
     // 5. Verify plugin exists (via service layer)
@@ -136,7 +151,12 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
         message: 'Plugin not found',
         code: 'PLUGIN_NOT_FOUND',
       };
-      return json(errorResponse, { status: 404 });
+      return json(errorResponse, {
+        status: 404,
+        headers: {
+          'Cache-Control': 'no-store',
+        },
+      });
     }
 
     // 6. Query plugin logs via service (with optional status filter)
@@ -196,7 +216,12 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       },
     };
 
-    return json(response, { status: 200 });
+    return json(response, {
+      status: 200,
+      headers: {
+        'Cache-Control': 'no-store',
+      },
+    });
   } catch (error) {
     // Preserve Remix redirects
     if (error instanceof Response) {
@@ -211,6 +236,11 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       status: 500,
       message: 'Failed to get plugin logs',
     };
-    return json(errorResponse, { status: 500 });
+    return json(errorResponse, {
+      status: 500,
+      headers: {
+        'Cache-Control': 'no-store',
+      },
+    });
   }
 }
