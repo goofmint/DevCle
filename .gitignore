@@ -12,6 +12,9 @@ node_modules
 # Env
 .env
 
+# Temporary files and development documents
+.tmp/
+
 # Local certificates for development (mkcert)
 certs/
 
