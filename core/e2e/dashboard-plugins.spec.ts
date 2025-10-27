@@ -103,8 +103,8 @@ test('plugin cards show name, status, and dates', async ({ page }) => {
   // Verify card has border
   await expect(firstCard).toHaveClass(/border/);
 
-  // Verify plugin name (h3) is visible
-  const pluginName = firstCard.locator('h3');
+  // Verify plugin name (Link) is visible
+  const pluginName = firstCard.locator('a[href*="/config"]');
   await expect(pluginName).toBeVisible();
 
   // Verify status badge exists (Enabled or Disabled)
@@ -186,7 +186,7 @@ test('dark mode has correct color contrast', async ({ page }) => {
   const lightBgColor = await firstCard.evaluate((el) => {
     return window.getComputedStyle(el).backgroundColor;
   });
-  const lightTextColor = await firstCard.locator('h3').evaluate((el) => {
+  const lightTextColor = await firstCard.locator('a[href*="/config"]').evaluate((el) => {
     return window.getComputedStyle(el).color;
   });
 
@@ -211,7 +211,7 @@ test('dark mode has correct color contrast', async ({ page }) => {
     const darkBgColor = await firstCard.evaluate((el) => {
       return window.getComputedStyle(el).backgroundColor;
     });
-    const darkTextColor = await firstCard.locator('h3').evaluate((el) => {
+    const darkTextColor = await firstCard.locator('a[href*="/config"]').evaluate((el) => {
       return window.getComputedStyle(el).color;
     });
 
