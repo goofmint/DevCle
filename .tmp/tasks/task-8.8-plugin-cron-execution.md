@@ -7,11 +7,13 @@
 
 ## 目的
 
-- プラグインの cron ジョブを自動実行する
+- プラグインの `plugin.json` に定義された cron ジョブを自動実行する
 - 実行結果を `plugin_runs` テーブルに記録する
 - 手動実行機能を提供する（テスト・デバッグ用）
-- 実行スケジュールを管理 UI で確認できるようにする
+- 実行スケジュールを管理 UI で確認できるようにする（読み取り専用）
 - 実行結果のサマリーを表示する
+
+**重要**: cron スケジュールは `plugin.json` の `jobs[]` に定義されており、DB に保存する必要はありません。UI は plugin.json から読み取った設定を表示するのみです。
 
 ## 関連テーブル
 
@@ -37,6 +39,15 @@ export const pluginRuns = pgTable('plugin_runs', {
 
 ## 実装内容
 
+### 設計方針
+
+- **cron スケジュールの定義**: `plugin.json` の `jobs[]` に記述（DB 保存不要）
+- **実行記録**: `plugin_runs` テーブルに実行履歴を保存
+- **UI の役割**:
+  - `plugin.json` から設定を読み取って表示（読み取り専用）
+  - 実行履歴と結果を表示（`plugin_runs` テーブルから取得）
+  - 手動実行トリガー（テスト・デバッグ用）
+
 ### 1. プラグイン cron ジョブ実行機能
 
 **場所**: `core/plugin-system/executor.ts`（新規作成）
@@ -61,13 +72,30 @@ interface PluginRunResult {
 ```
 
 **説明**:
-- プラグインの `plugin.json` に定義された `jobs` の `route` を実行する
+- プラグインの `plugin.json` に定義された `jobs` の設定を読み取る
+  ```json
+  {
+    "jobs": [
+      {
+        "name": "sync",
+        "route": "/sync",
+        "cron": "0 */6 * * *",
+        "timeoutSec": 120,
+        "concurrency": 1,
+        "retry": { "max": 5, "backoffSec": [10, 30, 60, 120, 300] },
+        "cursor": { "key": "github_sync_cursor", "ttlSec": 604800 }
+      }
+    ]
+  }
+  ```
+- `jobs[].route` にリクエストを送信（例: `POST /plugins/:id/sync`）
 - `plugin_runs` テーブルに実行前にレコード作成（status: 'pending'）
 - 実行中は status: 'running' に更新
 - 完了後は status: 'success' | 'failed' に更新し、`completedAt`、`eventsProcessed`、`errorMessage` を記録
 - タイムアウト制御（`jobs[].timeoutSec`）
-- リトライ制御（`jobs[].retry`）
-- カーソル管理（`jobs[].cursor`）で前回実行からの差分取得
+- リトライ制御（`jobs[].retry.max` と `jobs[].retry.backoffSec`）
+- カーソル管理（`jobs[].cursor`）で前回実行からの差分取得（Redis に保存、TTL 付き）
+- 同時実行制御（`jobs[].concurrency`）
 
 ### 2. 実行結果の記録
 
@@ -159,11 +187,21 @@ export async function loader({ params, request }: LoaderFunctionArgs): Promise<{
 }>;
 
 interface JobSchedule {
+  // From plugin.json jobs[]
   name: string;
   route: string;
   cron: string;
   timeoutSec: number;
   concurrency: number;
+  retry: {
+    max: number;
+    backoffSec: number[];
+  };
+  cursor?: {
+    key: string;
+    ttlSec: number;
+  };
+  // Runtime info from plugin_runs table
   lastRun: {
     runId: string;
     status: 'success' | 'failed';
@@ -172,14 +210,21 @@ interface JobSchedule {
     eventsProcessed: number;
     errorMessage: string | null;
   } | null;
-  nextRun: Date; // calculated from cron expression
+  nextRun: Date; // calculated from cron expression using cron-parser
 }
 ```
 
 **UI 内容**:
-- プラグインの `plugin.json` に定義された `jobs` を一覧表示
-- 各ジョブの cron スケジュール、最終実行結果、次回実行予定時刻を表示
+- プラグインの `plugin.json` に定義された `jobs` を**読み取り専用**で一覧表示
+- 各ジョブの cron スケジュール（`cron` フィールド）、リトライ設定、タイムアウト設定を表示
+- 最終実行結果（`plugin_runs` テーブルから取得）を表示
+- 次回実行予定時刻（`cron-parser` で計算）を表示
 - 手動実行ボタン（後述）
+
+**注意**:
+- cron スケジュールは `plugin.json` の `jobs[].cron` に定義されており、**DB 保存は不要**
+- スケジュール変更はプラグインの `plugin.json` を編集し、プラグインを再読み込みすることで反映される
+- UI は読み取り専用（閲覧とモニタリングのみ）
 
 ### 4. 手動実行機能
 
@@ -395,12 +440,16 @@ interface RunSummary {
 - [ ] `core/plugin-system/executor.ts` が作成され、`executePluginJob()` が実装される
 - [ ] `core/services/plugin-run.service.ts` が作成され、CRUD 操作が実装される
 - [ ] `app/routes/dashboard/plugins.$id.schedule.tsx` が作成され、スケジュール管理 UI が表示される
+  - `plugin.json` の `jobs[]` から設定を読み取る（読み取り専用）
+  - 最終実行結果と次回実行予定時刻を表示
 - [ ] `app/routes/api/plugins.$id.run.ts` が作成され、手動実行 API が機能する
 - [ ] `app/routes/dashboard/plugins.$id.runs.tsx` が作成され、実行履歴とサマリーが表示される
 - [ ] `GET /api/plugins/:id/runs` API が実装され、実行履歴を取得できる
 - [ ] `GET /api/plugins/:id/runs/:runId` API が実装され、実行詳細を取得できる
 - [ ] E2E テストが全てパスする（7 テスト）
 - [ ] プラグインの cron ジョブが BullMQ で定期実行され、結果が記録される
+  - `plugin.json` の `jobs[].cron` に従って自動実行
+  - タイムアウト・リトライ・カーソル管理・同時実行制御が機能する
 
 ## 依存タスク
 
@@ -415,8 +464,14 @@ interface RunSummary {
 - `withTenantContext()` を使用して RLS 対応
 - `plugin_runs` テーブルは既に Task 3.2 で実装済み
 - BullMQ の Worker は Task 8.3 で実装済み
+- **cron スケジュールは `plugin.json` の `jobs[]` から読み取る（DB 保存不要）**
 - cron 式のパースには `cron-parser` パッケージを使用
 - 手動実行は admin ロールのみ許可（アクセス制御）
-- タイムアウト・リトライ・カーソル管理は `plugin.json` の `jobs` 定義に従う
-- 実行中のジョブは `concurrency` 制限を適用（同時実行数制限）
+- タイムアウト・リトライ・カーソル管理・同時実行制御は `plugin.json` の `jobs` 定義に従う
+  - `jobs[].timeoutSec`: タイムアウト
+  - `jobs[].retry.max` / `jobs[].retry.backoffSec[]`: リトライ制御
+  - `jobs[].cursor.key` / `jobs[].cursor.ttlSec`: カーソル管理（Redis に保存）
+  - `jobs[].concurrency`: 同時実行数制限
+- 実行中のジョブは `concurrency` 制限を適用（BullMQ の concurrency オプション）
 - 実行結果のポーリング間隔は 2 秒（フロントエンド）
+- プラグインの `plugin.json` を変更した場合は、プラグインを再読み込み（または再起動）することでスケジュールが更新される
