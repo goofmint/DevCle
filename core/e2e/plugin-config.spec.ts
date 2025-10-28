@@ -8,8 +8,15 @@ const BASE_URL = process.env['BASE_URL'] || 'https://devcle.test';
 const TEST_PLUGIN_ID = '20000000-0000-4000-8000-000000000001';
 const TEST_PLUGIN_KEY = 'drowl-plugin-test';
 const TEST_PLUGIN_NAME = 'Test Plugin';
-const ADMIN_EMAIL = 'admin@example.com';
-const ADMIN_PASSWORD = 'admin123456';
+
+// Read credentials from environment variables
+const ADMIN_EMAIL = (process.env['ADMIN_EMAIL'] || 'admin@example.com').trim();
+const ADMIN_PASSWORD = (process.env['ADMIN_PASSWORD'] || 'admin123456').trim();
+
+// Fail fast in CI if credentials are not provided
+if (process.env['CI'] && (!process.env['ADMIN_EMAIL'] || !process.env['ADMIN_PASSWORD'])) {
+  throw new Error('ADMIN_EMAIL and ADMIN_PASSWORD environment variables are required in CI');
+}
 
 /**
  * Helper function to login

@@ -43,11 +43,15 @@ export function BooleanField({ field, value, error }: BooleanFieldProps) {
       help={field.help}
       error={error}
     >
+      {/* Hidden input to ensure "false" is sent when checkbox is unchecked */}
+      <input type="hidden" name={field.key} value="false" />
+
       <label className="inline-flex items-center gap-2 cursor-pointer">
         <input
           type="checkbox"
           id={field.key}
           name={field.key}
+          value="true"
           defaultChecked={booleanValue}
           className="w-4 h-4 text-blue-600 bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500 dark:focus:ring-blue-400"
         />

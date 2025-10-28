@@ -42,12 +42,19 @@ export function isSecretField(field: PluginConfigField): boolean {
  * @returns true if value is { _exists: true }
  */
 export function isSecretExistsMarker(value: unknown): value is SecretExistsMarker {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    '_exists' in value &&
-    value._exists === true
-  );
+  // First verify value is a non-null object
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+
+  // Verify '_exists' key is present
+  if (!('_exists' in value)) {
+    return false;
+  }
+
+  // Cast to indexed type to access property safely
+  const obj = value as Record<string, unknown>;
+  return obj['_exists'] === true;
 }
 
 /**

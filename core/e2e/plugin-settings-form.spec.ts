@@ -57,7 +57,7 @@ test('settings form is displayed', async ({ page }) => {
   await expect(page.locator('form')).toBeVisible();
 
   // Verify form has save button
-  await expect(page.locator('button[type="submit"]:has-text("Save")')).toBeVisible();
+  await expect(page.locator('button[type="submit"]:has-text("Save Configuration")')).toBeVisible();
 
   // Verify cancel button exists
   await expect(page.locator('a:has-text("Cancel")')).toBeVisible();

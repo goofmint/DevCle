@@ -13,11 +13,13 @@
 import type { LoaderFunctionArgs, ActionFunctionArgs } from '@remix-run/node';
 import { json, redirect } from '@remix-run/node';
 import { useLoaderData, useActionData, Form, Link, useNavigation } from '@remix-run/react';
+import { Icon } from '@iconify/react';
 import { requireAuth } from '~/auth.middleware.js';
 import { getPluginConfig } from '../../services/plugin/plugin-config.service.js';
-import { getPluginById } from '../../services/plugin.service.js';
+import { findPluginById, updatePluginConfig } from '../../services/plugin.service.js';
 import { PluginConfigForm } from '~/components/plugin/PluginConfigForm.js';
-import type { PluginConfigField } from '../../plugin-system/config-validator.js';
+import type { PluginConfigField, PluginConfigSchema } from '../../plugin-system/config-validator.js';
+import { validatePluginConfig } from '../../plugin-system/config-validator.js';
 import { createSecretExistsMarkers } from '../../plugin-system/config-encryption.js';
 
 /**
@@ -67,7 +69,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
   try {
     // 2. Get plugin information from database
-    const plugin = await getPluginById(tenantId, pluginId);
+    const plugin = await findPluginById(tenantId, pluginId);
 
     if (!plugin) {
       throw new Response('Plugin not found', { status: 404 });
@@ -149,6 +151,8 @@ export async function action({ request, params }: ActionFunctionArgs) {
     );
   }
 
+  const tenantId = user.tenantId;
+
   // 2. Parse form data
   const formData = await request.formData();
   const configData: Record<string, unknown> = {};
@@ -157,6 +161,17 @@ export async function action({ request, params }: ActionFunctionArgs) {
   for (const [key, value] of formData.entries()) {
     // Skip non-config fields
     if (key === '_action') continue;
+
+    // Handle JSON string values (e.g., secret exists markers)
+    if (typeof value === 'string' && value.startsWith('{') && value.includes('"_exists"')) {
+      try {
+        configData[key] = JSON.parse(value);
+        continue;
+      } catch (error) {
+        // If parsing fails, treat as regular string
+        console.warn(`Failed to parse JSON for field ${key}:`, error);
+      }
+    }
 
     // Handle checkbox values (boolean fields)
     if (value === 'on') {
@@ -174,32 +189,66 @@ export async function action({ request, params }: ActionFunctionArgs) {
     configData[key] = value;
   }
 
-  // 3. Call API endpoint to update configuration
+  // 3. Get plugin information and schema
   try {
-    const response = await fetch(`http://localhost:3000/api/plugins/${pluginId}/config`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        Cookie: request.headers.get('Cookie') || '',
-      },
-      body: JSON.stringify({ config: configData }),
-    });
+    const plugin = await findPluginById(tenantId, pluginId);
 
-    const result = await response.json();
-
-    if (!response.ok) {
-      // Return validation errors or generic error
-      return json<ActionData>({
-        errors: result.details,
-        error: result.error,
-      }, { status: response.status });
+    if (!plugin) {
+      return json<ActionData>(
+        { error: 'Plugin not found' },
+        { status: 404 }
+      );
     }
 
-    // 4. Redirect to plugin list on success
+    // Get plugin configuration schema
+    const pluginConfig = await getPluginConfig(plugin.key, tenantId);
+
+    if (!pluginConfig.settingsSchema || !Array.isArray(pluginConfig.settingsSchema)) {
+      return json<ActionData>(
+        { error: 'Plugin does not have a configuration schema' },
+        { status: 404 }
+      );
+    }
+
+    const schema: PluginConfigSchema = {
+      fields: pluginConfig.settingsSchema as PluginConfigField[],
+    };
+
+    // 4. Validate configuration against schema
+    const validationErrors = validatePluginConfig(schema, configData);
+
+    if (validationErrors.length > 0) {
+      return json<ActionData>({
+        errors: validationErrors,
+        error: 'Validation failed',
+      }, { status: 400 });
+    }
+
+    // 5. Update plugin configuration (encryption handled by service)
+    await updatePluginConfig(tenantId, pluginId, schema, configData);
+
+    // 6. Redirect to plugin list on success
     return redirect('/dashboard/plugins');
   } catch (error) {
     // Log error for debugging
     console.error('[Plugin Edit Action] Error:', error);
+
+    // Handle specific errors
+    if (error instanceof Error) {
+      if (error.message.includes('Plugin not found')) {
+        return json<ActionData>(
+          { error: 'Plugin not found' },
+          { status: 404 }
+        );
+      }
+
+      if (error.message.includes('encrypt')) {
+        return json<ActionData>(
+          { error: 'Failed to encrypt configuration' },
+          { status: 500 }
+        );
+      }
+    }
 
     return json<ActionData>(
       { error: 'Failed to update plugin configuration' },
@@ -226,9 +275,7 @@ export default function PluginEditPage() {
           to="/dashboard/plugins"
           className="inline-flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:underline mb-4"
         >
-          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M19 12H5M5 12L12 19M5 12L12 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
+          <Icon icon="heroicons:arrow-left" className="w-4 h-4" />
           Back to Plugins
         </Link>
         <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
@@ -243,11 +290,7 @@ export default function PluginEditPage() {
       {actionData?.error && (
         <div className="mb-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
           <div className="flex items-center gap-2">
-            <svg className="w-6 h-6 text-red-600 dark:text-red-400" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M12 8V12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M12 16H12.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
+            <Icon icon="heroicons:exclamation-circle" className="w-6 h-6 text-red-600 dark:text-red-400" />
             <h3 className="text-lg font-semibold text-red-900 dark:text-red-100">Error</h3>
           </div>
           <p className="mt-2 text-red-700 dark:text-red-300">{actionData.error}</p>
@@ -278,18 +321,12 @@ export default function PluginEditPage() {
             >
               {isSubmitting ? (
                 <>
-                  <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M12 2V6M12 18V22M4.93 4.93L7.76 7.76M16.24 16.24L19.07 19.07M2 12H6M18 12H22M4.93 19.07L7.76 16.24M16.24 7.76L19.07 4.93" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
+                  <Icon icon="mdi:loading" className="w-4 h-4 animate-spin" />
                   Saving...
                 </>
               ) : (
                 <>
-                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V5C3 4.46957 3.21071 3.96086 3.58579 3.58579C3.96086 3.21071 4.46957 3 5 3H16L21 8V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    <path d="M17 21V13H7V21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    <path d="M7 3V8H15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
+                  <Icon icon="heroicons:document-arrow-down" className="w-4 h-4" />
                   Save Configuration
                 </>
               )}

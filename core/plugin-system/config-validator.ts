@@ -116,8 +116,12 @@ export function validatePluginConfig(
   for (const field of schema.fields) {
     const value = config[field.key];
 
-    // Check required fields
-    if (field.required && (value === undefined || value === null || value === '')) {
+    // Trim string values for required check and empty check
+    // (but keep original value for subsequent validation)
+    const trimmedValue = typeof value === 'string' ? value.trim() : value;
+
+    // Check required fields (use trimmed value for strings)
+    if (field.required && (trimmedValue === undefined || trimmedValue === null || trimmedValue === '')) {
       errors.push({
         field: field.key,
         message: `${field.label} is required`,
@@ -125,8 +129,8 @@ export function validatePluginConfig(
       continue;
     }
 
-    // Skip validation if field is not provided and not required
-    if (value === undefined || value === null || value === '') {
+    // Skip validation if field is not provided and not required (use trimmed value for strings)
+    if (trimmedValue === undefined || trimmedValue === null || trimmedValue === '') {
       continue;
     }
 
@@ -367,11 +371,12 @@ export function validateSelectField(
   }
 
   // Check that value is one of the allowed options
-  const allowedValues = field.options.map(opt => opt.value);
-  if (!allowedValues.includes(value as string | number)) {
+  // Coerce both sides to strings for comparison (value is always string from form, but option values may be numbers)
+  const allowedValues = field.options.map(opt => String(opt.value));
+  if (!allowedValues.includes(String(value || ''))) {
     errors.push({
       field: field.key,
-      message: `${field.label} must be one of: ${allowedValues.join(', ')}`,
+      message: `${field.label} must be one of: ${field.options.map(opt => opt.value).join(', ')}`,
     });
   }
 

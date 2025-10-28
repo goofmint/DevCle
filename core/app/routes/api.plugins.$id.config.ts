@@ -185,22 +185,25 @@ export async function action({ request, params }: ActionFunctionArgs) {
       plugin = await getPluginById(tenantId, pluginId);
     } catch (error) {
       console.error('[PUT /api/plugins/:id/config] Failed to get plugin:', error);
+
+      // Check if this is a "not found" error
+      if (error instanceof Error && error.message.includes('Plugin not found')) {
+        return json(
+          {
+            status: 404,
+            error: 'Plugin not found',
+          },
+          { status: 404 }
+        );
+      }
+
+      // Otherwise, return generic 500 error
       return json(
         {
           status: 500,
           error: 'Failed to retrieve plugin information',
         },
         { status: 500 }
-      );
-    }
-
-    if (!plugin) {
-      return json(
-        {
-          status: 404,
-          error: 'Plugin not found',
-        },
-        { status: 404 }
       );
     }
 

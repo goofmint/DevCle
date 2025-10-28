@@ -51,19 +51,19 @@ export interface PluginInfo {
 }
 
 /**
- * Get plugin by ID
+ * Find plugin by ID (returns null if not found)
  *
  * Retrieves plugin information with tenant isolation (RLS).
+ * Returns null instead of throwing when plugin is not found.
  *
  * @param tenantId - Tenant ID for RLS
  * @param pluginId - Plugin UUID
- * @returns Plugin information
- * @throws Error if plugin not found
+ * @returns Plugin information or null if not found
  */
-export async function getPluginById(
+export async function findPluginById(
   tenantId: string,
   pluginId: string
-): Promise<PluginInfo> {
+): Promise<PluginInfo | null> {
   return await withTenantContext(tenantId, async (tx) => {
     // Query plugins table with RLS
     const rows = await tx
@@ -80,7 +80,7 @@ export async function getPluginById(
     const row = rows[0];
 
     if (!row) {
-      throw new Error(`Plugin not found: ${pluginId}`);
+      return null;
     }
 
     // Convert to PluginInfo format
@@ -94,6 +94,30 @@ export async function getPluginById(
       updatedAt: row.updatedAt.toISOString(),
     };
   });
+}
+
+/**
+ * Get plugin by ID (throws if not found)
+ *
+ * Retrieves plugin information with tenant isolation (RLS).
+ * Throws an error when plugin is not found.
+ *
+ * @param tenantId - Tenant ID for RLS
+ * @param pluginId - Plugin UUID
+ * @returns Plugin information
+ * @throws Error if plugin not found
+ */
+export async function getPluginById(
+  tenantId: string,
+  pluginId: string
+): Promise<PluginInfo> {
+  const plugin = await findPluginById(tenantId, pluginId);
+
+  if (!plugin) {
+    throw new Error(`Plugin not found: ${pluginId}`);
+  }
+
+  return plugin;
 }
 
 /**
