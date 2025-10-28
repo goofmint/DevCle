@@ -28,7 +28,8 @@
  * プラグイン設定項目の型
  */
 type PluginConfigFieldType =
-  | 'string'      // 通常の文字列
+  | 'string'      // 通常の文字列（1行入力）
+  | 'textarea'    // 複数行テキスト
   | 'secret'      // 機密情報（暗号化して保存、UI では *** で表示）
   | 'number'      // 数値
   | 'boolean'     // 真偽値
@@ -292,7 +293,10 @@ function decryptPluginConfig(
 **関数:**
 - `validatePluginConfig(schema, config)`: 設定全体のバリデーション
 - `validateField(field, value)`: 個別フィールドのバリデーション
-- `validateStringField()`: 文字列フィールドの検証（長さ、正規表現、URL/Email 形式）
+- `validateStringField()`: 文字列フィールドの検証（string, textarea, secret, url, email）
+  - 長さチェック（minLength, maxLength）
+  - 正規表現パターンチェック
+  - URL/Email 形式チェック
 - `validateNumberField()`: 数値フィールドの検証（範囲）
 - `validateBooleanField()`: 真偽値フィールドの検証
 - `validateSelectField()`: 選択フィールドの検証（選択肢に含まれるか）
@@ -372,7 +376,8 @@ interface ValidationError {
   - 送信処理
 - `PluginConfigField`: 動的フィールドコンポーネント
   - フィールドタイプに応じて適切な入力コンポーネントをレンダリング
-- `StringField`: 文字列入力
+- `StringField`: 文字列入力（1行）
+- `TextareaField`: 複数行テキスト入力
 - `SecretField`: パスワード入力（Show/Hide ボタン付き）
 - `NumberField`: 数値入力
 - `BooleanField`: チェックボックス
@@ -405,7 +410,8 @@ interface ValidationError {
 
 ### E2E Tests (`core/e2e/plugin-settings.spec.ts`)
 - プラグイン設定編集画面の表示（2 tests）
-- フォームの動的生成（各フィールドタイプごとに 1 test、計 6 tests）
+- フォームの動的生成（各フィールドタイプごとに 1 test、計 7 tests）
+  - string, textarea, secret, number, boolean, url, email, select
 - バリデーションエラーの表示（3 tests）
 - 設定の保存と暗号化（2 tests）
 - 権限チェック（admin のみ編集可能）（2 tests）
@@ -413,7 +419,7 @@ interface ValidationError {
 - プラグイン無効化時の確認ダイアログ表示（2 tests）
 - プラグイン無効化後の設定削除確認（2 tests）
 
-**合計**: 最低 45 テスト以上
+**合計**: 最低 46 テスト以上
 
 ---
 
@@ -439,7 +445,7 @@ interface ValidationError {
 - [ ] プラグイン無効化時の設定削除実装
 - [ ] Unit Tests 全パス（最低 20 tests）
 - [ ] Integration Tests 全パス（最低 8 tests）
-- [ ] E2E Tests 全パス（最低 21 tests）
+- [ ] E2E Tests 全パス（最低 22 tests）
 - [ ] `pnpm typecheck` パス
 - [ ] `pnpm lint` パス
 
@@ -458,6 +464,9 @@ interface ValidationError {
 - **UI の一貫性**: システム設定画面（Task 7.3.2）と同じスタイルを使用
 - **動的フォーム**: `plugin.json` の設定スキーマに基づいてフォームを動的に生成
 - **エラーハンドリング**: バリデーションエラーは各フィールドの下に表示
+- **フィールドタイプの使い分け**:
+  - `string`: 1行の短いテキスト入力（名前、ID など）
+  - `textarea`: 複数行の長いテキスト入力（説明文、JSON、コードスニペットなど）
 - **設定アイコンの表示条件**:
   - プラグインが有効（`enabled: true`）の場合のみ
   - 設定スキーマ（`plugin.json` の `drm.config`）が存在する場合のみ
