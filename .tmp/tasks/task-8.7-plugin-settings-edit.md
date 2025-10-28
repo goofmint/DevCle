@@ -151,6 +151,41 @@ interface ApiErrorResponse {
 
 ---
 
+### DELETE /api/plugins/:id - プラグイン無効化（設定削除）
+
+プラグインを無効化し、設定をすべて削除します。
+
+```typescript
+/**
+ * Request: なし
+ */
+
+/**
+ * Response (Success)
+ */
+interface DisablePluginResponse {
+  success: boolean;
+  plugin: {
+    pluginId: string;
+    key: string;
+    name: string;
+    enabled: boolean; // false
+    updatedAt: string;
+  };
+}
+```
+
+**動作**:
+1. プラグインの `enabled` フラグを `false` に設定
+2. `config` フィールドをクリア（`null` または `{}`）
+3. `updatedAt` を更新
+
+**注意**:
+- UI で事前に確認ダイアログを表示すること
+- 設定は完全に削除され、復元できないことをユーザーに警告
+
+---
+
 ## 暗号化仕様
 
 ### 機密情報フィールドの処理
@@ -179,6 +214,72 @@ function decryptPluginConfig(
   config: Record<string, unknown>
 ): Promise<Record<string, unknown>>;
 ```
+
+---
+
+## UI 要件
+
+### プラグインカードへの設定アイコン表示
+
+**表示位置**: プラグインカードの右上
+
+**表示条件**:
+- プラグインが有効（`enabled: true`）の場合のみ表示
+- 設定スキーマ（`plugin.json` の `drm.config`）が存在する場合のみ表示
+
+**アイコン**:
+- 歯車アイコン（例: `mdi:cog` または `mdi:settings`）
+- ボタンまたはリンク
+
+**動作**:
+- クリックで `/dashboard/plugins/:id/edit` に遷移
+
+**実装イメージ**:
+```typescript
+{plugin.enabled && hasConfigSchema && (
+  <Link
+    to={`/dashboard/plugins/${plugin.pluginId}/edit`}
+    className="absolute top-4 right-4 p-2 hover:bg-gray-100 rounded"
+    title="Configure plugin"
+  >
+    <Icon icon="mdi:cog" className="w-5 h-5" />
+  </Link>
+)}
+```
+
+---
+
+### プラグイン無効化時の確認ダイアログ
+
+**トリガー**: `Disable` ボタンをクリック
+
+**ダイアログ内容**:
+- **タイトル**: "Disable Plugin?"
+- **メッセージ**:
+  ```
+  Are you sure you want to disable this plugin?
+
+  Warning: All plugin settings will be deleted and cannot be recovered.
+  You will need to reconfigure the plugin if you enable it again.
+  ```
+- **ボタン**:
+  - "Cancel"（キャンセル）
+  - "Disable"（確定、赤色）
+
+**動作**:
+- "Cancel" をクリック: ダイアログを閉じる
+- "Disable" をクリック: プラグインを無効化し、`config` フィールドをクリア（`null` または `{}`）
+
+---
+
+### プラグイン削除時の動作
+
+**トリガー**: プラグインをアンインストール（`DELETE /api/plugins/:id` で削除）
+
+**動作**:
+- `plugins` テーブルからレコードを削除
+- `config` フィールドも含めてすべてのデータを削除
+- 関連する `plugin_runs` テーブルのレコードも CASCADE 削除
 
 ---
 
@@ -308,8 +409,11 @@ interface ValidationError {
 - バリデーションエラーの表示（3 tests）
 - 設定の保存と暗号化（2 tests）
 - 権限チェック（admin のみ編集可能）（2 tests）
+- 設定アイコンの表示（有効なプラグインのみ）（2 tests）
+- プラグイン無効化時の確認ダイアログ表示（2 tests）
+- プラグイン無効化後の設定削除確認（2 tests）
 
-**合計**: 最低 40 テスト以上
+**合計**: 最低 45 テスト以上
 
 ---
 
@@ -330,9 +434,12 @@ interface ValidationError {
 - [ ] `core/services/plugin.service.ts` に `updatePluginConfig()` 追加
 - [ ] `app/routes/dashboard/plugins.$id.edit.tsx` 作成
 - [ ] `app/routes/api/plugins.$id.config.ts` 作成（設定更新 API）
+- [ ] プラグインカードに設定アイコン表示（有効なプラグインのみ）
+- [ ] プラグイン無効化時の確認ダイアログ実装
+- [ ] プラグイン無効化時の設定削除実装
 - [ ] Unit Tests 全パス（最低 20 tests）
 - [ ] Integration Tests 全パス（最低 8 tests）
-- [ ] E2E Tests 全パス（最低 15 tests）
+- [ ] E2E Tests 全パス（最低 21 tests）
 - [ ] `pnpm typecheck` パス
 - [ ] `pnpm lint` パス
 
@@ -351,3 +458,13 @@ interface ValidationError {
 - **UI の一貫性**: システム設定画面（Task 7.3.2）と同じスタイルを使用
 - **動的フォーム**: `plugin.json` の設定スキーマに基づいてフォームを動的に生成
 - **エラーハンドリング**: バリデーションエラーは各フィールドの下に表示
+- **設定アイコンの表示条件**:
+  - プラグインが有効（`enabled: true`）の場合のみ
+  - 設定スキーマ（`plugin.json` の `drm.config`）が存在する場合のみ
+- **プラグイン無効化時の警告**:
+  - 必ず確認ダイアログを表示
+  - 「設定がすべて削除されます」という警告を明示
+  - ユーザーが意図せず設定を失わないよう配慮
+- **設定削除の不可逆性**:
+  - プラグイン無効化時に `config` フィールドをクリア
+  - 復元不可能であることを明確に伝える
