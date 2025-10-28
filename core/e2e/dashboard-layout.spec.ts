@@ -116,17 +116,20 @@ test('sidebar displays navigation items', async ({ page }) => {
   const sidebar = page.getByTestId('sidebar');
   await expect(sidebar).toBeVisible();
 
-  // Verify main navigation items
-  await expect(page.getByRole('link', { name: /Overview/i })).toBeVisible();
-  await expect(page.getByRole('link', { name: /Developers/i })).toBeVisible();
-  await expect(page.getByRole('link', { name: /Campaigns/i })).toBeVisible();
-  await expect(page.getByRole('link', { name: /Funnel/i })).toBeVisible();
+  const mainNav = sidebar.getByRole('navigation', { name: /Main navigation/i });
+  const settingsNav = sidebar.getByRole('navigation', { name: /Settings navigation/i });
+
+  // Verify main navigation items (scope by explicit href to avoid plugin submenu duplicates)
+  await expect(mainNav.locator('a[href="/dashboard"]')).toBeVisible();
+  await expect(mainNav.locator('a[href="/dashboard/developers"]')).toBeVisible();
+  await expect(mainNav.locator('a[href="/dashboard/campaigns"]')).toBeVisible();
+  await expect(mainNav.locator('a[href="/dashboard/funnel"]')).toBeVisible();
 
   // Verify System Settings is at bottom
-  await expect(page.getByRole('link', { name: /System Settings/i })).toBeVisible();
+  await expect(settingsNav.locator('a[href="/dashboard/settings"]')).toBeVisible();
 
   // Verify Overview link is active (has active styling)
-  const overviewLink = page.getByRole('link', { name: /Overview/i });
+  const overviewLink = mainNav.locator('a[href="/dashboard"]');
   const overviewClasses = await overviewLink.getAttribute('class');
   expect(overviewClasses).toContain('bg-indigo');
 });

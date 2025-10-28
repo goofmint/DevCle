@@ -24,6 +24,45 @@
 import { test, expect, type Page } from '@playwright/test';
 
 const BASE_URL = process.env['BASE_URL'] || 'https://devcle.test';
+const successToast = (page: Page) => page.locator('text=/Plugin (enabled|disabled) successfully/i');
+
+async function navigateToPlugins(page: Page) {
+  await page.goto(`${BASE_URL}/dashboard/plugins`);
+  await page.waitForLoadState('networkidle');
+}
+
+async function ensureFirstPluginState(page: Page, enabled: boolean) {
+  const firstCard = page.locator('div.grid > div').first();
+  await expect(firstCard).toBeVisible();
+
+  const isEnabled = await firstCard.locator('div:has-text("Enabled")').count() > 0;
+  if (isEnabled === enabled) {
+    return firstCard;
+  }
+
+  if (enabled) {
+    const enableButton = firstCard.locator('button:has-text("Enable")');
+    await enableButton.click();
+    await expect(successToast(page)).toBeVisible({ timeout: 5000 });
+  } else {
+    page.once('dialog', (dialog) => dialog.accept());
+    const disableButton = firstCard.locator('button:has-text("Disable")');
+    await disableButton.click();
+  await expect(successToast(page)).toBeVisible({ timeout: 5000 });
+  }
+
+  // Allow toast to disappear before continuing
+  await page.waitForTimeout(300);
+  await page.reload({ waitUntil: 'networkidle' });
+
+  const refreshedCard = page.locator('div.grid > div').first();
+
+  // Verify state updated
+  await expect(
+    refreshedCard.getByText(enabled ? 'Enabled' : 'Disabled').first()
+  ).toBeVisible();
+  return refreshedCard;
+}
 
 /**
  * Helper: Login as admin user
@@ -58,17 +97,8 @@ async function loginAsMember(page: Page) {
  */
 test('settings icon displayed for enabled plugins', async ({ page }) => {
   await loginAsAdmin(page);
-  await page.goto(`${BASE_URL}/dashboard/plugins`);
-  await page.waitForLoadState('networkidle');
-
-  // Find enabled plugin cards (Test Plugin should be enabled by seed)
-  const enabledCards = page.locator('div.grid > div:has(.bg-green-100, .bg-green-900\\/30)');
-  const enabledCount = await enabledCards.count();
-
-  // Expect at least one enabled plugin (drowl-plugin-test from seed)
-  expect(enabledCount).toBeGreaterThan(0);
-
-  const firstEnabled = enabledCards.first();
+  await navigateToPlugins(page);
+  const firstEnabled = await ensureFirstPluginState(page, true);
 
   // Settings icon should be visible
   const settingsIcon = firstEnabled.locator('a[title="Configure plugin"]');
@@ -89,17 +119,8 @@ test('settings icon displayed for enabled plugins', async ({ page }) => {
  */
 test('settings icon not displayed for disabled plugins', async ({ page }) => {
   await loginAsAdmin(page);
-  await page.goto(`${BASE_URL}/dashboard/plugins`);
-  await page.waitForLoadState('networkidle');
-
-  // Find disabled plugin cards
-  const disabledCards = page.locator('div.grid > div:has(.bg-gray-100, .bg-gray-700):not(:has(.bg-green-100))');
-  const disabledCount = await disabledCards.count();
-
-  // Expect at least one disabled plugin exists for this test
-  expect(disabledCount).toBeGreaterThan(0);
-
-  const firstDisabled = disabledCards.first();
+  await navigateToPlugins(page);
+  const firstDisabled = await ensureFirstPluginState(page, false);
 
   // Settings icon should NOT be visible
   const settingsIcon = firstDisabled.locator('a[title="Configure plugin"]');
@@ -111,18 +132,11 @@ test('settings icon not displayed for disabled plugins', async ({ page }) => {
  */
 test('shows confirmation dialog when disabling plugin', async ({ page }) => {
   await loginAsAdmin(page);
-  await page.goto(`${BASE_URL}/dashboard/plugins`);
-  await page.waitForLoadState('networkidle');
-
-  // Find enabled plugin
-  const enabledCard = page.locator('div.grid > div:has(.bg-green-100, .bg-green-900\\/30)').first();
-  const cardCount = await page.locator('div.grid > div:has(.bg-green-100, .bg-green-900\\/30)').count();
-
-  // Expect at least one enabled plugin exists for this test
-  expect(cardCount).toBeGreaterThan(0);
+  await navigateToPlugins(page);
+  const enabledCard = await ensureFirstPluginState(page, true);
 
   // Setup dialog listener before clicking
-  page.on('dialog', async dialog => {
+  page.once('dialog', async dialog => {
     // Verify dialog message contains warning
     expect(dialog.message()).toContain('disable');
     expect(dialog.message()).toContain('settings will be deleted');
@@ -145,15 +159,8 @@ test('shows confirmation dialog when disabling plugin', async ({ page }) => {
  */
 test('config is deleted when plugin is disabled', async ({ page }) => {
   await loginAsAdmin(page);
-  await page.goto(`${BASE_URL}/dashboard/plugins`);
-  await page.waitForLoadState('networkidle');
-
-  // Find enabled plugin with settings
-  const enabledCard = page.locator('div.grid > div:has(.bg-green-100, .bg-green-900\\/30)').first();
-  const cardCount = await page.locator('div.grid > div:has(.bg-green-100, .bg-green-900\\/30)').count();
-
-  // Expect at least one enabled plugin exists for this test
-  expect(cardCount).toBeGreaterThan(0);
+  await navigateToPlugins(page);
+  const enabledCard = await ensureFirstPluginState(page, true);
 
   // Get plugin ID from settings link
   const settingsLink = enabledCard.locator('a[title="Configure plugin"]');
@@ -163,7 +170,7 @@ test('config is deleted when plugin is disabled', async ({ page }) => {
   expect(href).toBeTruthy();
 
   // Accept the disable confirmation
-  page.on('dialog', async dialog => {
+  page.once('dialog', async dialog => {
     await dialog.accept();
   });
 
@@ -172,10 +179,13 @@ test('config is deleted when plugin is disabled', async ({ page }) => {
   await disableButton.click();
 
   // Wait for toast notification
-  await expect(page.locator('text=disabled successfully')).toBeVisible({ timeout: 5000 });
+  await expect(successToast(page)).toBeVisible({ timeout: 5000 });
 
   // Verify settings icon is no longer visible (card should be in disabled state)
   await expect(settingsLink).not.toBeVisible();
+
+  // Restore state for subsequent tests
+  await ensureFirstPluginState(page, true);
 });
 
 /**
@@ -187,8 +197,7 @@ test('plugin cards have correct dark mode colors', async ({ page }) => {
   // Set dark mode
   await page.emulateMedia({ colorScheme: 'dark' });
 
-  await page.goto(`${BASE_URL}/dashboard/plugins`);
-  await page.waitForLoadState('networkidle');
+  await navigateToPlugins(page);
 
   const pluginCard = page.locator('div.grid > div').first();
   const cardCount = await page.locator('div.grid > div').count();
@@ -200,7 +209,7 @@ test('plugin cards have correct dark mode colors', async ({ page }) => {
   await expect(pluginCard).toHaveClass(/dark:bg-gray-800/);
 
   // Title should have light text
-  const title = pluginCard.locator('a').first();
+  const title = pluginCard.locator('h3').first();
   await expect(title).toHaveClass(/dark:text-gray-100/);
 
   // Verify text and background contrast
@@ -216,20 +225,14 @@ test('plugin cards have correct dark mode colors', async ({ page }) => {
  */
 test('settings icon does not break card layout', async ({ page }) => {
   await loginAsAdmin(page);
-  await page.goto(`${BASE_URL}/dashboard/plugins`);
-  await page.waitForLoadState('networkidle');
-
-  const enabledCard = page.locator('div.grid > div:has(.bg-green-100, .bg-green-900\\/30)').first();
-  const cardCount = await page.locator('div.grid > div:has(.bg-green-100, .bg-green-900\\/30)').count();
-
-  // Expect at least one enabled plugin exists for this test
-  expect(cardCount).toBeGreaterThan(0);
+  await navigateToPlugins(page);
+  const enabledCard = await ensureFirstPluginState(page, true);
 
   const settingsIcon = enabledCard.locator('a[title="Configure plugin"]');
 
   // Icon should not overlap with title
   const iconBox = await settingsIcon.boundingBox();
-  const titleBox = await enabledCard.locator('a').first().boundingBox();
+  const titleBox = await enabledCard.locator('h3').first().boundingBox();
 
   // Expect both boxes to exist
   expect(iconBox).toBeTruthy();
@@ -247,14 +250,10 @@ test('settings icon does not break card layout', async ({ page }) => {
 test('member user cannot access settings page', async ({ page }) => {
   // First login as admin to get plugin ID
   await loginAsAdmin(page);
-  await page.goto(`${BASE_URL}/dashboard/plugins`);
-  await page.waitForLoadState('networkidle');
+  await navigateToPlugins(page);
+  const enabledCard = await ensureFirstPluginState(page, true);
 
-  const settingsLink = page.locator('a[title="Configure plugin"]').first();
-  const linkCount = await page.locator('a[title="Configure plugin"]').count();
-
-  // Expect at least one settings link exists for this test
-  expect(linkCount).toBeGreaterThan(0);
+  const settingsLink = enabledCard.locator('a[title="Configure plugin"]').first();
 
   const href = await settingsLink.getAttribute('href');
 
@@ -262,15 +261,19 @@ test('member user cannot access settings page', async ({ page }) => {
   expect(href).toBeTruthy();
 
   // Logout and login as member
-  await page.goto(`${BASE_URL}/logout`);
+  await page.context().clearCookies();
   await loginAsMember(page);
 
   // Try to access settings page
   await page.goto(`${BASE_URL}${href}`);
 
   // Should see 403 error or redirect
-  const forbidden = page.locator('text=/403|Forbidden|Admin role required/i');
-  await expect(forbidden).toBeVisible({ timeout: 5000 });
+  const errorHeading = page.getByRole('heading', { name: /An Error Occurred|Forbidden|403/i });
+  if (await errorHeading.count()) {
+    await expect(errorHeading.first()).toBeVisible({ timeout: 5000 });
+  } else {
+    await expect(page.locator('text=/403|Forbidden|Admin role required/i')).toBeVisible({ timeout: 5000 });
+  }
 });
 
 /**

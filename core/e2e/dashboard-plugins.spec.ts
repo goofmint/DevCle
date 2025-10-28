@@ -103,9 +103,17 @@ test('plugin cards show name, status, and dates', async ({ page }) => {
   // Verify card has border
   await expect(firstCard).toHaveClass(/border/);
 
-  // Verify plugin name (Link) is visible
-  const pluginName = firstCard.locator('a[href*="/config"]');
+  // Verify plugin name heading is visible
+  const pluginName = firstCard.locator('h3');
   await expect(pluginName).toBeVisible();
+  const pluginNameText = await pluginName.textContent();
+  expect(pluginNameText).toBeTruthy();
+
+  // Optional settings link (enabled plugins with settings)
+  const settingsLink = firstCard.locator('a[href*="/edit"]');
+  if (await settingsLink.count()) {
+    await expect(settingsLink.first()).toBeVisible();
+  }
 
   // Verify status badge exists (Enabled or Disabled)
   const statusBadge = firstCard.locator('div.px-3.py-1.rounded-full');
@@ -142,6 +150,9 @@ test('can enable and disable plugins', async ({ page }) => {
   const wasEnabled = initialButtonText?.includes('Disable');
 
   // Click toggle button
+  if (wasEnabled) {
+    page.once('dialog', (dialog) => dialog.accept());
+  }
   await actionButton.click();
 
   // Wait for toast notification (success message)
@@ -186,7 +197,8 @@ test('dark mode has correct color contrast', async ({ page }) => {
   const lightBgColor = await firstCard.evaluate((el) => {
     return window.getComputedStyle(el).backgroundColor;
   });
-  const lightTextColor = await firstCard.locator('a[href*="/config"]').evaluate((el) => {
+  const titleElement = firstCard.locator('h3').first();
+  const lightTextColor = await titleElement.evaluate((el) => {
     return window.getComputedStyle(el).color;
   });
 
@@ -211,7 +223,7 @@ test('dark mode has correct color contrast', async ({ page }) => {
     const darkBgColor = await firstCard.evaluate((el) => {
       return window.getComputedStyle(el).backgroundColor;
     });
-    const darkTextColor = await firstCard.locator('a[href*="/config"]').evaluate((el) => {
+    const darkTextColor = await titleElement.evaluate((el) => {
       return window.getComputedStyle(el).color;
     });
 
