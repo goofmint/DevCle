@@ -217,3 +217,67 @@ export async function hashPassword(password: string): Promise<string> {
   const saltRounds = 10; // Recommended minimum for security
   return bcrypt.hash(password, saltRounds);
 }
+
+/**
+ * Dashboard User type (for route loaders)
+ *
+ * Extended user information for dashboard routes,
+ * including capabilities for permission filtering.
+ */
+export interface DashboardUser {
+  userId: string;
+  email: string;
+  displayName: string;
+  role: 'admin' | 'member';
+  tenantId: string;
+  avatarUrl?: string;
+  capabilities?: string[];
+}
+
+/**
+ * Convert AuthUser to Dashboard User
+ *
+ * Maps authentication user data to dashboard user format,
+ * properly handling capabilities/permissions for RBAC.
+ *
+ * Business logic:
+ * - Admin users get wildcard capability ['*'] for full access
+ * - Non-admin users get their permissions mapped to capabilities
+ * - displayName defaults to email if not set
+ * - Handles null/undefined permissions safely
+ *
+ * @param authUser - Authenticated user from requireAuth()
+ * @returns Dashboard user object with capabilities
+ *
+ * Usage in route loaders:
+ * ```typescript
+ * export async function loader({ request }: LoaderFunctionArgs) {
+ *   const authUser = await requireAuth(request);
+ *   const user = convertAuthUserToDashboardUser(authUser);
+ *   // user.capabilities is now properly set for filtering
+ *   return json({ user });
+ * }
+ * ```
+ */
+export function convertAuthUserToDashboardUser(
+  authUser: AuthUser
+): DashboardUser {
+  // Admin users get wildcard capability for full access
+  // Non-admin users get their permissions mapped to capabilities
+  const capabilities: string[] =
+    authUser.role === 'admin'
+      ? ['*']
+      : Array.isArray(authUser.permissions)
+        ? authUser.permissions.filter((p): p is string => typeof p === 'string')
+        : [];
+
+  return {
+    userId: authUser.userId,
+    email: authUser.email,
+    displayName: authUser.displayName || authUser.email,
+    role: authUser.role,
+    tenantId: authUser.tenantId,
+    capabilities,
+  };
+}
+
