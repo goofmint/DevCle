@@ -178,11 +178,13 @@ async function createTestPluginRun(
       runId,
       tenantId: TEST_TENANT,
       pluginId,
-      trigger,
+      jobName: 'test-job',
       status,
       startedAt,
-      finishedAt,
-      result: status === 'failed'
+      completedAt: finishedAt,
+      eventsProcessed: 0,
+      errorMessage: status === 'failed' ? 'Test error' : null,
+      metadata: status === 'failed'
         ? { errors: [{ errorMessage: 'Test error' }] }
         : { success: true },
     });

@@ -16,7 +16,7 @@
  * - Shortlinks enable click tracking and campaign attribution
  */
 
-import { pgTable, uuid, text, boolean, timestamp, jsonb, unique, index } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, boolean, timestamp, jsonb, unique, index, integer } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { tenants } from './admin';
 import { users } from './admin';
@@ -63,11 +63,13 @@ export const plugins = pgTable('plugins', {
  * - run_id: UUID primary key
  * - tenant_id: Foreign key to tenants (cascade delete)
  * - plugin_id: Foreign key to plugins (cascade delete)
- * - trigger: Trigger type ("cron", "manual", "webhook")
+ * - job_name: Name of the job from plugin.json jobs[] (e.g., "sync", "cleanup")
  * - started_at: Job start timestamp (defaults to now)
- * - finished_at: Job completion timestamp
- * - status: Job status ("running", "success", "failed", "partial")
- * - result: JSONB containing counts, diagnostics, errors
+ * - completed_at: Job completion timestamp
+ * - status: Job status ("pending", "running", "success", "failed")
+ * - events_processed: Number of events processed (default 0)
+ * - error_message: Error message if failed
+ * - metadata: JSONB containing cursor, retryCount, lastRunAt, etc.
  *
  * Indexes:
  * - (tenant_id, plugin_id, started_at DESC) for querying recent runs by plugin
@@ -76,11 +78,13 @@ export const pluginRuns = pgTable('plugin_runs', {
   runId: uuid('run_id').primaryKey().default(sql`uuid_generate_v4()`),
   tenantId: text('tenant_id').notNull().references(() => tenants.tenantId, { onDelete: 'cascade' }),
   pluginId: uuid('plugin_id').notNull().references(() => plugins.pluginId, { onDelete: 'cascade' }),
-  trigger: text('trigger').notNull(),
+  jobName: text('job_name').notNull(),
   startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
-  finishedAt: timestamp('finished_at', { withTimezone: true }),
-  status: text('status').notNull().default('running'),
-  result: jsonb('result'),
+  completedAt: timestamp('completed_at', { withTimezone: true }),
+  status: text('status').notNull().default('pending'),
+  eventsProcessed: integer('events_processed').notNull().default(0),
+  errorMessage: text('error_message'),
+  metadata: jsonb('metadata'),
 }, (t) => ({
   tenantPluginTimeIdx: index('idx_plugin_runs_tenant_plugin_time').on(t.tenantId, t.pluginId, t.startedAt),
 }));

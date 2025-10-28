@@ -73,11 +73,13 @@ export async function startJobRun(
       .values({
         tenantId,
         pluginId,
-        trigger: 'job', // Job trigger type
+        jobName, // Job name from plugin.json jobs[]
         startedAt: new Date(),
-        finishedAt: null, // Not finished yet
+        completedAt: null, // Not completed yet
         status: 'running',
-        result: metadata as unknown as Record<string, unknown>,
+        eventsProcessed: 0,
+        errorMessage: null,
+        metadata: metadata as unknown as Record<string, unknown>,
       })
       .returning({ runId: schema.pluginRuns.runId });
 
@@ -152,9 +154,11 @@ export async function finishJobRun(
     await tx
       .update(schema.pluginRuns)
       .set({
-        finishedAt: new Date(),
+        completedAt: new Date(),
         status,
-        result,
+        eventsProcessed: (metadata?.data && typeof metadata.data === 'object' && 'recordsProcessed' in metadata.data && typeof metadata.data.recordsProcessed === 'number') ? metadata.data.recordsProcessed : 0,
+        errorMessage: errorMessage ?? null,
+        metadata: result,
       })
       .where(eq(schema.pluginRuns.runId, runId));
   });
@@ -220,11 +224,13 @@ export async function logJobExecution(
       .values({
         tenantId,
         pluginId,
-        trigger: 'job',
+        jobName,
         startedAt: now,
-        finishedAt: now, // Finished immediately
+        completedAt: now, // Completed immediately
         status,
-        result,
+        eventsProcessed: (metadata?.data && typeof metadata.data === 'object' && 'recordsProcessed' in metadata.data && typeof metadata.data.recordsProcessed === 'number') ? metadata.data.recordsProcessed : 0,
+        errorMessage: errorMessage ?? null,
+        metadata: result,
       })
       .returning({ runId: schema.pluginRuns.runId });
 
@@ -263,40 +269,41 @@ export async function getJobHistory(
 ): Promise<
   Array<{
     runId: string;
-    trigger: string;
+    jobName: string;
     startedAt: Date;
-    finishedAt: Date | null;
+    completedAt: Date | null;
     status: string;
-    result: Record<string, unknown> | null;
+    eventsProcessed: number;
+    errorMessage: string | null;
+    metadata: Record<string, unknown> | null;
   }>
 > {
   return await withTenantContext(tenantId, async (tx) => {
     const runs = await tx
       .select({
         runId: schema.pluginRuns.runId,
-        trigger: schema.pluginRuns.trigger,
+        jobName: schema.pluginRuns.jobName,
         startedAt: schema.pluginRuns.startedAt,
-        finishedAt: schema.pluginRuns.finishedAt,
+        completedAt: schema.pluginRuns.completedAt,
         status: schema.pluginRuns.status,
-        result: schema.pluginRuns.result,
+        eventsProcessed: schema.pluginRuns.eventsProcessed,
+        errorMessage: schema.pluginRuns.errorMessage,
+        metadata: schema.pluginRuns.metadata,
       })
       .from(schema.pluginRuns)
-      .where(
-        and(
-          eq(schema.pluginRuns.pluginId, pluginId),
-          eq(schema.pluginRuns.trigger, 'job')
-        )
-      )
+      .where(eq(schema.pluginRuns.pluginId, pluginId))
       .orderBy(desc(schema.pluginRuns.startedAt))
       .limit(limit);
 
     return runs.map((run) => ({
       runId: run.runId,
-      trigger: run.trigger,
+      jobName: run.jobName,
       startedAt: run.startedAt,
-      finishedAt: run.finishedAt,
+      completedAt: run.completedAt,
       status: run.status,
-      result: run.result as Record<string, unknown> | null,
+      eventsProcessed: run.eventsProcessed,
+      errorMessage: run.errorMessage,
+      metadata: run.metadata as Record<string, unknown> | null,
     }));
   });
 }

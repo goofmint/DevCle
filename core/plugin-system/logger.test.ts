@@ -92,7 +92,7 @@ describe('Plugin Logger', () => {
         expect(run).toBeDefined();
         expect(run.pluginId).toBe(TEST_PLUGIN_ID);
         expect(run.tenantId).toBe(TEST_TENANT_ID);
-        expect(run.trigger).toBe('job');
+        expect(run.jobName).toBe('test-job');
         expect(run.status).toBe('running');
         expect(run.finishedAt).toBeNull();
       });
@@ -240,7 +240,7 @@ describe('Plugin Logger', () => {
         }
 
         expect(run.pluginId).toBe(TEST_PLUGIN_ID);
-        expect(run.trigger).toBe('job');
+        expect(run.jobName).toBe('test-job');
         expect(run.status).toBe('success');
         expect(run.startedAt).not.toBeNull();
         expect(run.finishedAt).not.toBeNull();
@@ -318,7 +318,8 @@ describe('Plugin Logger', () => {
       if (history.length > 0) {
         const firstRun = history[0];
         if (firstRun) {
-          expect(firstRun.trigger).toBe('job');
+          // Job name comes from the actual runs created in the test
+          expect(firstRun.jobName).toBeTruthy();
         }
       }
 

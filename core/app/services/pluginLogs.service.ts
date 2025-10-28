@@ -142,22 +142,22 @@ export function sanitizeResult(result: unknown): unknown {
 }
 
 /**
- * Get last run timestamp per trigger (job name)
+ * Get last run timestamp per job name
  *
- * Computes the most recent execution time for each trigger using SQL aggregation.
+ * Computes the most recent execution time for each job using SQL aggregation.
  *
  * @param tenantId - Tenant ID
  * @param pluginId - Plugin ID
- * @returns Map of trigger name to last run timestamp
+ * @returns Map of job name to last run timestamp
  */
-export async function getLastRunsPerTrigger(
+export async function getLastRunsPerJobName(
   tenantId: string,
   pluginId: string
 ): Promise<Map<string, Date>> {
   const results = await withTenantContext(tenantId, async (tx) => {
     return await tx
       .select({
-        trigger: schema.pluginRuns.trigger,
+        jobName: schema.pluginRuns.jobName,
         lastRun: schema.pluginRuns.startedAt,
       })
       .from(schema.pluginRuns)
@@ -171,11 +171,11 @@ export async function getLastRunsPerTrigger(
       .orderBy(desc(schema.pluginRuns.startedAt));
   });
 
-  // Group by trigger and take the most recent
+  // Group by job name and take the most recent
   const lastRuns = new Map<string, Date>();
   for (const row of results) {
-    if (!lastRuns.has(row.trigger)) {
-      lastRuns.set(row.trigger, row.lastRun);
+    if (!lastRuns.has(row.jobName)) {
+      lastRuns.set(row.jobName, row.lastRun);
     }
   }
 
