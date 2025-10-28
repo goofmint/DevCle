@@ -68,6 +68,19 @@ export default function PluginsPage() {
    * Toggle plugin enabled status
    */
   async function togglePlugin(pluginId: string, currentEnabled: boolean) {
+    // Show confirmation dialog when disabling (settings will be deleted)
+    if (currentEnabled) {
+      const confirmed = window.confirm(
+        'Are you sure you want to disable this plugin?\n\n' +
+        'Warning: All plugin settings will be deleted and cannot be recovered.\n' +
+        'You will need to reconfigure the plugin if you enable it again.'
+      );
+
+      if (!confirmed) {
+        return; // User canceled
+      }
+    }
+
     try {
       const method = currentEnabled ? 'DELETE' : 'PUT';
       const response = await fetch(`/api/plugins/${pluginId}`, {
@@ -163,10 +176,21 @@ export default function PluginsPage() {
         {plugins.map((plugin) => (
           <div
             key={plugin.pluginId}
-            className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 border border-gray-200 dark:border-gray-700"
+            className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 border border-gray-200 dark:border-gray-700 relative"
           >
+            {/* Settings icon (top right, enabled plugins only) */}
+            {plugin.enabled && (
+              <Link
+                to={`/dashboard/plugins/${plugin.pluginId}/edit`}
+                className="absolute top-4 right-4 p-2 text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                title="Configure plugin"
+              >
+                <Icon icon="mdi:cog" className="w-5 h-5" />
+              </Link>
+            )}
+
             {/* Plugin header */}
-            <div className="flex items-start justify-between mb-4">
+            <div className="flex items-start justify-between mb-4 pr-10">
               <div className="flex-1">
                 <Link
                   to={`/dashboard/plugins/${plugin.key}/config`}

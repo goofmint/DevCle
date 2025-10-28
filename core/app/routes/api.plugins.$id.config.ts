@@ -1,12 +1,25 @@
 /**
- * Plugin configuration API endpoint
- * GET /api/plugins/:id/config
+ * Plugin Configuration API Endpoint
+ *
+ * Handles plugin configuration retrieval and updates:
+ * - GET /api/plugins/:id/config - Retrieve plugin configuration schema
+ * - PUT /api/plugins/:id/config - Update plugin configuration values
+ *
+ * Features:
+ * - Automatic encryption of secret fields
+ * - Schema-based validation
+ * - Non-fail-fast validation (collects all errors)
+ * - Secret exists marker support ({ _exists: true })
  */
 
-import type { LoaderFunctionArgs } from '@remix-run/node';
+import type { LoaderFunctionArgs, ActionFunctionArgs } from '@remix-run/node';
 import { json } from '@remix-run/node';
 import { requireAuth } from '~/auth.middleware.js';
-import { getPluginConfig } from '~/services/plugin/plugin-config.service.js';
+import { getPluginConfig } from '../../services/plugin/plugin-config.service.js';
+import { updatePluginConfig } from '../../services/plugin.service.js';
+import { validatePluginConfig } from '../../plugin-system/config-validator.js';
+import type { PluginConfigSchema } from '../../plugin-system/config-validator.js';
+import { isValidUUID } from '~/utils/validation.js';
 
 /**
  * GET /api/plugins/:id/config
@@ -66,5 +79,223 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
 
     // Generic error response
     return json({ error: 'Failed to load plugin configuration' }, { status: 500 });
+  }
+}
+
+/**
+ * PUT /api/plugins/:id/config - Update plugin configuration
+ *
+ * Updates plugin configuration with automatic encryption of secret fields.
+ * Validates all fields against schema and collects all errors (non-fail-fast).
+ *
+ * Request Body:
+ * {
+ *   "config": {
+ *     "fieldName": value,
+ *     "secretField": { _exists: true } | "newValue"
+ *   }
+ * }
+ *
+ * Response (Success):
+ * {
+ *   "success": true,
+ *   "plugin": {
+ *     "pluginId": "uuid",
+ *     "key": "plugin-key",
+ *     "name": "Plugin Name",
+ *     "enabled": true,
+ *     "updatedAt": "2025-01-01T00:00:00.000Z"
+ *   }
+ * }
+ *
+ * Error Responses:
+ * - 400 Bad Request: Validation errors (details array contains all errors)
+ * - 401 Unauthorized: Not authenticated
+ * - 403 Forbidden: Not admin role
+ * - 404 Not Found: Plugin not found or no config schema
+ * - 500 Internal Server Error: Database, encryption, or schema loading error
+ */
+export async function action({ request, params }: ActionFunctionArgs) {
+  try {
+    // 1. Authentication check (admin role required)
+    const user = await requireAuth(request);
+
+    // Check admin role
+    if (user.role !== 'admin') {
+      return json(
+        {
+          status: 403,
+          error: 'Admin role required to edit plugin configuration',
+        },
+        { status: 403 }
+      );
+    }
+
+    const tenantId = user.tenantId;
+
+    // 2. Validate plugin ID format
+    const pluginId = params['id'];
+    if (!isValidUUID(pluginId)) {
+      return json(
+        {
+          status: 400,
+          error: 'Invalid plugin ID format (must be UUID)',
+        },
+        { status: 400 }
+      );
+    }
+
+    // 3. Parse request body
+    let requestBody: { config?: unknown };
+    try {
+      requestBody = await request.json();
+    } catch (error) {
+      return json(
+        {
+          status: 400,
+          error: 'Invalid JSON in request body',
+        },
+        { status: 400 }
+      );
+    }
+
+    // Validate config field exists
+    if (!requestBody.config || typeof requestBody.config !== 'object') {
+      return json(
+        {
+          status: 400,
+          error: 'Request body must contain "config" object',
+        },
+        { status: 400 }
+      );
+    }
+
+    const config = requestBody.config as Record<string, unknown>;
+
+    // 4. Get plugin configuration schema from plugin.json
+    let pluginConfig: { settingsSchema?: { fields?: unknown[] } };
+    try {
+      pluginConfig = await getPluginConfig(pluginId, tenantId);
+    } catch (error) {
+      // Log error for debugging
+      console.error('[PUT /api/plugins/:id/config] Failed to load plugin schema:', error);
+
+      // Check if plugin not found
+      if (error instanceof Error && error.message.includes('Plugin not found')) {
+        return json(
+          {
+            status: 404,
+            error: 'Plugin not found',
+          },
+          { status: 404 }
+        );
+      }
+
+      // Schema loading failed
+      return json(
+        {
+          status: 500,
+          error: 'Failed to load plugin configuration schema',
+        },
+        { status: 500 }
+      );
+    }
+
+    // Check if plugin has settings schema
+    if (!pluginConfig.settingsSchema || !Array.isArray(pluginConfig.settingsSchema.fields)) {
+      return json(
+        {
+          status: 404,
+          error: 'Plugin does not have a configuration schema',
+        },
+        { status: 404 }
+      );
+    }
+
+    const schema: PluginConfigSchema = {
+      fields: pluginConfig.settingsSchema.fields as PluginConfigSchema['fields'],
+    };
+
+    // 5. Validate configuration against schema (collect all errors)
+    const validationErrors = validatePluginConfig(schema, config);
+
+    if (validationErrors.length > 0) {
+      return json(
+        {
+          status: 400,
+          error: 'Validation failed',
+          details: validationErrors,
+        },
+        { status: 400 }
+      );
+    }
+
+    // 6. Update plugin configuration (encryption handled by service)
+    let updatedPlugin;
+    try {
+      updatedPlugin = await updatePluginConfig(tenantId, pluginId, schema, config);
+    } catch (error) {
+      // Log error for debugging
+      console.error('[PUT /api/plugins/:id/config] Failed to update plugin config:', error);
+
+      // Check specific error types
+      if (error instanceof Error) {
+        if (error.message.includes('Plugin not found')) {
+          return json(
+            {
+              status: 404,
+              error: 'Plugin not found',
+            },
+            { status: 404 }
+          );
+        }
+
+        if (error.message.includes('encrypt')) {
+          return json(
+            {
+              status: 500,
+              error: 'Failed to encrypt configuration',
+            },
+            { status: 500 }
+          );
+        }
+      }
+
+      // Generic database error
+      return json(
+        {
+          status: 500,
+          error: 'Failed to update plugin configuration',
+        },
+        { status: 500 }
+      );
+    }
+
+    // 7. Return success response
+    return json(
+      {
+        success: true,
+        plugin: {
+          pluginId: updatedPlugin.pluginId,
+          key: updatedPlugin.key,
+          name: updatedPlugin.name,
+          enabled: updatedPlugin.enabled,
+          updatedAt: updatedPlugin.updatedAt,
+        },
+      },
+      { status: 200 }
+    );
+  } catch (error) {
+    // Log unexpected errors
+    console.error('[PUT /api/plugins/:id/config] Unexpected error:', error);
+
+    // Return generic error response
+    return json(
+      {
+        status: 500,
+        error: 'Internal server error',
+      },
+      { status: 500 }
+    );
   }
 }

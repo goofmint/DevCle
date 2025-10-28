@@ -11,7 +11,6 @@ import { eq, and } from 'drizzle-orm';
 import {
   listAvailablePlugins,
   getPluginConfig,
-  pluginExists,
 } from '../../services/plugin/plugin-config.service.js';
 
 /**
