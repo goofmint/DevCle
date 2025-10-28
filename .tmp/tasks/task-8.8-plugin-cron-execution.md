@@ -55,19 +55,29 @@ export const pluginRuns = pgTable('plugin_runs', {
 ```typescript
 /**
  * Execute a plugin job manually or via cron scheduler
+ *
+ * Returns a minimal result. Caller should fetch the full PluginRun record
+ * from plugin-run.service.ts using getPluginRun(runId) for complete details.
  */
 export async function executePluginJob(
   tenantId: string,
   pluginId: string,
-  jobName: string
+  jobName: string,
+  metadata?: PluginRunMetadata
 ): Promise<PluginRunResult>;
 
+/**
+ * Minimal result returned by executePluginJob.
+ * For complete details (tenantId, pluginId, jobName, startedAt, completedAt, metadata),
+ * fetch the full PluginRun record using getPluginRun(runId).
+ */
 interface PluginRunResult {
-  runId: string;
+  runId: string;              // Run ID (for fetching full record)
   status: 'success' | 'failed';
   eventsProcessed: number;
   errorMessage?: string;
-  duration: number; // ms
+  duration: number;           // ms
+  metadata?: PluginRunMetadata; // Updated metadata (cursor, retryCount, etc.)
 }
 ```
 
@@ -96,6 +106,68 @@ interface PluginRunResult {
 - リトライ制御（`jobs[].retry.max` と `jobs[].retry.backoffSec`）
 - カーソル管理（`jobs[].cursor`）で前回実行からの差分取得（Redis に保存、TTL 付き）
 - 同時実行制御（`jobs[].concurrency`）
+
+**Metadata 構造と使用方法**:
+
+```typescript
+/**
+ * Metadata stored in plugin_runs.metadata (JSONB)
+ */
+interface PluginRunMetadata {
+  cursor?: string;           // Checkpoint for incremental sync (e.g., last_sync_timestamp, next_page_token)
+  retryCount?: number;       // Number of retries attempted (incremented on transient failures)
+  lastRunAt?: string;        // ISO timestamp of last successful run (ISO 8601 format)
+  error?: string;            // Error message from last failed attempt (for debugging)
+  [key: string]: unknown;    // Plugin-specific custom fields
+}
+```
+
+**Metadata の読み書き**:
+1. **実行前（executePluginJob）**:
+   - `plugin_runs` テーブルから最新の成功した run の `metadata` を取得
+   - `metadata.cursor` を使用して、前回実行から の差分データを取得（例: `since=metadata.cursor`）
+
+2. **実行中**:
+   - プラグインの `/sync` ルートにリクエストを送信
+   - リクエストボディに `metadata` を含める（例: `{ cursor: "2025-10-28T10:00:00Z" }`）
+   - プラグインは `cursor` から差分データを取得し、新しい `cursor` を返す
+
+3. **実行後**:
+   - プラグインから返された新しい `cursor` を `metadata.cursor` に保存
+   - `metadata.lastRunAt` を現在時刻に更新
+   - 成功時: `metadata.retryCount` をリセット（0）
+   - 失敗時: `metadata.retryCount` をインクリメント、`metadata.error` にエラーメッセージを記録
+
+4. **永続化**:
+   - `completePluginRun()` で `metadata` を `plugin_runs` テーブルに保存
+   - 次回実行時に同じ `metadata` から再開可能（idempotent）
+
+**例**:
+```typescript
+// Before execution
+const lastRun = await getLastSuccessfulRun(tenantId, pluginId, jobName);
+const metadata: PluginRunMetadata = lastRun?.metadata ?? { cursor: null, retryCount: 0 };
+
+// Execute plugin route
+const response = await fetch(`/plugins/${pluginId}/sync`, {
+  method: 'POST',
+  body: JSON.stringify({ cursor: metadata.cursor }),
+});
+
+// Update metadata
+const newMetadata: PluginRunMetadata = {
+  cursor: response.cursor,  // New checkpoint from plugin
+  retryCount: 0,
+  lastRunAt: new Date().toISOString(),
+};
+
+// Save to database
+await completePluginRun(tenantId, runId, {
+  status: 'success',
+  eventsProcessed: response.eventsProcessed,
+  metadata: newMetadata,
+});
+```
 
 ### 2. 実行結果の記録
 
@@ -167,6 +239,138 @@ interface PluginRun {
 - `plugin_runs` テーブルに CRUD 操作を実行
 - Zod スキーマでバリデーション
 
+**withTenantContext() 使用例**:
+
+```typescript
+import { withTenantContext } from '~/db/connection.js';
+import { db } from '~/db/connection.js';
+import * as schema from '~/db/schema/index.js';
+
+/**
+ * Create a new plugin run (status: 'pending')
+ * @param tenantId - Required, must be non-empty string (validated before calling withTenantContext)
+ */
+export async function createPluginRun(
+  tenantId: string,
+  pluginId: string,
+  jobName: string
+): Promise<string> {
+  if (!tenantId || typeof tenantId !== 'string') {
+    throw new Error('tenantId is required and must be a non-empty string');
+  }
+
+  return await withTenantContext(tenantId, async (tx) => {
+    const [run] = await tx
+      .insert(schema.pluginRuns)
+      .values({
+        tenantId,
+        pluginId,
+        jobName,
+        status: 'pending',
+      })
+      .returning({ runId: schema.pluginRuns.runId });
+
+    return run.runId;
+  });
+}
+
+/**
+ * Update plugin run status to 'running'
+ * @param tenantId - Derived from request/session context
+ */
+export async function startPluginRun(tenantId: string, runId: string): Promise<void> {
+  if (!tenantId || typeof tenantId !== 'string') {
+    throw new Error('tenantId is required and must be a non-empty string');
+  }
+
+  await withTenantContext(tenantId, async (tx) => {
+    await tx
+      .update(schema.pluginRuns)
+      .set({ status: 'running' })
+      .where(eq(schema.pluginRuns.runId, runId));
+  });
+}
+
+/**
+ * Update plugin run status to 'success' or 'failed' with results
+ */
+export async function completePluginRun(
+  tenantId: string,
+  runId: string,
+  result: { status: 'success' | 'failed'; eventsProcessed: number; errorMessage?: string }
+): Promise<void> {
+  if (!tenantId || typeof tenantId !== 'string') {
+    throw new Error('tenantId is required and must be a non-empty string');
+  }
+
+  await withTenantContext(tenantId, async (tx) => {
+    await tx
+      .update(schema.pluginRuns)
+      .set({
+        status: result.status,
+        completedAt: new Date(),
+        eventsProcessed: result.eventsProcessed,
+        errorMessage: result.errorMessage ?? null,
+      })
+      .where(eq(schema.pluginRuns.runId, runId));
+  });
+}
+
+/**
+ * List plugin runs for a plugin (with pagination, filtering)
+ */
+export async function listPluginRuns(
+  tenantId: string,
+  pluginId: string,
+  options?: { status?: string; jobName?: string; limit?: number; offset?: number; sort?: 'asc' | 'desc' }
+): Promise<{ runs: PluginRun[]; total: number }> {
+  if (!tenantId || typeof tenantId !== 'string') {
+    throw new Error('tenantId is required and must be a non-empty string');
+  }
+
+  return await withTenantContext(tenantId, async (tx) => {
+    const conditions = [
+      eq(schema.pluginRuns.pluginId, pluginId),
+      eq(schema.pluginRuns.tenantId, tenantId),
+    ];
+
+    if (options?.status) {
+      conditions.push(eq(schema.pluginRuns.status, options.status));
+    }
+    if (options?.jobName) {
+      conditions.push(eq(schema.pluginRuns.jobName, options.jobName));
+    }
+
+    const [runs, [{ count }]] = await Promise.all([
+      tx
+        .select()
+        .from(schema.pluginRuns)
+        .where(and(...conditions))
+        .orderBy(options?.sort === 'asc' ? asc(schema.pluginRuns.startedAt) : desc(schema.pluginRuns.startedAt))
+        .limit(options?.limit ?? 20)
+        .offset(options?.offset ?? 0),
+      tx
+        .select({ count: count() })
+        .from(schema.pluginRuns)
+        .where(and(...conditions)),
+    ]);
+
+    return { runs, total: count ?? 0 };
+  });
+}
+```
+
+**tenantId の取得方法**:
+```typescript
+// In Remix loader/action
+export async function action({ request }: ActionFunctionArgs) {
+  const user = await requireAdmin(request); // Returns { userId, tenantId, role }
+  const tenantId = user.tenantId; // Derived from session
+
+  await createPluginRun(tenantId, pluginId, jobName);
+}
+```
+
 ### 3. 実行スケジュールの管理 UI
 
 **場所**: `app/routes/dashboard/plugins.$id.schedule.tsx`（新規作成）
@@ -192,7 +396,7 @@ interface JobSchedule {
   route: string;
   cron: string;
   timeoutSec: number;
-  concurrency: number;
+  concurrency: number; // Per-job concurrency limit (default: 1). Enforced by BullMQ worker concurrency option.
   retry: {
     max: number;
     backoffSec: number[];
@@ -212,6 +416,16 @@ interface JobSchedule {
   } | null;
   nextRun: Date; // calculated from cron expression using cron-parser
 }
+
+/**
+ * Concurrency enforcement:
+ * - Enforced per-job using BullMQ's worker concurrency option
+ * - Default: 1 (sequential execution)
+ * - If concurrency = 1, a new job will wait in queue until the current one completes
+ * - If concurrency > 1, up to N jobs can run in parallel
+ * - Excess jobs are queued (FIFO) and processed when a worker slot becomes available
+ * - Implementation: core/plugin-system/scheduler.ts (BullMQ Worker constructor with concurrency option)
+ */
 ```
 
 **UI 内容**:
@@ -236,6 +450,8 @@ interface JobSchedule {
  *
  * Manually execute a plugin job (for testing/debugging)
  *
+ * Access control: Admin-only (requireAdmin() middleware)
+ *
  * Request body:
  * {
  *   "jobName": "sync"
@@ -244,16 +460,25 @@ interface JobSchedule {
  * Response:
  * {
  *   "runId": "uuid",
- *   "status": "pending" | "running"
+ *   "status": "pending"
  * }
  */
-export async function action({ params, request }: ActionFunctionArgs): Promise<Response>;
+export async function action({ params, request }: ActionFunctionArgs): Promise<Response> {
+  // Enforce admin-only access
+  const user = await requireAdmin(request); // Throws 403 if non-admin
+  const tenantId = user.tenantId;
+
+  // ... implementation
+}
 ```
 
 **説明**:
+- **アクセス制御**: `requireAdmin()` ミドルウェアで admin-only アクセスを強制
+  - 未認証: 401 Unauthorized（ログインページにリダイレクト）
+  - 非 admin: 403 Forbidden
 - `jobName` を指定してプラグインのジョブを手動実行
 - BullMQ のキューに即座にジョブを追加（優先度: high）
-- `plugin_runs` テーブルに実行レコードを作成
+- `plugin_runs` テーブルに実行レコードを作成（status: 'pending'）
 - runId を返す（フロントエンドでポーリングして結果確認）
 
 ### 5. 実行結果のサマリー表示
@@ -284,9 +509,19 @@ interface RunSummary {
   failed: number;
   running: number;
   pending: number;
-  avgEventsProcessed: number; // average events processed per successful run
-  avgDuration: number; // average duration (ms) per successful run
+  avgEventsProcessed: number; // average events processed per successful run (calculated on each request)
+  avgDuration: number; // average duration (ms) per successful run (calculated on each request)
 }
+
+/**
+ * RunSummary calculation rules:
+ * - avgEventsProcessed and avgDuration are calculated ONLY over successful runs
+ * - Query: WHERE status = 'success' AND completedAt IS NOT NULL
+ * - avgEventsProcessed = SUM(eventsProcessed) / COUNT(*) for successful runs
+ * - avgDuration = SUM(EXTRACT(EPOCH FROM (completedAt - startedAt)) * 1000) / COUNT(*) for successful runs
+ * - If COUNT(successful runs) = 0, both averages return 0
+ * - No caching: values are recomputed on each request
+ */
 ```
 
 **UI 内容**:
@@ -300,6 +535,13 @@ interface RunSummary {
 ## API 仕様
 
 ### POST /api/plugins/:id/run
+
+**アクセス制御**:
+- **Admin-only**: このエンドポイントは `requireAdmin()` ミドルウェアで保護される
+- **401 Unauthorized**: 未認証リクエストはリダイレクトまたはエラーレスポンス
+- **403 Forbidden**: 認証済みでも非 admin ユーザーはアクセス不可
+- **UI**: 非 admin ユーザーには手動実行ボタンを非表示にする（クライアント側制御）
+- **API**: サーバー側でも同じチェックを実施し、権限昇格を防ぐ
 
 **Request**:
 ```json
@@ -316,10 +558,30 @@ interface RunSummary {
 }
 ```
 
+**説明**:
+- ジョブは BullMQ キューに追加され、Worker が処理を開始します
+- 初期ステータスは `"pending"` です
+- Worker がジョブを取得すると、ステータスは `"running"` に更新されます（通常 1-2 秒以内）
+- フロントエンドはポーリング（2 秒間隔）でステータスを確認し、`"running"` → `"success"` / `"failed"` の遷移を表示します
+
 **Error (400 Bad Request)**:
 ```json
 {
   "error": "Invalid job name"
+}
+```
+
+**Error (401 Unauthorized)**:
+```json
+{
+  "error": "Authentication required"
+}
+```
+
+**Error (403 Forbidden)**:
+```json
+{
+  "error": "Admin access required"
 }
 ```
 
@@ -362,10 +624,13 @@ interface RunSummary {
     "failed": 5,
     "running": 0,
     "pending": 0,
-    "avgEventsProcessed": 38.5,
-    "avgDuration": 120000
+    "avgEventsProcessed": 38.5,  // Calculated from 95 successful runs only (SUM(eventsProcessed) / 95)
+    "avgDuration": 120000  // Calculated from 95 successful runs only (SUM(duration_ms) / 95), in milliseconds
   }
 }
+```
+
+**Note**: `avgEventsProcessed` and `avgDuration` are computed only from successful runs (`WHERE status = 'success' AND completedAt IS NOT NULL`). If there are no successful runs, both values return `0`.
 ```
 
 ### GET /api/plugins/:id/runs/:runId
@@ -404,11 +669,13 @@ interface RunSummary {
    - 各ジョブの cron スケジュール、最終実行結果、次回実行予定時刻が表示される
 
 2. **手動実行**
-   - スケジュール画面で「手動実行」ボタンをクリック
+   - スケジュール画面で「手動実行」ボタンをクリック（admin ユーザーのみボタンが表示される）
    - `POST /api/plugins/:id/run` が呼ばれる
+   - レスポンスで `runId` と初期ステータス `"pending"` を受け取る
+   - ポーリング（2 秒間隔）でステータスを確認
+   - Worker がジョブを取得すると、ステータスが `"running"` に更新される（1-2 秒以内）
+   - 実行完了後、ステータスが `"success"` または `"failed"` に更新される
    - 実行結果が `plugin_runs` テーブルに記録される
-   - 実行中は status: 'running' が表示される
-   - 完了後は status: 'success' または 'failed' が表示される
 
 3. **実行履歴の表示**
    - `/dashboard/plugins/:id/runs` にアクセス
@@ -428,8 +695,10 @@ interface RunSummary {
    - avgEventsProcessed、avgDuration が正しい
 
 6. **アクセス制御**
-   - 未認証ユーザーはアクセスできない
-   - admin ロールのみが手動実行ボタンを表示できる
+   - 未認証ユーザーは `/dashboard/plugins/:id/schedule` にアクセスできない（401 Unauthorized）
+   - admin ロールのみが手動実行ボタンを表示できる（UI 制御）
+   - 非 admin ユーザーが `POST /api/plugins/:id/run` を直接呼び出した場合、403 Forbidden を返す（API 制御）
+   - admin ユーザーは手動実行ボタンをクリックでき、ジョブが正常に実行される
 
 7. **エラーハンドリング**
    - 存在しないプラグインにアクセス → 404
