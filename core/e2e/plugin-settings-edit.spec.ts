@@ -74,8 +74,8 @@ test('settings icon displayed for enabled plugins', async ({ page }) => {
   const settingsIcon = firstEnabled.locator('a[title="Configure plugin"]');
   await expect(settingsIcon).toBeVisible();
 
-  // Icon should have Iconify icon (not direct SVG)
-  const icon = settingsIcon.locator('iconify-icon, svg, .iconify');
+  // Icon should be SVG element
+  const icon = settingsIcon.locator('svg');
   await expect(icon).toBeVisible();
 
   // Icon should be positioned top-right
