@@ -70,8 +70,12 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     // 2. Get plugin information from database
     const plugin = await getPluginById(tenantId, pluginId);
 
-    // 3. Get plugin configuration schema from plugin.json
-    const pluginConfig = await getPluginConfig(pluginId, tenantId);
+    if (!plugin) {
+      throw new Response('Plugin not found', { status: 404 });
+    }
+
+    // 3. Get plugin configuration schema from plugin.json (use plugin.key, not pluginId)
+    const pluginConfig = await getPluginConfig(plugin.key, tenantId);
 
     // Check if plugin has settings schema
     if (!pluginConfig.settingsSchema || !Array.isArray(pluginConfig.settingsSchema.fields)) {

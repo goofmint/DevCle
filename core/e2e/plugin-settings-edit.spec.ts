@@ -61,25 +61,27 @@ test('settings icon displayed for enabled plugins', async ({ page }) => {
   await page.goto(`${BASE_URL}/dashboard/plugins`);
   await page.waitForLoadState('networkidle');
 
-  // Find enabled plugin cards
+  // Find enabled plugin cards (Test Plugin should be enabled by seed)
   const enabledCards = page.locator('div.grid > div:has(.bg-green-100, .bg-green-900\\/30)');
   const enabledCount = await enabledCards.count();
 
-  if (enabledCount > 0) {
-    const firstEnabled = enabledCards.first();
+  // Expect at least one enabled plugin (drowl-plugin-test from seed)
+  expect(enabledCount).toBeGreaterThan(0);
 
-    // Settings icon should be visible
-    const settingsIcon = firstEnabled.locator('a[title="Configure plugin"]');
-    await expect(settingsIcon).toBeVisible();
+  const firstEnabled = enabledCards.first();
 
-    // Icon should have cog/settings icon
-    await expect(settingsIcon.locator('svg')).toBeVisible();
+  // Settings icon should be visible
+  const settingsIcon = firstEnabled.locator('a[title="Configure plugin"]');
+  await expect(settingsIcon).toBeVisible();
 
-    // Icon should be positioned top-right
-    await expect(settingsIcon).toHaveClass(/absolute/);
-    await expect(settingsIcon).toHaveClass(/top-4/);
-    await expect(settingsIcon).toHaveClass(/right-4/);
-  }
+  // Icon should have Iconify icon (not direct SVG)
+  const icon = settingsIcon.locator('iconify-icon, svg, .iconify');
+  await expect(icon).toBeVisible();
+
+  // Icon should be positioned top-right
+  await expect(settingsIcon).toHaveClass(/absolute/);
+  await expect(settingsIcon).toHaveClass(/top-4/);
+  await expect(settingsIcon).toHaveClass(/right-4/);
 });
 
 /**
@@ -94,13 +96,14 @@ test('settings icon not displayed for disabled plugins', async ({ page }) => {
   const disabledCards = page.locator('div.grid > div:has(.bg-gray-100, .bg-gray-700):not(:has(.bg-green-100))');
   const disabledCount = await disabledCards.count();
 
-  if (disabledCount > 0) {
-    const firstDisabled = disabledCards.first();
+  // Expect at least one disabled plugin exists for this test
+  expect(disabledCount).toBeGreaterThan(0);
 
-    // Settings icon should NOT be visible
-    const settingsIcon = firstDisabled.locator('a[title="Configure plugin"]');
-    await expect(settingsIcon).not.toBeVisible();
-  }
+  const firstDisabled = disabledCards.first();
+
+  // Settings icon should NOT be visible
+  const settingsIcon = firstDisabled.locator('a[title="Configure plugin"]');
+  await expect(settingsIcon).not.toBeVisible();
 });
 
 /**
@@ -115,27 +118,26 @@ test('shows confirmation dialog when disabling plugin', async ({ page }) => {
   const enabledCard = page.locator('div.grid > div:has(.bg-green-100, .bg-green-900\\/30)').first();
   const cardCount = await page.locator('div.grid > div:has(.bg-green-100, .bg-green-900\\/30)').count();
 
-  if (cardCount > 0) {
-    // Setup dialog listener before clicking
-    page.on('dialog', async dialog => {
-      // Verify dialog message contains warning
-      expect(dialog.message()).toContain('disable');
-      expect(dialog.message()).toContain('settings will be deleted');
-      expect(dialog.message()).toContain('cannot be recovered');
+  // Expect at least one enabled plugin exists for this test
+  expect(cardCount).toBeGreaterThan(0);
 
-      // Dismiss dialog (don't actually disable)
-      await dialog.dismiss();
-    });
+  // Setup dialog listener before clicking
+  page.on('dialog', async dialog => {
+    // Verify dialog message contains warning
+    expect(dialog.message()).toContain('disable');
+    expect(dialog.message()).toContain('settings will be deleted');
+    expect(dialog.message()).toContain('cannot be recovered');
 
-    // Click disable button
-    const disableButton = enabledCard.locator('button:has-text("Disable")');
-    await disableButton.click();
+    // Dismiss dialog (don't actually disable)
+    await dialog.dismiss();
+  });
 
-    // Wait a bit for dialog to appear
-    await page.waitForTimeout(500);
-  } else {
-    test.skip();
-  }
+  // Click disable button
+  const disableButton = enabledCard.locator('button:has-text("Disable")');
+  await disableButton.click();
+
+  // Wait a bit for dialog to appear
+  await page.waitForTimeout(500);
 });
 
 /**
@@ -150,19 +152,15 @@ test('config is deleted when plugin is disabled', async ({ page }) => {
   const enabledCard = page.locator('div.grid > div:has(.bg-green-100, .bg-green-900\\/30)').first();
   const cardCount = await page.locator('div.grid > div:has(.bg-green-100, .bg-green-900\\/30)').count();
 
-  if (cardCount === 0) {
-    test.skip();
-    return;
-  }
+  // Expect at least one enabled plugin exists for this test
+  expect(cardCount).toBeGreaterThan(0);
 
   // Get plugin ID from settings link
   const settingsLink = enabledCard.locator('a[title="Configure plugin"]');
   const href = await settingsLink.getAttribute('href');
 
-  if (!href) {
-    test.skip();
-    return;
-  }
+  // Expect href to be present
+  expect(href).toBeTruthy();
 
   // Accept the disable confirmation
   page.on('dialog', async dialog => {
@@ -195,21 +193,22 @@ test('plugin cards have correct dark mode colors', async ({ page }) => {
   const pluginCard = page.locator('div.grid > div').first();
   const cardCount = await page.locator('div.grid > div').count();
 
-  if (cardCount > 0) {
-    // Card should have dark background
-    await expect(pluginCard).toHaveClass(/dark:bg-gray-800/);
+  // Expect at least one plugin card exists for this test
+  expect(cardCount).toBeGreaterThan(0);
 
-    // Title should have light text
-    const title = pluginCard.locator('a').first();
-    await expect(title).toHaveClass(/dark:text-gray-100/);
+  // Card should have dark background
+  await expect(pluginCard).toHaveClass(/dark:bg-gray-800/);
 
-    // Verify text and background contrast
-    const cardBox = await pluginCard.boundingBox();
-    const titleBox = await title.boundingBox();
+  // Title should have light text
+  const title = pluginCard.locator('a').first();
+  await expect(title).toHaveClass(/dark:text-gray-100/);
 
-    expect(cardBox).toBeTruthy();
-    expect(titleBox).toBeTruthy();
-  }
+  // Verify text and background contrast
+  const cardBox = await pluginCard.boundingBox();
+  const titleBox = await title.boundingBox();
+
+  expect(cardBox).toBeTruthy();
+  expect(titleBox).toBeTruthy();
 });
 
 /**
@@ -223,17 +222,22 @@ test('settings icon does not break card layout', async ({ page }) => {
   const enabledCard = page.locator('div.grid > div:has(.bg-green-100, .bg-green-900\\/30)').first();
   const cardCount = await page.locator('div.grid > div:has(.bg-green-100, .bg-green-900\\/30)').count();
 
-  if (cardCount > 0) {
-    const settingsIcon = enabledCard.locator('a[title="Configure plugin"]');
+  // Expect at least one enabled plugin exists for this test
+  expect(cardCount).toBeGreaterThan(0);
 
-    // Icon should not overlap with title
-    const iconBox = await settingsIcon.boundingBox();
-    const titleBox = await enabledCard.locator('a').first().boundingBox();
+  const settingsIcon = enabledCard.locator('a[title="Configure plugin"]');
 
-    if (iconBox && titleBox) {
-      // Icon should be to the right of title
-      expect(iconBox.x).toBeGreaterThan(titleBox.x + titleBox.width);
-    }
+  // Icon should not overlap with title
+  const iconBox = await settingsIcon.boundingBox();
+  const titleBox = await enabledCard.locator('a').first().boundingBox();
+
+  // Expect both boxes to exist
+  expect(iconBox).toBeTruthy();
+  expect(titleBox).toBeTruthy();
+
+  // Icon should be to the right of title
+  if (iconBox && titleBox) {
+    expect(iconBox.x).toBeGreaterThan(titleBox.x + titleBox.width);
   }
 });
 
@@ -249,17 +253,13 @@ test('member user cannot access settings page', async ({ page }) => {
   const settingsLink = page.locator('a[title="Configure plugin"]').first();
   const linkCount = await page.locator('a[title="Configure plugin"]').count();
 
-  if (linkCount === 0) {
-    test.skip();
-    return;
-  }
+  // Expect at least one settings link exists for this test
+  expect(linkCount).toBeGreaterThan(0);
 
   const href = await settingsLink.getAttribute('href');
 
-  if (!href) {
-    test.skip();
-    return;
-  }
+  // Expect href to be present
+  expect(href).toBeTruthy();
 
   // Logout and login as member
   await page.goto(`${BASE_URL}/logout`);
@@ -284,10 +284,8 @@ test('admin can access settings page', async ({ page }) => {
   const settingsLink = page.locator('a[title="Configure plugin"]').first();
   const linkCount = await page.locator('a[title="Configure plugin"]').count();
 
-  if (linkCount === 0) {
-    test.skip();
-    return;
-  }
+  // Expect at least one settings link exists for this test
+  expect(linkCount).toBeGreaterThan(0);
 
   // Click settings icon
   await settingsLink.click();
