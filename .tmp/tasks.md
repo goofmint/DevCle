@@ -832,6 +832,7 @@
 - **完了条件**: プラグインの cron ジョブが実行され、結果が確認できる
 - **依存**: Task 8.3
 - **推定時間**: 3 時間
+- **ドキュメント**: [.tmp/tasks/task-8.8-plugin-cron-execution.md](.tmp/tasks/task-8.8-plugin-cron-execution.md)
 
 ### Task 8.9: プラグインの実行ログ確認画面実装
 
