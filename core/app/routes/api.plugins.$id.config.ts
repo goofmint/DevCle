@@ -16,7 +16,7 @@ import type { LoaderFunctionArgs, ActionFunctionArgs } from '@remix-run/node';
 import { json } from '@remix-run/node';
 import { requireAuth } from '~/auth.middleware.js';
 import { getPluginConfig } from '../../services/plugin/plugin-config.service.js';
-import { updatePluginConfig } from '../../services/plugin.service.js';
+import { updatePluginConfig, getPluginById } from '../../services/plugin.service.js';
 import { validatePluginConfig } from '../../plugin-system/config-validator.js';
 import type { PluginConfigSchema } from '../../plugin-system/config-validator.js';
 import { isValidUUID } from '~/utils/validation.js';
@@ -51,8 +51,15 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
   }
 
   try {
-    // Fetch plugin configuration
-    const config = await getPluginConfig(pluginId, user.tenantId);
+    // Get plugin from database to get the key
+    const plugin = await getPluginById(user.tenantId, pluginId);
+
+    if (!plugin) {
+      return json({ error: 'Plugin not found' }, { status: 404 });
+    }
+
+    // Fetch plugin configuration using plugin.key (not pluginId)
+    const config = await getPluginConfig(plugin.key, user.tenantId);
 
     return json(config);
   } catch (error) {
@@ -172,10 +179,35 @@ export async function action({ request, params }: ActionFunctionArgs) {
 
     const config = requestBody.config as Record<string, unknown>;
 
-    // 4. Get plugin configuration schema from plugin.json
+    // 4. Get plugin from database to get the key, then load schema
+    let plugin;
+    try {
+      plugin = await getPluginById(tenantId, pluginId);
+    } catch (error) {
+      console.error('[PUT /api/plugins/:id/config] Failed to get plugin:', error);
+      return json(
+        {
+          status: 500,
+          error: 'Failed to retrieve plugin information',
+        },
+        { status: 500 }
+      );
+    }
+
+    if (!plugin) {
+      return json(
+        {
+          status: 404,
+          error: 'Plugin not found',
+        },
+        { status: 404 }
+      );
+    }
+
+    // 5. Get plugin configuration schema from plugin.json (use plugin.key, not pluginId)
     let pluginConfig: { settingsSchema?: { fields?: unknown[] } };
     try {
-      pluginConfig = await getPluginConfig(pluginId, tenantId);
+      pluginConfig = await getPluginConfig(plugin.key, tenantId);
     } catch (error) {
       // Log error for debugging
       console.error('[PUT /api/plugins/:id/config] Failed to load plugin schema:', error);
@@ -185,7 +217,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
         return json(
           {
             status: 404,
-            error: 'Plugin not found',
+            error: 'Plugin configuration not found',
           },
           { status: 404 }
         );
@@ -202,7 +234,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
     }
 
     // Check if plugin has settings schema
-    if (!pluginConfig.settingsSchema || !Array.isArray(pluginConfig.settingsSchema.fields)) {
+    if (!pluginConfig.settingsSchema || !Array.isArray(pluginConfig.settingsSchema)) {
       return json(
         {
           status: 404,
@@ -213,10 +245,10 @@ export async function action({ request, params }: ActionFunctionArgs) {
     }
 
     const schema: PluginConfigSchema = {
-      fields: pluginConfig.settingsSchema.fields as PluginConfigSchema['fields'],
+      fields: pluginConfig.settingsSchema as PluginConfigSchema['fields'],
     };
 
-    // 5. Validate configuration against schema (collect all errors)
+    // 6. Validate configuration against schema (collect all errors)
     const validationErrors = validatePluginConfig(schema, config);
 
     if (validationErrors.length > 0) {
@@ -230,7 +262,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
       );
     }
 
-    // 6. Update plugin configuration (encryption handled by service)
+    // 7. Update plugin configuration (encryption handled by service)
     let updatedPlugin;
     try {
       updatedPlugin = await updatePluginConfig(tenantId, pluginId, schema, config);
@@ -271,7 +303,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
       );
     }
 
-    // 7. Return success response
+    // 8. Return success response
     return json(
       {
         success: true,

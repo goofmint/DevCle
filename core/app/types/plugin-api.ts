@@ -72,6 +72,9 @@ export interface PluginInfo {
 
   /** Last update timestamp (ISO 8601) */
   updatedAt: string;
+
+  /** Whether plugin has a settings schema (optional, for UI purposes) */
+  hasSettings?: boolean;
 }
 
 /**

@@ -53,7 +53,7 @@ export function SecretField({ field, value, error }: SecretFieldProps) {
 
   return (
     <FieldWrapper
-      name={field.name}
+      name={field.key}
       label={field.label}
       required={field.required && !existingSecretExists}
       help={field.help}
@@ -78,8 +78,8 @@ export function SecretField({ field, value, error }: SecretFieldProps) {
           <div className="relative">
             <input
               type={showPassword ? 'text' : 'password'}
-              id={field.name}
-              name={field.name}
+              id={field.key}
+              name={field.key}
               required={field.required}
               placeholder={field.placeholder || '••••••••'}
               minLength={field.validation?.minLength}
@@ -106,7 +106,7 @@ export function SecretField({ field, value, error }: SecretFieldProps) {
           <>
             <input
               type="hidden"
-              name={field.name}
+              name={field.key}
               value={JSON.stringify({ _exists: true })}
             />
             <div className="flex items-center gap-2 px-3 py-2 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-600 dark:text-gray-400">

@@ -18,6 +18,7 @@ import type { LoaderFunctionArgs } from '@remix-run/node';
 import type { PluginInfo } from '../types/plugin-api.js';
 import { requireAuth } from '~/auth.middleware.js';
 import { listPlugins, redactConfig } from '~/services/plugins.service.js';
+import { getPluginConfig } from '~/services/plugin/plugin-config.service.js';
 
 /**
  * Toast notification type
@@ -42,17 +43,32 @@ export async function loader({ request }: LoaderFunctionArgs) {
     // 2. Query plugins via service (reads from filesystem + DB state)
     const pluginsData = await listPlugins(tenantId);
 
-    // 3. Transform to API response format (redact sensitive config)
-    const plugins: PluginInfo[] = pluginsData.map((plugin) => ({
-      pluginId: plugin.pluginId,
-      key: plugin.key,
-      name: plugin.name,
-      version: plugin.version,
-      enabled: plugin.enabled,
-      config: redactConfig(plugin.config),
-      installedAt: plugin.createdAt.toISOString(),
-      updatedAt: plugin.updatedAt.toISOString(),
-    }));
+    // 3. Transform to API response format and check for settings schema
+    const plugins: PluginInfo[] = await Promise.all(
+      pluginsData.map(async (plugin) => {
+        // Check if plugin has settings schema
+        let hasSettings = false;
+        try {
+          const config = await getPluginConfig(plugin.key, tenantId);
+          hasSettings = !!(config.settingsSchema && Array.isArray(config.settingsSchema) && config.settingsSchema.length > 0);
+        } catch (error) {
+          // Plugin has no config file or no settings schema
+          hasSettings = false;
+        }
+
+        return {
+          pluginId: plugin.pluginId,
+          key: plugin.key,
+          name: plugin.name,
+          version: plugin.version,
+          enabled: plugin.enabled,
+          config: redactConfig(plugin.config),
+          installedAt: plugin.createdAt.toISOString(),
+          updatedAt: plugin.updatedAt.toISOString(),
+          hasSettings,
+        };
+      })
+    );
 
     // 4. Return plugin list
     return json({ plugins });
@@ -187,8 +203,8 @@ export default function PluginsPage() {
             key={plugin.pluginId}
             className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 border border-gray-200 dark:border-gray-700 relative"
           >
-            {/* Settings icon (top right, enabled plugins only) */}
-            {plugin.enabled && (
+            {/* Settings icon (top right, enabled plugins with settings only) */}
+            {plugin.enabled && plugin.hasSettings && (
               <Link
                 to={`/dashboard/plugins/${plugin.pluginId}/edit`}
                 className="absolute top-4 right-4 p-2 text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
@@ -204,12 +220,9 @@ export default function PluginsPage() {
             {/* Plugin header */}
             <div className="flex items-start justify-between mb-4 pr-10">
               <div className="flex-1">
-                <Link
-                  to={`/dashboard/plugins/${plugin.key}/config`}
-                  className="text-lg font-semibold text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                >
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                   {plugin.name}
-                </Link>
+                </h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400">{plugin.key}</p>
               </div>
               <div

@@ -89,19 +89,19 @@ export async function encryptPluginConfig(
       continue;
     }
 
-    const value = config[field.name];
+    const value = config[field.key];
 
     // If value is a secret exists marker, preserve the existing encrypted value
     if (isSecretExistsMarker(value)) {
-      if (existingConfig && existingConfig[field.name] !== undefined) {
-        encrypted[field.name] = existingConfig[field.name];
+      if (existingConfig && existingConfig[field.key] !== undefined) {
+        encrypted[field.key] = existingConfig[field.key];
       }
       continue;
     }
 
     // Skip null/undefined/empty strings (don't encrypt)
     if (value === null || value === undefined || value === '') {
-      encrypted[field.name] = value;
+      encrypted[field.key] = value;
       continue;
     }
 
@@ -117,7 +117,7 @@ export async function encryptPluginConfig(
         plaintext = JSON.stringify(value);
       } catch (error) {
         throw new Error(
-          `Failed to serialize field ${field.name}: ${error instanceof Error ? error.message : 'Unknown error'}`
+          `Failed to serialize field ${field.key}: ${error instanceof Error ? error.message : 'Unknown error'}`
         );
       }
     } else {
@@ -127,16 +127,16 @@ export async function encryptPluginConfig(
 
     // Skip empty strings after serialization
     if (plaintext === '') {
-      encrypted[field.name] = '';
+      encrypted[field.key] = '';
       continue;
     }
 
     // Encrypt the plaintext
     try {
-      encrypted[field.name] = encrypt(plaintext);
+      encrypted[field.key] = encrypt(plaintext);
     } catch (error) {
       throw new Error(
-        `Failed to encrypt field ${field.name}: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Failed to encrypt field ${field.key}: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
     }
   }
@@ -175,7 +175,7 @@ export async function decryptPluginConfig(
       continue;
     }
 
-    const value = config[field.name];
+    const value = config[field.key];
 
     // Skip null/undefined/empty strings
     if (value === null || value === undefined || value === '') {
@@ -185,16 +185,16 @@ export async function decryptPluginConfig(
     // Value must be a string for decryption
     if (typeof value !== 'string') {
       throw new Error(
-        `Cannot decrypt field ${field.name}: value must be a string, got ${typeof value}`
+        `Cannot decrypt field ${field.key}: value must be a string, got ${typeof value}`
       );
     }
 
     // Decrypt the value
     try {
-      decrypted[field.name] = decrypt(value);
+      decrypted[field.key] = decrypt(value);
     } catch (error) {
       throw new Error(
-        `Failed to decrypt field ${field.name}: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Failed to decrypt field ${field.key}: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
     }
   }
@@ -225,11 +225,11 @@ export function createSecretExistsMarkers(
       continue;
     }
 
-    const value = config[field.name];
+    const value = config[field.key];
 
     // If value exists (not null/undefined/empty), replace with marker
     if (value !== null && value !== undefined && value !== '') {
-      marked[field.name] = { _exists: true };
+      marked[field.key] = { _exists: true };
     }
   }
 

@@ -37,7 +37,7 @@ export function NumberField({ field, value, error }: NumberFieldProps) {
 
   return (
     <FieldWrapper
-      name={field.name}
+      name={field.key}
       label={field.label}
       required={field.required}
       help={field.help}
@@ -45,8 +45,8 @@ export function NumberField({ field, value, error }: NumberFieldProps) {
     >
       <input
         type="number"
-        id={field.name}
-        name={field.name}
+        id={field.key}
+        name={field.key}
         defaultValue={numberValue}
         required={field.required}
         min={field.validation?.min}

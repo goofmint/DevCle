@@ -39,7 +39,11 @@ export async function listPlugins(tenantId: string) {
 
   // 4. Merge filesystem data with DB state
   const mergedPlugins = [];
+  const processedKeys = new Set<string>();
+
+  // First, process plugins that exist in filesystem
   for (const pluginKey of availablePluginKeys) {
+    processedKeys.add(pluginKey);
     try {
       // Get plugin config from filesystem
       const config = await getPluginConfig(pluginKey, tenantId);
@@ -62,6 +66,23 @@ export async function listPlugins(tenantId: string) {
     } catch (error) {
       // Skip plugins that can't be loaded
       console.warn(`Failed to load plugin ${pluginKey}:`, error);
+    }
+  }
+
+  // Then, include DB-only plugins (no filesystem directory)
+  for (const dbPlugin of dbPlugins) {
+    if (!processedKeys.has(dbPlugin.key)) {
+      mergedPlugins.push({
+        pluginId: dbPlugin.pluginId,
+        tenantId: dbPlugin.tenantId,
+        key: dbPlugin.key,
+        name: dbPlugin.name,
+        version: '0.0.0', // No plugin.json, use default
+        enabled: dbPlugin.enabled,
+        config: dbPlugin.config ?? {},
+        createdAt: dbPlugin.createdAt,
+        updatedAt: dbPlugin.updatedAt,
+      });
     }
   }
 

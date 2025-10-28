@@ -37,6 +37,8 @@ services:
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
       # Encryption key for sensitive data (from .env.test)
       ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      # Plugins directory path
+      PLUGINS_DIR: /plugins
     volumes:
       # Mount source code for hot reloading (use host path via LOCAL_WORKSPACE_FOLDER env var)
       - ${LOCAL_WORKSPACE_FOLDER}/core:/app

@@ -42,8 +42,8 @@ export function PluginConfigForm({ schema, config, errors }: PluginConfigFormPro
   return (
     <div className="space-y-6">
       {schema.fields.map((field) => {
-        const value = config[field.name];
-        const error = errorMap.get(field.name);
+        const value = config[field.key];
+        const error = errorMap.get(field.key);
 
         // Render appropriate field component based on type
         switch (field.type) {
@@ -52,7 +52,7 @@ export function PluginConfigForm({ schema, config, errors }: PluginConfigFormPro
           case 'email':
             return (
               <StringField
-                key={field.name}
+                key={field.key}
                 field={field}
                 value={value}
                 error={error}
@@ -62,7 +62,7 @@ export function PluginConfigForm({ schema, config, errors }: PluginConfigFormPro
           case 'textarea':
             return (
               <TextareaField
-                key={field.name}
+                key={field.key}
                 field={field}
                 value={value}
                 error={error}
@@ -72,7 +72,7 @@ export function PluginConfigForm({ schema, config, errors }: PluginConfigFormPro
           case 'secret':
             return (
               <SecretField
-                key={field.name}
+                key={field.key}
                 field={field}
                 value={value}
                 error={error}
@@ -82,7 +82,7 @@ export function PluginConfigForm({ schema, config, errors }: PluginConfigFormPro
           case 'number':
             return (
               <NumberField
-                key={field.name}
+                key={field.key}
                 field={field}
                 value={value}
                 error={error}
@@ -92,7 +92,7 @@ export function PluginConfigForm({ schema, config, errors }: PluginConfigFormPro
           case 'boolean':
             return (
               <BooleanField
-                key={field.name}
+                key={field.key}
                 field={field}
                 value={value}
                 error={error}
@@ -102,7 +102,7 @@ export function PluginConfigForm({ schema, config, errors }: PluginConfigFormPro
           case 'select':
             return (
               <SelectField
-                key={field.name}
+                key={field.key}
                 field={field}
                 value={value}
                 error={error}

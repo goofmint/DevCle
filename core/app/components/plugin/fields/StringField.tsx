@@ -41,7 +41,7 @@ export function StringField({ field, value, error }: StringFieldProps) {
 
   return (
     <FieldWrapper
-      name={field.name}
+      name={field.key}
       label={field.label}
       required={field.required}
       help={field.help}
@@ -49,8 +49,8 @@ export function StringField({ field, value, error }: StringFieldProps) {
     >
       <input
         type={inputType}
-        id={field.name}
-        name={field.name}
+        id={field.key}
+        name={field.key}
         defaultValue={stringValue}
         required={field.required}
         placeholder={field.placeholder}

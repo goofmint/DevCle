@@ -33,15 +33,15 @@ export function TextareaField({ field, value, error }: TextareaFieldProps) {
 
   return (
     <FieldWrapper
-      name={field.name}
+      name={field.key}
       label={field.label}
       required={field.required}
       help={field.help}
       error={error}
     >
       <textarea
-        id={field.name}
-        name={field.name}
+        id={field.key}
+        name={field.key}
         defaultValue={stringValue}
         required={field.required}
         placeholder={field.placeholder}

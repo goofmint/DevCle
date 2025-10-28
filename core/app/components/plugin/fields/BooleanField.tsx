@@ -37,7 +37,7 @@ export function BooleanField({ field, value, error }: BooleanFieldProps) {
 
   return (
     <FieldWrapper
-      name={field.name}
+      name={field.key}
       label={field.label}
       required={field.required}
       help={field.help}
@@ -46,8 +46,8 @@ export function BooleanField({ field, value, error }: BooleanFieldProps) {
       <label className="inline-flex items-center gap-2 cursor-pointer">
         <input
           type="checkbox"
-          id={field.name}
-          name={field.name}
+          id={field.key}
+          name={field.key}
           defaultChecked={booleanValue}
           className="w-4 h-4 text-blue-600 bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500 dark:focus:ring-blue-400"
         />

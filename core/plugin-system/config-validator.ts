@@ -30,7 +30,7 @@ export type PluginConfigFieldType =
  */
 export interface PluginConfigField {
   /** Field identifier (used as key in config object) */
-  name: string;
+  key: string;
 
   /** Display label for UI */
   label: string;
@@ -114,12 +114,12 @@ export function validatePluginConfig(
 
   // Validate each field in schema
   for (const field of schema.fields) {
-    const value = config[field.name];
+    const value = config[field.key];
 
     // Check required fields
     if (field.required && (value === undefined || value === null || value === '')) {
       errors.push({
-        field: field.name,
+        field: field.key,
         message: `${field.label} is required`,
       });
       continue;
@@ -171,7 +171,7 @@ export function validateField(
     default:
       // Type guard ensures this is unreachable
       return [{
-        field: field.name,
+        field: field.key,
         message: `Unknown field type: ${(field as { type: string }).type}`,
       }];
   }
@@ -199,7 +199,7 @@ export function validateStringField(
   // Type check
   if (typeof value !== 'string') {
     errors.push({
-      field: field.name,
+      field: field.key,
       message: `${field.label} must be a string`,
     });
     return errors;
@@ -208,14 +208,14 @@ export function validateStringField(
   // Length validation
   if (field.validation?.minLength !== undefined && value.length < field.validation.minLength) {
     errors.push({
-      field: field.name,
+      field: field.key,
       message: `${field.label} must be at least ${field.validation.minLength} characters`,
     });
   }
 
   if (field.validation?.maxLength !== undefined && value.length > field.validation.maxLength) {
     errors.push({
-      field: field.name,
+      field: field.key,
       message: `${field.label} must be at most ${field.validation.maxLength} characters`,
     });
   }
@@ -226,13 +226,13 @@ export function validateStringField(
       const regex = new RegExp(field.validation.pattern);
       if (!regex.test(value)) {
         errors.push({
-          field: field.name,
+          field: field.key,
           message: `${field.label} format is invalid`,
         });
       }
     } catch (error) {
       throw new Error(
-        `Invalid regex pattern for field ${field.name}: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Invalid regex pattern for field ${field.key}: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
     }
   }
@@ -243,7 +243,7 @@ export function validateStringField(
       new URL(value);
     } catch {
       errors.push({
-        field: field.name,
+        field: field.key,
         message: `${field.label} must be a valid URL`,
       });
     }
@@ -255,7 +255,7 @@ export function validateStringField(
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(value)) {
       errors.push({
-        field: field.name,
+        field: field.key,
         message: `${field.label} must be a valid email address`,
       });
     }
@@ -284,7 +284,7 @@ export function validateNumberField(
   // Type check
   if (typeof value !== 'number') {
     errors.push({
-      field: field.name,
+      field: field.key,
       message: `${field.label} must be a number`,
     });
     return errors;
@@ -293,7 +293,7 @@ export function validateNumberField(
   // NaN check
   if (Number.isNaN(value)) {
     errors.push({
-      field: field.name,
+      field: field.key,
       message: `${field.label} must be a valid number`,
     });
     return errors;
@@ -302,14 +302,14 @@ export function validateNumberField(
   // Range validation
   if (field.validation?.min !== undefined && value < field.validation.min) {
     errors.push({
-      field: field.name,
+      field: field.key,
       message: `${field.label} must be at least ${field.validation.min}`,
     });
   }
 
   if (field.validation?.max !== undefined && value > field.validation.max) {
     errors.push({
-      field: field.name,
+      field: field.key,
       message: `${field.label} must be at most ${field.validation.max}`,
     });
   }
@@ -336,7 +336,7 @@ export function validateBooleanField(
   // Type check
   if (typeof value !== 'boolean') {
     errors.push({
-      field: field.name,
+      field: field.key,
       message: `${field.label} must be true or false`,
     });
   }
@@ -363,14 +363,14 @@ export function validateSelectField(
 
   // Check that options are defined
   if (!field.options || field.options.length === 0) {
-    throw new Error(`Select field ${field.name} must have options defined`);
+    throw new Error(`Select field ${field.key} must have options defined`);
   }
 
   // Check that value is one of the allowed options
   const allowedValues = field.options.map(opt => opt.value);
   if (!allowedValues.includes(value as string | number)) {
     errors.push({
-      field: field.name,
+      field: field.key,
       message: `${field.label} must be one of: ${allowedValues.join(', ')}`,
     });
   }

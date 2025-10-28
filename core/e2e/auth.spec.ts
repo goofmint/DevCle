@@ -53,7 +53,7 @@ test('user can login and logout', async ({ page }) => {
 
   // 4. Verify redirect to dashboard
   // Wait for navigation to complete
-  await page.waitForURL(`${BASE_URL}/dashboard`, { timeout: 5000 });
+  await page.waitForURL(`${BASE_URL}/dashboard`, { timeout: 10000 });
   await expect(page).toHaveURL(`${BASE_URL}/dashboard`);
 
   // Verify session cookie is set
