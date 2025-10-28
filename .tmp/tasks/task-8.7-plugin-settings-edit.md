@@ -133,22 +133,38 @@ interface UpdatePluginConfigResponse {
  * Response (Error)
  */
 interface ApiErrorResponse {
+  /** HTTP status code */
   status: number;
-  message: string;
-  code?: string;
-  errors?: Array<{
+  /** Human-readable error message */
+  error: string;
+  /** Detailed error information (validation errors, etc.) */
+  details?: Array<{
     field: string;
     message: string;
   }>;
 }
 ```
 
-**エラーコード:**
-- `400`: バリデーションエラー
-- `401`: 認証エラー
-- `403`: 権限エラー（admin ロールのみ許可）
-- `404`: プラグインが存在しない
-- `500`: サーバーエラー
+**エラーハンドリング仕様:**
+
+- `400 Bad Request`: バリデーションエラー
+  - すべてのバリデーションエラーを `details` 配列で返す（fail-fast しない）
+  - 例: 必須フィールド未入力、型不一致、形式エラー
+- `401 Unauthorized`: 認証エラー
+  - リクエストヘッダーに有効な認証情報がない
+  - セッションが無効または期限切れ
+- `403 Forbidden`: 権限エラー
+  - ユーザーが admin ロールを持っていない
+  - プラグイン設定の編集権限がない
+- `404 Not Found`: リソースが存在しない
+  - プラグインが見つからない
+  - 設定スキーマ（plugin.json の drm.config）が見つからない
+- `500 Internal Server Error`: サーバーエラー
+  - スキーマ読み込み失敗を try/catch でキャッチ
+  - データベース更新失敗を try/catch でキャッチ
+  - 暗号化/復号化失敗を try/catch でキャッチ
+  - エラーログに完全なスタックトレースを記録
+  - クライアントには安全なエラーメッセージのみ返す
 
 ---
 
@@ -201,6 +217,21 @@ interface DisablePluginResponse {
 ```typescript
 /**
  * プラグイン設定の暗号化
+ *
+ * type = 'secret' のフィールドを暗号化します。
+ * 非 secret フィールドは変更されません。
+ *
+ * シリアライゼーションルール:
+ * - プリミティブ値（string, number, boolean）: String() で文字列に変換
+ * - オブジェクト・配列: JSON.stringify() でシリアライズ
+ * - null/undefined: スキップ（暗号化しない）
+ * - 空文字列: スキップ（暗号化しない）
+ *
+ * @param schema - プラグイン設定スキーマ（PluginConfigSchema に準拠）
+ * @param config - 暗号化する設定値
+ * @returns 暗号化された設定値（secret フィールドのみ暗号化）
+ * @throws Error if schema is invalid
+ * @throws Error if encryption fails (see core/utils/encryption.ts)
  */
 function encryptPluginConfig(
   schema: PluginConfigSchema,
@@ -209,6 +240,16 @@ function encryptPluginConfig(
 
 /**
  * プラグイン設定の復号化
+ *
+ * type = 'secret' のフィールドを復号化します。
+ * 非 secret フィールドは変更されません。
+ *
+ * @param schema - プラグイン設定スキーマ（PluginConfigSchema に準拠）
+ * @param config - 復号化する設定値
+ * @returns 復号化された設定値（secret フィールドのみ復号化）
+ * @throws Error if schema is invalid
+ * @throws Error if decryption fails (invalid key, tampered data, etc.)
+ * @throws Error if ciphertext format is invalid
  */
 function decryptPluginConfig(
   schema: PluginConfigSchema,
@@ -338,18 +379,31 @@ interface ValidationError {
 
 ---
 
-### app/routes/api/plugins.$id.config.ts
+### core/app/routes/api.plugins.$id.config.ts
 
-**責務**: 設定更新 API エンドポイント
+**責務**: 設定更新 API エンドポイント（Remix v2 flat route convention）
 
 **実装内容:**
 - `PUT /api/plugins/:id/config`
   1. 認証チェック（admin ロールのみ許可）
+     - 未認証の場合: 401 Unauthorized
+     - admin ロール以外の場合: 403 Forbidden
   2. リクエストボディをパース
+     - JSON パースエラー: 400 Bad Request
   3. plugin.json から設定スキーマを取得
+     - try/catch でエラーをキャッチ
+     - スキーマが存在しない場合: 404 Not Found
+     - 読み込み失敗: 500 Internal Server Error（ログに記録）
   4. バリデーション実行
+     - すべてのバリデーションエラーを収集（fail-fast しない）
+     - エラーがある場合: 400 Bad Request（details にすべてのエラーを含める）
   5. 設定を更新（暗号化はサービス層で実行）
+     - try/catch でエラーをキャッチ
+     - データベースエラー: 500 Internal Server Error（ログに記録）
+     - 暗号化エラー: 500 Internal Server Error（ログに記録）
   6. レスポンスを返す
+     - 成功: 200 OK（UpdatePluginConfigResponse）
+     - エラー: 適切なステータスコード + ApiErrorResponse
 
 ---
 
@@ -361,11 +415,20 @@ interface ValidationError {
 - 認証チェック（admin ロールのみ許可）
 - プラグイン情報を取得
 - plugin.json から設定スキーマを取得
-- 現在の設定値を取得（secret フィールドは `null` を返す）
+- 現在の設定値を取得
+  - **secret フィールドの扱い（Option D: "Change this setting" トグル）**:
+    - secret フィールドは復号化せずに `{ _exists: true }` マーカーを返す
+    - UI でトグルを表示し、ユーザーが明示的に「変更する」を選択した場合のみ入力フィールドを表示
+    - セキュリティ上の理由: secret を復号化してクライアントに送信しない
+    - UX 上の理由: ユーザーが意図的に変更する場合のみ入力を求める
 
 **Action:**
 - 認証チェック
 - リクエストボディをパース
+- **secret フィールドの処理**:
+  - `{ _exists: true }` マーカーが送信された場合: 既存の値を保持（更新しない）
+  - 新しい値が送信された場合: 暗号化して保存
+  - セキュリティ上の考慮: マーカーを使用することで、意図しない上書きを防止
 - バリデーション実行
 - 設定を更新
 - プラグイン詳細ページにリダイレクト
@@ -378,7 +441,11 @@ interface ValidationError {
   - フィールドタイプに応じて適切な入力コンポーネントをレンダリング
 - `StringField`: 文字列入力（1行）
 - `TextareaField`: 複数行テキスト入力
-- `SecretField`: パスワード入力（Show/Hide ボタン付き）
+- `SecretField`: パスワード入力
+  - 既存の secret がある場合: "Change this setting" チェックボックスを表示
+  - チェックボックスが OFF: `{ _exists: true }` マーカーを送信（既存の値を保持）
+  - チェックボックスが ON: 入力フィールドを表示（新しい値を入力）
+  - Show/Hide ボタン付き（入力中のみ）
 - `NumberField`: 数値入力
 - `BooleanField`: チェックボックス
 - `SelectField`: ドロップダウン
@@ -413,13 +480,18 @@ interface ValidationError {
 - フォームの動的生成（各フィールドタイプごとに 1 test、計 7 tests）
   - string, textarea, secret, number, boolean, url, email, select
 - バリデーションエラーの表示（3 tests）
+  - すべてのエラーが details 配列で返されることを確認（fail-fast しない）
 - 設定の保存と暗号化（2 tests）
+- secret フィールドのトグル機能（3 tests）
+  - トグル OFF: 既存の値を保持
+  - トグル ON: 新しい値を入力して保存
+  - `{ _exists: true }` マーカーの正しい処理
 - 権限チェック（admin のみ編集可能）（2 tests）
 - 設定アイコンの表示（有効なプラグインのみ）（2 tests）
 - プラグイン無効化時の確認ダイアログ表示（2 tests）
 - プラグイン無効化後の設定削除確認（2 tests）
 
-**合計**: 最低 46 テスト以上
+**合計**: 最低 49 テスト以上
 
 ---
 
@@ -436,16 +508,30 @@ interface ValidationError {
 ## 完了条件
 
 - [ ] `core/plugin-system/config-validator.ts` 作成
+  - すべてのバリデーションエラーを収集（fail-fast しない）
+  - @throws でエラーを明記
 - [ ] `core/plugin-system/config-encryption.ts` 作成
+  - シリアライゼーションルール実装（プリミティブ、オブジェクト、null/undefined）
+  - @throws でエラーを明記
+  - core/utils/encryption.ts のパターンに準拠
 - [ ] `core/services/plugin.service.ts` に `updatePluginConfig()` 追加
+  - try/catch でエラーをキャッチ
+  - secret フィールドの `{ _exists: true }` マーカー処理
 - [ ] `app/routes/dashboard/plugins.$id.edit.tsx` 作成
-- [ ] `app/routes/api/plugins.$id.config.ts` 作成（設定更新 API）
+  - secret フィールドの "Change this setting" トグル実装
+  - トグル OFF: `{ _exists: true }` マーカーを送信
+  - トグル ON: 入力フィールドを表示
+- [ ] `core/app/routes/api.plugins.$id.config.ts` 作成（Remix v2 flat route convention）
+  - すべてのバリデーションエラーを details に含める
+  - try/catch でスキーマ読み込み、DB 更新、暗号化のエラーをキャッチ
+  - 500 エラー時にログ記録
 - [ ] プラグインカードに設定アイコン表示（有効なプラグインのみ）
 - [ ] プラグイン無効化時の確認ダイアログ実装
 - [ ] プラグイン無効化時の設定削除実装
 - [ ] Unit Tests 全パス（最低 20 tests）
 - [ ] Integration Tests 全パス（最低 8 tests）
-- [ ] E2E Tests 全パス（最低 22 tests）
+- [ ] E2E Tests 全パス（最低 25 tests）
+  - secret トグル機能のテスト（3 tests）を含む
 - [ ] `pnpm typecheck` パス
 - [ ] `pnpm lint` パス
 
@@ -460,10 +546,21 @@ interface ValidationError {
 ## 注意事項
 
 - **機密情報の扱い**: `type: 'secret'` のフィールドは必ず暗号化して保存
+- **secret フィールドの編集（Option D: "Change this setting" トグル）**:
+  - Loader: secret を復号化せずに `{ _exists: true }` マーカーを返す
+  - UI: "Change this setting" チェックボックスを表示
+  - チェックボックス OFF: マーカーを送信して既存の値を保持
+  - チェックボックス ON: 入力フィールドを表示して新しい値を入力
+  - Action: マーカーを受け取った場合は既存の値を保持、新しい値を受け取った場合は暗号化して保存
+  - セキュリティ: secret を復号化してクライアントに送信しない
 - **デフォルト値**: フィールドに `default` が定義されている場合、値が未入力の場合はデフォルト値を使用
 - **UI の一貫性**: システム設定画面（Task 7.3.2）と同じスタイルを使用
 - **動的フォーム**: `plugin.json` の設定スキーマに基づいてフォームを動的に生成
-- **エラーハンドリング**: バリデーションエラーは各フィールドの下に表示
+- **エラーハンドリング**:
+  - バリデーションエラーは各フィールドの下に表示
+  - すべてのバリデーションエラーを収集（fail-fast しない）
+  - try/catch でスキーマ読み込み、DB 更新、暗号化のエラーをキャッチ
+  - 500 エラー時にログ記録
 - **フィールドタイプの使い分け**:
   - `string`: 1行の短いテキスト入力（名前、ID など）
   - `textarea`: 複数行の長いテキスト入力（説明文、JSON、コードスニペットなど）
