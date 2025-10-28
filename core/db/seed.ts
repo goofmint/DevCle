@@ -36,6 +36,7 @@
 import * as bcrypt from 'bcrypt';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { eq } from 'drizzle-orm';
 import { getDb, getSql, testConnection } from './connection.js';
 import * as schema from './schema/index.js';
 
@@ -1091,8 +1092,7 @@ async function seedActivityFunnelMaps(): Promise<void> {
  *
  * Plugins:
  * 1. Test Plugin - Enabled test plugin (from drowl-plugin-test)
- * 2. Google Analytics - Disabled analytics plugin
- * 3. PostHog - Enabled analytics plugin
+ * 2. Disabled Test Plugin - Disabled plugin for testing (no plugin directory)
  */
 async function seedPlugins(): Promise<void> {
   const db = getDb();
@@ -1101,8 +1101,10 @@ async function seedPlugins(): Promise<void> {
 
   // Fixed UUIDs for idempotency
   const testPluginId = '20000000-0000-4000-8000-000000000001';
+  const disabledPluginId = '20000000-0000-4000-8000-000000000002';
 
-  // Only seed plugins that have actual plugin.json files in /workspace/plugins/
+  // Seed both enabled and disabled plugins for testing
+  // Note: drowl-plugin-disabled doesn't have a plugin directory, so config loading will fail gracefully
   await db
     .insert(schema.plugins)
     .values([
@@ -1117,10 +1119,48 @@ async function seedPlugins(): Promise<void> {
           description: 'Test plugin for development',
         },
       },
+      {
+        pluginId: disabledPluginId,
+        tenantId: 'default',
+        key: 'drowl-plugin-disabled',
+        name: 'Disabled Test Plugin',
+        enabled: false,
+        config: null,
+      },
     ])
     .onConflictDoNothing();
 
-  console.log('    ✅ Plugins seeded (1)');
+  // Reset deterministic state so repeated seeds restore plugin defaults
+  const now = new Date();
+
+  await db
+    .update(schema.plugins)
+    .set({
+      tenantId: 'default',
+      key: 'drowl-plugin-test',
+      name: 'Test Plugin',
+      enabled: true,
+      config: {
+        testMode: true,
+        description: 'Test plugin for development',
+      },
+      updatedAt: now,
+    })
+    .where(eq(schema.plugins.pluginId, testPluginId));
+
+  await db
+    .update(schema.plugins)
+    .set({
+      tenantId: 'default',
+      key: 'drowl-plugin-disabled',
+      name: 'Disabled Test Plugin',
+      enabled: false,
+      config: null,
+      updatedAt: now,
+    })
+    .where(eq(schema.plugins.pluginId, disabledPluginId));
+
+  console.log('    ✅ Plugins seeded (2)');
 }
 
 // ============================================================================

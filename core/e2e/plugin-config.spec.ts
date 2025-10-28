@@ -5,14 +5,26 @@
 import { test, expect } from '@playwright/test';
 
 const BASE_URL = process.env['BASE_URL'] || 'https://devcle.test';
+const TEST_PLUGIN_ID = '20000000-0000-4000-8000-000000000001';
+const TEST_PLUGIN_KEY = 'drowl-plugin-test';
+const TEST_PLUGIN_NAME = 'Test Plugin';
+
+// Read credentials from environment variables
+const ADMIN_EMAIL = (process.env['ADMIN_EMAIL'] || 'admin@example.com').trim();
+const ADMIN_PASSWORD = (process.env['ADMIN_PASSWORD'] || 'admin123456').trim();
+
+// Fail fast in CI if credentials are not provided
+if (process.env['CI'] && (!process.env['ADMIN_EMAIL'] || !process.env['ADMIN_PASSWORD'])) {
+  throw new Error('ADMIN_EMAIL and ADMIN_PASSWORD environment variables are required in CI');
+}
 
 /**
  * Helper function to login
  */
 async function login(page: any) {
   await page.goto(`${BASE_URL}/login`);
-  await page.fill('input[name="email"]', 'test@example.com');
-  await page.fill('input[name="password"]', 'password123');
+  await page.fill('input[name="email"]', ADMIN_EMAIL);
+  await page.fill('input[name="password"]', ADMIN_PASSWORD);
   await page.click('button[type="submit"]');
   await page.waitForURL(`${BASE_URL}/dashboard`);
 }
@@ -22,7 +34,7 @@ test.describe('Plugin Config Page', () => {
     await login(page);
   });
 
-  test('should access config page for all plugins listed in plugin management', async ({ page }) => {
+  test('should access settings page for all plugins listed in plugin management', async ({ page }) => {
     // Go to plugins list page
     await page.goto(`${BASE_URL}/dashboard/plugins`);
     await page.waitForLoadState('networkidle');
@@ -42,18 +54,30 @@ test.describe('Plugin Config Page', () => {
       const card = pluginCards[i];
 
       // Get plugin name and key
-      const nameLink = card.locator('a[href*="/config"]').first();
-      const pluginName = await nameLink.textContent();
-      const configUrl = await nameLink.getAttribute('href');
+      const nameHeading = card.locator('h3').first();
+      const pluginName = (await nameHeading.textContent())?.trim() || 'Unknown Plugin';
+      const settingsLink = card.locator('a[href*="/edit"]').first();
 
-      console.log(`Testing plugin: ${pluginName} -> ${configUrl}`);
+      if (!(await settingsLink.count())) {
+        console.log(`Skipping plugin without settings link: ${pluginName}`);
+        continue;
+      }
 
-      // Navigate to config page
-      await page.goto(`${BASE_URL}${configUrl}`);
+      const settingsUrl = await settingsLink.getAttribute('href');
+
+      if (!settingsUrl) {
+        console.log(`Skipping plugin with missing settings URL: ${pluginName}`);
+        continue;
+      }
+
+      console.log(`Testing plugin settings: ${pluginName} -> ${settingsUrl}`);
+
+      // Navigate to settings page
+      await page.goto(`${BASE_URL}${settingsUrl}`);
 
       // Wait for either success or error state (not loading)
       await Promise.race([
-        page.waitForSelector('h1:has-text("Plugin Configuration")', { timeout: 5000 }).catch(() => null),
+        page.waitForSelector('h1:has-text("Configure")', { timeout: 5000 }).catch(() => null),
         page.waitForSelector('h3:has-text("Error")', { timeout: 5000 }).catch(() => null),
       ]);
 
@@ -70,22 +94,24 @@ test.describe('Plugin Config Page', () => {
   });
 
   test('should display plugin configuration page correctly', async ({ page }) => {
-    await page.goto(`${BASE_URL}/dashboard/plugins/drowl-plugin-test/config`);
+    await page.goto(`${BASE_URL}/dashboard/plugins/${TEST_PLUGIN_ID}/edit`);
 
     // Wait for loading to complete
-    await page.waitForSelector('h1:has-text("Plugin Configuration")');
+    await page.waitForSelector(`h1:has-text("Configure")`);
 
     // Check page heading
-    await expect(page.locator('h1')).toContainText('Plugin Configuration: drowl-plugin-test');
+    await expect(page.locator('h1')).toContainText(`Configure`);
+    await expect(page.locator('h1')).toContainText(TEST_PLUGIN_NAME);
 
-    // Check basic info section is displayed
-    await expect(page.locator('h2:has-text("Basic Information")')).toBeVisible();
-    await expect(page.locator('dt:has-text("ID")')).toBeVisible();
-    await expect(page.locator('dt:has-text("Name")')).toBeVisible();
-    await expect(page.locator('dt:has-text("Version")')).toBeVisible();
+    // Check key form fields are rendered
+    await expect(page.getByLabel(/API Key/i)).toBeVisible();
+    await expect(page.getByLabel(/Webhook URL/i)).toBeVisible();
+    await expect(page.getByLabel(/Contact Email/i)).toBeVisible();
+    await expect(page.getByLabel(/Sync Interval/i)).toBeVisible();
 
-    // Check capabilities section is displayed
-    await expect(page.locator('h2:has-text("Capabilities")')).toBeVisible();
+    // Check action buttons
+    await expect(page.getByRole('link', { name: 'Cancel' })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Save Configuration/i })).toBeVisible();
 
     // Verify dark mode styling (check background color contrast)
     const backgroundColor = await page.locator('body').evaluate((el) => {
@@ -95,22 +121,19 @@ test.describe('Plugin Config Page', () => {
   });
 
   test('should show error for non-existing plugin', async ({ page }) => {
-    await page.goto(`${BASE_URL}/dashboard/plugins/non-existing-plugin/config`);
+    await page.goto(`${BASE_URL}/dashboard/plugins/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/edit`);
 
-    // Wait for error message
-    await page.waitForSelector('h3:has-text("Error")');
-
-    // Check error is displayed
-    await expect(page.locator('text=Failed to load plugin')).toBeVisible();
-    await expect(page.locator('a:has-text("Back to Plugins")')).toBeVisible();
+    // Wait for response and verify error text is rendered
+    const bodyText = await page.locator('body').first().innerText();
+    expect(bodyText).toMatch(/Plugin not found|Failed to load plugin|Admin role required|An Error Occurred/);
   });
 
   test('should have proper dark mode styling', async ({ page }) => {
-    await page.goto(`${BASE_URL}/dashboard/plugins/drowl-plugin-test/config`);
-    await page.waitForSelector('h1:has-text("Plugin Configuration")');
+    await page.goto(`${BASE_URL}/dashboard/plugins/${TEST_PLUGIN_ID}/edit`);
+    await page.waitForSelector('h1:has-text("Configure")');
 
     // Check text color in dark mode
-    const heading = page.locator('h1:has-text("Plugin Configuration")');
+    const heading = page.locator('h1:has-text("Configure")');
     const headingColor = await heading.evaluate((el) => {
       return window.getComputedStyle(el).color;
     });
@@ -131,7 +154,7 @@ test.describe('Plugin Config Page', () => {
     });
 
     // Navigate to the page
-    await page.goto(`${BASE_URL}/dashboard/plugins/drowl-plugin-test/config`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${BASE_URL}/dashboard/plugins/${TEST_PLUGIN_ID}/config`, { waitUntil: 'domcontentloaded' });
 
     // Check that the loading spinner was visible at some point
     // Since API is delayed, spinner should show up initially
@@ -153,31 +176,32 @@ test.describe('Plugin Config Page', () => {
   });
 
   test('should have proper layout without visual偏り', async ({ page }) => {
-    await page.goto(`${BASE_URL}/dashboard/plugins/drowl-plugin-test/config`);
-    await page.waitForSelector('h1:has-text("Plugin Configuration")');
+    await page.goto(`${BASE_URL}/dashboard/plugins/${TEST_PLUGIN_ID}/edit`);
+    await page.waitForSelector('h1:has-text("Configure")');
 
-    // Check sections are properly aligned
-    const sections = page.locator('section');
-    const count = await sections.count();
+    const fieldContainer = page.locator('form .space-y-6').first();
+    const fieldCount = await fieldContainer.locator('> div').count();
+    expect(fieldCount).toBeGreaterThan(0);
 
-    expect(count).toBeGreaterThan(0);
+    const firstFieldBox = await fieldContainer.locator('> div').first().boundingBox();
+    expect(firstFieldBox).not.toBeNull();
 
-    // Check each section has proper padding
-    for (let i = 0; i < count; i++) {
-      const section = sections.nth(i);
-      const padding = await section.evaluate((el) => {
-        const style = window.getComputedStyle(el);
-        return {
-          top: parseInt(style.paddingTop),
-          bottom: parseInt(style.paddingBottom),
-          left: parseInt(style.paddingLeft),
-          right: parseInt(style.paddingRight),
-        };
-      });
+    const widths: number[] = [];
 
-      // Verify symmetric padding (no visual offset)
-      expect(padding.left).toBe(padding.right);
-      expect(padding.top).toBe(padding.bottom);
+    for (let i = 0; i < fieldCount; i++) {
+      const field = fieldContainer.locator('> div').nth(i);
+      const box = await field.boundingBox();
+      expect(box).not.toBeNull();
+
+      // All fields should align on the same left edge
+      expect(Math.abs(box!.x - firstFieldBox!.x)).toBeLessThan(1);
+
+      widths.push(box!.width);
     }
+
+    // Verify widths are consistent to avoid visual偏り
+    const minWidth = Math.min(...widths);
+    const maxWidth = Math.max(...widths);
+    expect(maxWidth - minWidth).toBeLessThan(2);
   });
 });

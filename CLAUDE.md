@@ -245,10 +245,10 @@ docker compose --env-file .env.test exec core pnpm db:migrate
 docker compose --env-file .env.test exec core pnpm db:seed
 
 # Run E2E tests from host
-cd core && BASE_URL=https://devcle.test pnpm test:e2e
+cd core && BASE_URL=https://devcle.test pnpm test:e2e --max-failures=1
 
 # Or run specific test file
-cd core && BASE_URL=https://devcle.test pnpm playwright test e2e/auth.spec.ts
+cd core && BASE_URL=https://devcle.test pnpm playwright test --max-failures=1 e2e/auth.spec.ts
 ```
 
 **Why BASE_URL is required:**

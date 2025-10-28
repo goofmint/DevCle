@@ -1,5 +1,5 @@
 /**
- * Plugin Management Page (SPA)
+ * Plugin Management Page
  *
  * Admin page for managing installed plugins.
  * Accessible at: /dashboard/plugins
@@ -11,10 +11,15 @@
  * - Dark/Light mode support
  */
 
-import { useEffect, useState } from 'react';
-import { Link } from '@remix-run/react';
-import { Icon } from '@iconify/react';
+import { useState } from 'react';
+import { Link, useLoaderData } from '@remix-run/react';
+import { json } from '@remix-run/node';
+import type { LoaderFunctionArgs } from '@remix-run/node';
 import type { PluginInfo } from '../types/plugin-api.js';
+import { requireAuth } from '~/auth.middleware.js';
+import { listPlugins, redactConfig } from '~/services/plugins.service.js';
+import { getPluginConfig } from '~/services/plugin/plugin-config.service.js';
+import { Icon } from '@iconify/react';
 
 /**
  * Toast notification type
@@ -25,49 +30,93 @@ interface Toast {
 }
 
 /**
+ * Loader - Fetch plugins server-side for SSR
+ *
+ * Fetches all installed plugins for the current tenant.
+ * This ensures Icon components render during SSR, enabling Iconify to work properly.
+ */
+export async function loader({ request }: LoaderFunctionArgs) {
+  try {
+    // 1. Authentication check
+    const user = await requireAuth(request);
+    const tenantId = user.tenantId;
+
+    // 2. Query plugins via service (reads from filesystem + DB state)
+    const pluginsData = await listPlugins(tenantId);
+
+    // 3. Transform to API response format and check for settings schema
+    const plugins: PluginInfo[] = await Promise.all(
+      pluginsData.map(async (plugin) => {
+        // Check if plugin has settings schema
+        let hasSettings = false;
+        try {
+          const config = await getPluginConfig(plugin.key, tenantId);
+          hasSettings = !!(config.settingsSchema && Array.isArray(config.settingsSchema) && config.settingsSchema.length > 0);
+        } catch (error) {
+          // Plugin has no config file or no settings schema
+          hasSettings = false;
+        }
+
+        return {
+          pluginId: plugin.pluginId,
+          key: plugin.key,
+          name: plugin.name,
+          version: plugin.version,
+          enabled: plugin.enabled,
+          config: redactConfig(plugin.config),
+          installedAt: plugin.createdAt.toISOString(),
+          updatedAt: plugin.updatedAt.toISOString(),
+          hasSettings,
+        };
+      })
+    );
+
+    // 4. Return plugin list
+    return json({ plugins });
+  } catch (error) {
+    // Handle requireAuth() redirect
+    if (error instanceof Response) {
+      throw error;
+    }
+
+    // Log error for debugging
+    console.error('Error loading plugins:', error);
+
+    // Return error state
+    return json(
+      { plugins: [], error: 'Failed to load plugins' },
+      { status: 500 }
+    );
+  }
+}
+
+/**
  * Plugin Management Page Component
  */
 export default function PluginsPage() {
-  const [plugins, setPlugins] = useState<PluginInfo[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // Get plugins from server-side loader
+  const loaderData = useLoaderData<typeof loader>();
+  const [plugins, setPlugins] = useState<PluginInfo[]>(loaderData.plugins as PluginInfo[]);
   const [toast, setToast] = useState<Toast | null>(null);
-
-  /**
-   * Fetch plugins on component mount
-   */
-  useEffect(() => {
-    fetchPlugins();
-  }, []);
-
-  /**
-   * Fetch plugins list from API
-   */
-  async function fetchPlugins() {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const response = await fetch('/api/plugins');
-      if (!response.ok) {
-        throw new Error('Failed to fetch plugins');
-      }
-
-      const data = await response.json() as { plugins: PluginInfo[] };
-      setPlugins(data.plugins);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
-      showToast('error', 'Failed to load plugins');
-    } finally {
-      setLoading(false);
-    }
-  }
 
 
   /**
    * Toggle plugin enabled status
    */
   async function togglePlugin(pluginId: string, currentEnabled: boolean) {
+    // Show confirmation dialog when disabling (settings will be deleted)
+    if (currentEnabled) {
+      const confirmed = window.confirm(
+        'Are you sure you want to disable this plugin?\n\n' +
+        'Warning: All plugin settings will be deleted and cannot be recovered.\n' +
+        'You will need to reconfigure the plugin if you enable it again.'
+      );
+
+      if (!confirmed) {
+        return; // User canceled
+      }
+    }
+
     try {
       const method = currentEnabled ? 'DELETE' : 'PUT';
       const response = await fetch(`/api/plugins/${pluginId}`, {
@@ -104,22 +153,12 @@ export default function PluginsPage() {
     setTimeout(() => setToast(null), 3000);
   }
 
-
-  // Loading state
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-      </div>
-    );
-  }
-
-  // Error state
-  if (error) {
+  // Check if loader returned error
+  if ('error' in loaderData && loaderData.error) {
     return (
       <div className="p-6">
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-          <p className="text-red-800 dark:text-red-200">Error: {error}</p>
+          <p className="text-red-800 dark:text-red-200">Error: {String(loaderData.error)}</p>
         </div>
       </div>
     );
@@ -163,17 +202,25 @@ export default function PluginsPage() {
         {plugins.map((plugin) => (
           <div
             key={plugin.pluginId}
-            className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 border border-gray-200 dark:border-gray-700"
+            className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 border border-gray-200 dark:border-gray-700 relative"
           >
+            {/* Settings icon (top right, enabled plugins with settings only) */}
+            {plugin.enabled && plugin.hasSettings && (
+              <Link
+                to={`/dashboard/plugins/${plugin.pluginId}/edit`}
+                className="absolute top-4 right-4 p-2 text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                title="Configure plugin"
+              >
+                <Icon icon="heroicons:cog-6-tooth" className="w-5 h-5" />
+              </Link>
+            )}
+
             {/* Plugin header */}
-            <div className="flex items-start justify-between mb-4">
+            <div className="flex items-start justify-between mb-4 pr-10">
               <div className="flex-1">
-                <Link
-                  to={`/dashboard/plugins/${plugin.key}/config`}
-                  className="text-lg font-semibold text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                >
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                   {plugin.name}
-                </Link>
+                </h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400">{plugin.key}</p>
               </div>
               <div
@@ -190,11 +237,11 @@ export default function PluginsPage() {
             {/* Plugin info */}
             <div className="space-y-2 mb-4">
               <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
-                <Icon icon="mdi:calendar" className="mr-2" />
+                <Icon icon="heroicons:calendar" className="mr-2 w-4 h-4" />
                 <span>Installed: {new Date(plugin.installedAt).toLocaleDateString()}</span>
               </div>
               <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
-                <Icon icon="mdi:update" className="mr-2" />
+                <Icon icon="heroicons:clock" className="mr-2 w-4 h-4" />
                 <span>Updated: {new Date(plugin.updatedAt).toLocaleDateString()}</span>
               </div>
             </div>
@@ -218,11 +265,7 @@ export default function PluginsPage() {
       {/* Empty state */}
       {plugins.length === 0 && (
         <div className="text-center py-12">
-          <Icon
-            icon="mdi:puzzle-outline"
-            className="mx-auto text-gray-400 dark:text-gray-600 mb-4"
-            width="64"
-          />
+          <Icon icon="heroicons:cube-transparent" className="mx-auto text-gray-400 dark:text-gray-600 mb-4 w-16 h-16" />
           <p className="text-gray-600 dark:text-gray-400">No plugins installed</p>
         </div>
       )}

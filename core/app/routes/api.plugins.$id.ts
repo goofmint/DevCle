@@ -200,7 +200,13 @@ export async function action({ request, params }: ActionFunctionArgs) {
     const newEnabled = method === 'PUT'; // PUT = enable, DELETE = disable
 
     // 4. Update plugin in database via service layer
-    const updatedPlugin = await updatePluginEnabled(tenantId, pluginId, newEnabled);
+    // When disabling (DELETE), clear config to delete all settings
+    const updatedPlugin = await updatePluginEnabled(
+      tenantId,
+      pluginId,
+      newEnabled,
+      newEnabled ? undefined : null // Clear config when disabling
+    );
 
     // 5. Check if plugin exists
     if (!updatedPlugin) {

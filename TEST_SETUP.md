@@ -101,10 +101,10 @@ docker compose --env-file .env.test -f docker-compose.yml -f docker-compose-test
 
 ```bash
 # すべてのE2Eテストを実行
-cd /workspace/core && BASE_URL=https://devcle.test pnpm playwright test --reporter=list
+cd /workspace/core && BASE_URL=https://devcle.test pnpm playwright test --reporter=list --max-failures=1
 
 # 特定のテストファイルのみ実行
-cd /workspace/core && BASE_URL=https://devcle.test pnpm playwright test e2e/auth.spec.ts
+cd /workspace/core && BASE_URL=https://devcle.test pnpm playwright test --max-failures=1 e2e/auth.spec.ts
 
 # UIモードで実行（デバッグ用）
 cd /workspace/core && BASE_URL=https://devcle.test pnpm playwright test --ui

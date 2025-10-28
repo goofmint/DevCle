@@ -145,5 +145,8 @@ USER node
 WORKDIR /workspace/core
 RUN npm i -D playwright && \
   npm install -g pnpm && \
-  pnpm exec playwright install --with-deps chromium
-RUN echo "alias cc='claude --dangerously-skip-permissions'" >> ~/.zshrc
+  pnpm exec playwright install --with-deps chromium && \
+  npm install -g @openai/codex
+RUN echo "alias cc='claude --dangerously-skip-permissions'" >> ~/.zshrc && \
+    echo "alias cx='codex --dangerously-bypass-approvals-and-sandbox'" >> ~/.zshrc
+
