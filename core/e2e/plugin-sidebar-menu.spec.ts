@@ -23,6 +23,10 @@ import { test, expect, type Page } from '@playwright/test';
 // Base URL for the application (use HTTPS for E2E tests)
 const BASE_URL = process.env['BASE_URL'] || 'https://devcle.test';
 
+// Test credentials (use environment variables with defaults for security)
+const E2E_TEST_EMAIL = process.env['E2E_TEST_EMAIL'] ?? 'test@example.com';
+const E2E_TEST_PASSWORD = process.env['E2E_TEST_PASSWORD'] ?? 'password123';
+
 /**
  * Helper: Login as test user
  *
@@ -34,8 +38,8 @@ async function loginAndNavigate(page: Page) {
   await page.waitForLoadState('networkidle');
 
   // Fill login form
-  await page.fill('input[name="email"]', 'test@example.com');
-  await page.fill('input[name="password"]', 'password123');
+  await page.fill('input[name="email"]', E2E_TEST_EMAIL);
+  await page.fill('input[name="password"]', E2E_TEST_PASSWORD);
 
   // Submit form
   await page.click('button[type="submit"]');

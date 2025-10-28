@@ -20,7 +20,7 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { getDb } from '../db/connection.js';
 import * as schema from '../db/schema/index.js';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 
 /**
  * Child menu item (Level 2) - No children allowed
@@ -133,7 +133,12 @@ export async function getPluginMenuItems(
       key: schema.plugins.key,
     })
     .from(schema.plugins)
-    .where(eq(schema.plugins.enabled, true));
+    .where(
+      and(
+        eq(schema.plugins.enabled, true),
+        eq(schema.plugins.tenantId, _tenantId)
+      )
+    );
 
   // Load menu items from each enabled plugin
   for (const plugin of enabledPlugins) {

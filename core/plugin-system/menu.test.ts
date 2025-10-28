@@ -363,14 +363,16 @@ describe('getPluginMenuItems (integration)', () => {
       await tx.update(schema.plugins).set({ enabled: false });
     });
 
-    const menuItems = await getPluginMenuItems(testTenantId);
+    try {
+      const menuItems = await getPluginMenuItems(testTenantId);
 
-    expect(menuItems).toEqual([]);
-
-    // Re-enable plugins after test
-    await withTenantContext(testTenantId, async (tx: TenantTransactionClient) => {
-      await tx.update(schema.plugins).set({ enabled: true });
-    });
+      expect(menuItems).toEqual([]);
+    } finally {
+      // Re-enable plugins after test (always restore state, even on test failure)
+      await withTenantContext(testTenantId, async (tx: TenantTransactionClient) => {
+        await tx.update(schema.plugins).set({ enabled: true });
+      });
+    }
   });
 
   it('should skip plugins without plugin.json', async () => {

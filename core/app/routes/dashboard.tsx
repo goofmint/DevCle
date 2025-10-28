@@ -33,9 +33,10 @@ import { type LoaderFunctionArgs, json, type MetaFunction } from '@remix-run/nod
 import { Outlet, useLoaderData } from '@remix-run/react';
 import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline';
 import { requireAuth } from '~/auth.middleware';
+import { convertAuthUserToDashboardUser } from '../../services/auth.service.js';
 import { DashboardSidebar } from '~/components/dashboard/Sidebar';
 import { DashboardHeader } from '~/components/dashboard/Header';
-import type { DashboardLayoutData, NavigationItem, NavigationItemChild, User } from '~/types/dashboard';
+import type { DashboardLayoutData, NavigationItem, NavigationItemChild } from '~/types/dashboard';
 import {
   getPluginMenuItems,
   filterMenuItemsByPermission,
@@ -125,15 +126,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const authUser = await requireAuth(request);
 
   // Convert auth user to dashboard User type
-  // Admin users get wildcard capability for permission filtering
-  const user: User = {
-    userId: authUser.userId,
-    email: authUser.email,
-    displayName: authUser.displayName || authUser.email,
-    role: authUser.role,
-    tenantId: authUser.tenantId,
-    capabilities: authUser.role === 'admin' ? ['*'] : [],
-  };
+  // Service handles capability mapping (admin gets ['*'], others get permissions)
+  const user = convertAuthUserToDashboardUser(authUser);
 
   // Get plugin menu items with error handling
   // If plugin menu loading fails, continue with empty array (graceful degradation)
