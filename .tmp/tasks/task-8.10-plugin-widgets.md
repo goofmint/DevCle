@@ -15,7 +15,7 @@
 - **プラグインは「型＋データ」のみを返す**: ウィジェットの描画はアプリ側が担当
 - **標準化されたウィジェット型**: `stat`, `table`, `list`, `timeseries`, `barchart`, `pie`, `funnel`, `card`
 - **Swapyでドラッグ&ドロップ**: ユーザーがウィジェットの配置を自由に変更できる
-- **ユーザー設定の保存**: 配置情報を `user_preferences` テーブルに保存（今回は `system_settings` テーブルを流用）
+- **ユーザー設定の保存**: 配置情報を `user_preferences` テーブルに保存
 
 ---
 
@@ -374,9 +374,24 @@ export async function saveWidgetLayout(
   userId: string,
   widgets: Array<{ id: string; position: number }>
 ): Promise<void> {
-  // system_settingsテーブルに保存（またはuser_preferencesテーブルを新規作成）
-  // キー: `widget_layout:${userId}`
-  // 値: JSON.stringify(widgets)
+  return await withTenantContext(tenantId, async (tx) => {
+    // user_preferencesテーブルに保存
+    await tx
+      .insert(schema.userPreferences)
+      .values({
+        userId,
+        tenantId,
+        key: 'widget_layout',
+        value: widgets,
+      })
+      .onConflictDoUpdate({
+        target: [schema.userPreferences.userId, schema.userPreferences.key],
+        set: {
+          value: widgets,
+          updatedAt: new Date(),
+        },
+      });
+  });
 }
 
 /**
@@ -386,8 +401,25 @@ export async function getWidgetLayout(
   tenantId: string,
   userId: string
 ): Promise<Array<{ id: string; pluginId: string; widgetKey: string; position: number }>> {
-  // system_settingsテーブルから取得
-  // デフォルトレイアウトを返す（プラグインがインストールされている場合）
+  return await withTenantContext(tenantId, async (tx) => {
+    const [preference] = await tx
+      .select()
+      .from(schema.userPreferences)
+      .where(
+        and(
+          eq(schema.userPreferences.userId, userId),
+          eq(schema.userPreferences.key, 'widget_layout')
+        )
+      )
+      .limit(1);
+
+    if (!preference) {
+      // デフォルトレイアウトを返す（プラグインがインストールされている場合）
+      return [];
+    }
+
+    return preference.value as Array<{ id: string; pluginId: string; widgetKey: string; position: number }>;
+  });
 }
 ```
 
@@ -397,19 +429,36 @@ export async function getWidgetLayout(
 
 ### 6.1 データベーススキーマ
 
-既存の `system_settings` テーブルを流用してユーザー設定を保存します：
+`user_preferences` テーブルを新規作成してユーザー設定を保存します：
 
 ```typescript
-// core/db/schema/admin.ts
+// core/db/schema/user.ts
 
-export const systemSettings = pgTable('system_settings', {
-  settingId: uuid('setting_id').primaryKey().defaultRandom(),
+export const userPreferences = pgTable('user_preferences', {
+  preferenceId: uuid('preference_id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull().references(() => users.userId, { onDelete: 'cascade' }),
   tenantId: text('tenant_id').notNull().references(() => tenants.tenantId, { onDelete: 'cascade' }),
-  key: text('key').notNull(), // 例: "widget_layout:user-123"
-  value: jsonb('value').notNull(), // ウィジェット配置情報
+  key: text('key').notNull(), // 例: "widget_layout", "theme", "locale"
+  value: jsonb('value').notNull(), // ユーザー設定値（ウィジェット配置情報など）
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-});
+}, (table) => ({
+  // ユーザーごとにキーはユニーク
+  uniqueUserKey: unique().on(table.userId, table.key),
+  // RLS用のインデックス
+  tenantIdIdx: index('user_preferences_tenant_id_idx').on(table.tenantId),
+}));
+```
+
+**RLSポリシー:**
+```sql
+-- user_preferences テーブルのRLSポリシー
+ALTER TABLE user_preferences ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY user_preferences_tenant_isolation
+  ON user_preferences
+  FOR ALL
+  USING (tenant_id = current_setting('app.current_tenant_id', TRUE)::text);
 ```
 
 ### 6.2 保存形式
@@ -722,7 +771,7 @@ export async function fetchPluginWidgetData(
 
 - ウィジェットは**プラグインのルーティング**を通じてデータを取得します（`plugin.json` の `routes` で定義）
 - ウィジェットデータは必ずバリデーションを行い、不正なデータを受け入れないようにします
-- ユーザーごとにレイアウトを保存できるようにします（`system_settings` または専用テーブル）
+- ユーザーごとにレイアウトを保存できるようにします（`user_preferences` テーブル）
 - ウィジェットの表示数が増えた場合のパフォーマンスを考慮し、キャッシングや lazy loading を検討します
 - `refreshHintSec` を尊重してウィジェットデータのキャッシュを実装します
 
