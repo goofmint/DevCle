@@ -123,6 +123,32 @@ export interface PluginMenu {
 }
 
 /**
+ * Plugin widget data source definition
+ */
+export interface PluginWidgetDataSource {
+  /** Entity to query (e.g., "developers", "activities", "campaigns") */
+  entity: string;
+  /** Aggregation definition (for stat/timeseries widgets) */
+  aggregation?: {
+    op: 'count' | 'sum' | 'avg' | 'min' | 'max';
+    field?: string;
+    filter?: Record<string, unknown>;
+    bucket?: 'hour' | 'day' | 'week' | 'month';
+  };
+  /** Columns to select (for table/list widgets) */
+  columns?: string[];
+  /** Filter conditions (MUST include "source" to identify plugin data) */
+  filter?: Record<string, unknown>;
+  /** Sort specification */
+  sort?: {
+    key: string;
+    dir: 'asc' | 'desc';
+  };
+  /** Limit number of results */
+  limit?: number;
+}
+
+/**
  * Plugin widget definition
  */
 export interface PluginWidget {
@@ -134,6 +160,8 @@ export interface PluginWidget {
   title: string;
   /** Widget schema version */
   version: string;
+  /** Data source definition (declarative data query) */
+  dataSource: PluginWidgetDataSource;
 }
 
 /**

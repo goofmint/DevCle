@@ -214,3 +214,37 @@ export const activityTypes = pgTable('activity_types', {
   // Unique constraint: one action per tenant
   uniqueTenantAction: unique('activity_types_tenant_action_unique').on(t.tenantId, t.action),
 }));
+
+/**
+ * User Preferences Table
+ *
+ * Stores per-user preferences like widget layout, theme, locale, etc.
+ * Used for dashboard customization (Task 8.10).
+ *
+ * Fields:
+ * - preference_id: UUID primary key
+ * - user_id: Foreign key to users (cascade delete)
+ * - tenant_id: Foreign key to tenants (cascade delete, for RLS)
+ * - key: Preference key (e.g., 'widget_layout', 'theme', 'locale')
+ * - value: JSONB value (flexible schema per key)
+ * - created_at/updated_at: Timestamp tracking
+ *
+ * Unique constraint: (user_id, key) - one value per key per user
+ *
+ * Examples:
+ * - key: 'widget_layout' → value: {"slot-1": "item-github-activities", "slot-2": "item-slack-messages"}
+ * - key: 'theme' → value: "dark"
+ * - key: 'locale' → value: "en"
+ */
+export const userPreferences = pgTable('user_preferences', {
+  preferenceId: uuid('preference_id').primaryKey().default(sql`uuid_generate_v4()`),
+  userId: uuid('user_id').notNull().references(() => users.userId, { onDelete: 'cascade' }),
+  tenantId: text('tenant_id').notNull().references(() => tenants.tenantId, { onDelete: 'cascade' }),
+  key: text('key').notNull(),
+  value: jsonb('value').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  // Unique constraint: one value per key per user
+  uniqueUserKey: unique('user_preferences_user_key_unique').on(t.userId, t.key),
+}));

@@ -77,6 +77,12 @@ const COMPLETE_PLUGIN_MANIFEST: PluginManifest = {
       type: 'stat',
       title: 'Statistics',
       version: '1.0',
+      dataSource: {
+        entity: 'developers',
+        aggregation: {
+          op: 'count',
+        },
+      },
     },
   ],
   jobs: [
