@@ -15,6 +15,16 @@
 import type { TableWidgetData } from '~/types/widget-api.js';
 
 /**
+ * Alignment class mapping for Tailwind JIT compatibility
+ * Maps column alignment values to concrete Tailwind classes
+ */
+const ALIGN_CLASSES: Record<string, string> = {
+  left: 'text-left',
+  center: 'text-center',
+  right: 'text-right',
+};
+
+/**
  * Table widget props
  */
 interface TableWidgetProps {
@@ -89,7 +99,7 @@ export function TableWidget({
               {data.data.columns.map((col) => (
                 <th
                   key={col.key}
-                  className={`px-4 py-3 text-${col.align || 'left'}`}
+                  className={`px-4 py-3 ${ALIGN_CLASSES[col.align || 'left'] || 'text-left'}`}
                 >
                   {col.label}
                 </th>
@@ -105,7 +115,7 @@ export function TableWidget({
                 {data.data.columns.map((col) => (
                   <td
                     key={col.key}
-                    className={`px-4 py-3 text-${col.align || 'left'}`}
+                    className={`px-4 py-3 ${ALIGN_CLASSES[col.align || 'left'] || 'text-left'}`}
                   >
                     {String(row[col.key] ?? '-')}
                   </td>

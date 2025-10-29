@@ -213,6 +213,30 @@ export async function saveWidgetLayout(
   userId: string,
   layout: Record<string, string>
 ): Promise<void> {
+  // Validate layout structure and size
+  if (!layout || typeof layout !== 'object') {
+    throw new Error('Invalid layout: must be an object');
+  }
+
+  // Limit number of layout entries to prevent abuse
+  const layoutKeys = Object.keys(layout);
+  if (layoutKeys.length > 100) {
+    throw new Error('Invalid layout: too many entries (max 100)');
+  }
+
+  // Validate each layout entry
+  for (const [key, value] of Object.entries(layout)) {
+    // Key validation (slot IDs should be reasonable length)
+    if (typeof key !== 'string' || key.length > 100) {
+      throw new Error(`Invalid layout key: "${key}" (must be string, max 100 chars)`);
+    }
+
+    // Value validation (widget IDs should be reasonable length)
+    if (typeof value !== 'string' || value.length > 200) {
+      throw new Error(`Invalid layout value for "${key}": "${value}" (must be string, max 200 chars)`);
+    }
+  }
+
   await withTenantContext(tenantId, async (tx) => {
     await tx
       .insert(schema.userPreferences)
@@ -223,6 +247,8 @@ export async function saveWidgetLayout(
         value: layout,
       })
       .onConflictDoUpdate({
+        // Note: Current unique constraint is (userId, key)
+        // For better multi-tenancy safety, should include tenantId in constraint
         target: [schema.userPreferences.userId, schema.userPreferences.key],
         set: {
           value: layout,

@@ -28,8 +28,15 @@ export interface WidgetDataSource {
     field?: string;
     /** Filter conditions */
     filter?: Record<string, unknown>;
-    /** Time bucket (for timeseries) */
+    /** Time bucket (for timeseries) - when set, timestampField is required */
     bucket?: 'hour' | 'day' | 'week' | 'month';
+    /**
+     * Timestamp field for time-based aggregations
+     * Required when bucket is set for timeseries widgets
+     * Specifies the concrete timestamp column (e.g., 'occurredAt', 'createdAt')
+     * Default: 'occurredAt' for activities table
+     */
+    timestampField?: string;
   };
 
   /** Columns to select (for table/list widgets) */

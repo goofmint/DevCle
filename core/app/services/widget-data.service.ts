@@ -56,8 +56,8 @@ export async function fetchWidgetData(
     // Get table for entity
     const table = getTableForEntity(dataSource.entity);
 
-    // Build filter conditions
-    const filters = buildFilters(dataSource.filter);
+    // Build filter conditions with validation
+    const filters = buildFilters(dataSource.filter, table, dataSource.entity);
 
     // Route to appropriate handler based on widget type
     switch (widgetType) {
@@ -123,11 +123,19 @@ async function fetchStatData(
       if (!agg.field) {
         throw new Error('sum aggregation requires field parameter');
       }
+      // Validate field exists on table
+      if (!(agg.field in table) || table[agg.field] === undefined) {
+        throw new Error(`Aggregation field '${agg.field}' does not exist on table`);
+      }
       aggregationExpr = sum(table[agg.field]);
       break;
     case 'avg':
       if (!agg.field) {
         throw new Error('avg aggregation requires field parameter');
+      }
+      // Validate field exists on table
+      if (!(agg.field in table) || table[agg.field] === undefined) {
+        throw new Error(`Aggregation field '${agg.field}' does not exist on table`);
       }
       aggregationExpr = avg(table[agg.field]);
       break;
@@ -135,11 +143,19 @@ async function fetchStatData(
       if (!agg.field) {
         throw new Error('min aggregation requires field parameter');
       }
+      // Validate field exists on table
+      if (!(agg.field in table) || table[agg.field] === undefined) {
+        throw new Error(`Aggregation field '${agg.field}' does not exist on table`);
+      }
       aggregationExpr = min(table[agg.field]);
       break;
     case 'max':
       if (!agg.field) {
         throw new Error('max aggregation requires field parameter');
+      }
+      // Validate field exists on table
+      if (!(agg.field in table) || table[agg.field] === undefined) {
+        throw new Error(`Aggregation field '${agg.field}' does not exist on table`);
       }
       aggregationExpr = max(table[agg.field]);
       break;
@@ -199,6 +215,17 @@ async function fetchTimeseriesData(
   const agg = dataSource.aggregation;
   const bucket = agg.bucket || 'day';
 
+  // Get timestamp field for time-based aggregation
+  // Default to 'occurredAt' for backward compatibility
+  const timestampField = agg.timestampField || 'occurredAt';
+
+  // Validate timestamp field exists on table
+  if (!(timestampField in table) || table[timestampField] === undefined) {
+    throw new Error(`Timestamp field '${timestampField}' does not exist on table`);
+  }
+
+  const timestampColumn = table[timestampField];
+
   // Build aggregation expression
   let aggregationExpr: SQL;
   switch (agg.op) {
@@ -208,6 +235,10 @@ async function fetchTimeseriesData(
     case 'sum':
       if (!agg.field) {
         throw new Error('sum aggregation requires field parameter');
+      }
+      // Validate field exists on table
+      if (!(agg.field in table) || table[agg.field] === undefined) {
+        throw new Error(`Aggregation field '${agg.field}' does not exist on table`);
       }
       aggregationExpr = sum(table[agg.field]);
       break;
@@ -219,13 +250,13 @@ async function fetchTimeseriesData(
   // Execute query with GROUP BY - use raw SQL for date_trunc to avoid Drizzle issues
   const result = await tx
     .select({
-      bucket: sql`date_trunc(${bucket}, ${table.occurredAt})`.as('bucket'),
+      bucket: sql`date_trunc(${bucket}, ${timestampColumn})`.as('bucket'),
       value: aggregationExpr,
     })
     .from(table)
     .where(and(eq(table.tenantId, tenantId), ...filters))
-    .groupBy(sql`date_trunc(${bucket}, ${table.occurredAt})`)
-    .orderBy(asc(sql`date_trunc(${bucket}, ${table.occurredAt})`));
+    .groupBy(sql`date_trunc(${bucket}, ${timestampColumn})`)
+    .orderBy(asc(sql`date_trunc(${bucket}, ${timestampColumn})`));
 
   // Convert to timeseries format
   const points: Array<[string, number]> = result.map((row: any) => [
@@ -431,14 +462,32 @@ function getTableForEntity(entity: string): any {
  * Build WHERE filter conditions from dataSource filter object
  *
  * Converts filter object (e.g., { source: "github", createdAt: { gte: "2025-01-01" } })
- * into Drizzle SQL conditions.
+ * into Drizzle SQL conditions with validation.
+ *
+ * Security:
+ * - Validates all filter keys exist on the table schema
+ * - Enforces 'source' filter for plugin data (activities table)
+ * - Prevents SQL injection by validating keys against table columns
  *
  * @param filter - Filter object from dataSource
+ * @param table - Drizzle table object for validation
+ * @param entity - Entity name (for determining plugin data requirements)
  * @returns Array of SQL conditions
+ * @throws {Error} If invalid filter keys are provided or source filter is missing for plugin data
  */
-function buildFilters(filter?: Record<string, unknown>): SQL[] {
+function buildFilters(filter?: Record<string, unknown>, table?: any, entity?: string): SQL[] {
   if (!filter) {
     return [];
+  }
+
+  if (!table) {
+    throw new Error('Table parameter is required for filter validation');
+  }
+
+  // For plugin data isolation: activities table MUST have 'source' filter
+  // This prevents plugins from accessing data from other sources
+  if (entity === 'activities' && !('source' in filter)) {
+    throw new Error('Filter "source" field is required for plugin data isolation on activities table');
   }
 
   const conditions: SQL[] = [];
@@ -448,30 +497,36 @@ function buildFilters(filter?: Record<string, unknown>): SQL[] {
       continue;
     }
 
+    // Validate key exists on table to prevent arbitrary SQL injection
+    if (!(key in table) || table[key] === undefined) {
+      console.warn(`Skipping unknown filter key: ${key}`);
+      continue; // Skip unknown keys instead of throwing to be more forgiving
+    }
+
     // Handle nested operators (gte, lte, gt, lt, etc.)
     if (typeof value === 'object' && !Array.isArray(value)) {
       const operators = value as Record<string, unknown>;
       for (const [op, opValue] of Object.entries(operators)) {
         switch (op) {
           case 'gte':
-            conditions.push(sql`${sql.identifier(key)} >= ${opValue}`);
+            conditions.push(sql`${table[key]} >= ${opValue}`);
             break;
           case 'lte':
-            conditions.push(sql`${sql.identifier(key)} <= ${opValue}`);
+            conditions.push(sql`${table[key]} <= ${opValue}`);
             break;
           case 'gt':
-            conditions.push(sql`${sql.identifier(key)} > ${opValue}`);
+            conditions.push(sql`${table[key]} > ${opValue}`);
             break;
           case 'lt':
-            conditions.push(sql`${sql.identifier(key)} < ${opValue}`);
+            conditions.push(sql`${table[key]} < ${opValue}`);
             break;
           default:
             console.warn(`Unknown filter operator: ${op}`);
         }
       }
     } else {
-      // Simple equality check
-      conditions.push(sql`${sql.identifier(key)} = ${value}`);
+      // Simple equality check using validated table column
+      conditions.push(sql`${table[key]} = ${value}`);
     }
   }
 

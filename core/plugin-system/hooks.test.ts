@@ -492,10 +492,12 @@ describe('Hook Registry', () => {
       const metadataRecord = firstRun.metadata as {
         successCount: number;
         failureCount: number;
+        partial?: boolean;
         errors: Array<{ pluginId: string; errorMessage: string }>;
       };
       expect(metadataRecord.successCount).toBe(1);
       expect(metadataRecord.failureCount).toBe(1);
+      expect(metadataRecord.partial).toBe(true);
       expect(metadataRecord.errors).toHaveLength(1);
       const firstError = metadataRecord.errors[0];
       if (!firstError) throw new Error('Error should exist');
