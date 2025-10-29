@@ -192,11 +192,13 @@ export async function startPluginRun(runId: string): Promise<void>;
  * Update plugin run status to 'success' or 'failed' with results
  */
 export async function completePluginRun(
+  tenantId: string,
   runId: string,
   result: {
     status: 'success' | 'failed';
     eventsProcessed: number;
     errorMessage?: string;
+    metadata?: Record<string, unknown>;
   }
 ): Promise<void>;
 
@@ -297,7 +299,7 @@ export async function startPluginRun(tenantId: string, runId: string): Promise<v
 export async function completePluginRun(
   tenantId: string,
   runId: string,
-  result: { status: 'success' | 'failed'; eventsProcessed: number; errorMessage?: string }
+  result: { status: 'success' | 'failed'; eventsProcessed: number; errorMessage?: string; metadata?: Record<string, unknown> }
 ): Promise<void> {
   if (!tenantId || typeof tenantId !== 'string') {
     throw new Error('tenantId is required and must be a non-empty string');
@@ -311,6 +313,7 @@ export async function completePluginRun(
         completedAt: new Date(),
         eventsProcessed: result.eventsProcessed,
         errorMessage: result.errorMessage ?? null,
+        metadata: result.metadata ?? null,
       })
       .where(eq(schema.pluginRuns.runId, runId));
   });
@@ -396,7 +399,7 @@ interface JobSchedule {
   route: string;
   cron: string;
   timeoutSec: number;
-  concurrency: number; // Per-job concurrency limit (default: 1). Enforced by BullMQ worker concurrency option.
+  concurrency: number; // Desired concurrency for this job (metadata field for UI display and future per-job worker implementation)
   retry: {
     max: number;
     backoffSec: number[];
@@ -418,13 +421,29 @@ interface JobSchedule {
 }
 
 /**
- * Concurrency enforcement:
- * - Enforced per-job using BullMQ's worker concurrency option
- * - Default: 1 (sequential execution)
- * - If concurrency = 1, a new job will wait in queue until the current one completes
- * - If concurrency > 1, up to N jobs can run in parallel
- * - Excess jobs are queued (FIFO) and processed when a worker slot becomes available
- * - Implementation: core/plugin-system/scheduler.ts (BullMQ Worker constructor with concurrency option)
+ * Concurrency Architecture:
+ *
+ * Current implementation uses a single BullMQ Worker instance per plugin with global concurrency.
+ * The `concurrency` field in plugin.json is advisory metadata.
+ *
+ * Implementation Options:
+ *
+ * Option A (Current): Single worker with global concurrency
+ * - BullMQ Worker initialized with a global concurrency value (e.g., 5)
+ * - All jobs for the plugin share this concurrency pool
+ * - Simpler implementation but no per-job isolation
+ *
+ * Option B (Future Enhancement): Per-job workers
+ * - Create separate BullMQ Worker instances for each job
+ * - Each worker respects its job's specific concurrency setting
+ * - True per-job concurrency enforcement
+ * - Requires: core/plugin-system/scheduler.ts to instantiate multiple workers
+ *
+ * Current behavior:
+ * - Default: 1 (sequential execution across all plugin jobs)
+ * - If global concurrency = 1, jobs execute sequentially regardless of individual job settings
+ * - If global concurrency > 1, multiple jobs may run in parallel up to the global limit
+ * - Jobs are queued (FIFO) when concurrency limit is reached
  */
 ```
 
@@ -631,7 +650,6 @@ interface RunSummary {
 ```
 
 **Note**: `avgEventsProcessed` and `avgDuration` are computed only from successful runs (`WHERE status = 'success' AND completedAt IS NOT NULL`). If there are no successful runs, both values return `0`.
-```
 
 ### GET /api/plugins/:id/runs/:runId
 

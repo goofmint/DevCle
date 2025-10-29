@@ -7,7 +7,7 @@
 
 import { withTenantContext } from '../../db/connection.js';
 import * as schema from '../../db/schema/index.js';
-import { eq, and, desc, count } from 'drizzle-orm';
+import { eq, and, desc, count, max } from 'drizzle-orm';
 
 /**
  * Ensure plugin exists and belongs to tenant
@@ -145,6 +145,7 @@ export function sanitizeResult(result: unknown): unknown {
  * Get last run timestamp per job name
  *
  * Computes the most recent execution time for each job using SQL aggregation.
+ * Uses MAX() aggregation to efficiently compute the latest timestamp per job.
  *
  * @param tenantId - Tenant ID
  * @param pluginId - Plugin ID
@@ -158,7 +159,7 @@ export async function getLastRunsPerJobName(
     return await tx
       .select({
         jobName: schema.pluginRuns.jobName,
-        lastRun: schema.pluginRuns.startedAt,
+        lastRun: max(schema.pluginRuns.startedAt),
       })
       .from(schema.pluginRuns)
       .where(
@@ -168,13 +169,13 @@ export async function getLastRunsPerJobName(
           eq(schema.pluginRuns.status, 'success')
         )
       )
-      .orderBy(desc(schema.pluginRuns.startedAt));
+      .groupBy(schema.pluginRuns.jobName);
   });
 
-  // Group by job name and take the most recent
+  // Convert to Map (no in-memory grouping needed - SQL does it for us)
   const lastRuns = new Map<string, Date>();
   for (const row of results) {
-    if (!lastRuns.has(row.jobName)) {
+    if (row.lastRun) {
       lastRuns.set(row.jobName, row.lastRun);
     }
   }

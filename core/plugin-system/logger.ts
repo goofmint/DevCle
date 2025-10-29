@@ -15,9 +15,9 @@
  * const runId = await startJobRun('plugin-id', 'default', 'sync-data');
  * try {
  *   // Execute job...
- *   await finishJobRun(runId, 'success', { count: 100 });
+ *   await finishJobRun('default', runId, 'success', { count: 100 });
  * } catch (error) {
- *   await finishJobRun(runId, 'failed', undefined, error.message);
+ *   await finishJobRun('default', runId, 'failed', undefined, error.message);
  * }
  * ```
  */
@@ -97,6 +97,7 @@ export async function startJobRun(
  * Updates the plugin_runs record with completion status and metadata.
  * Sets finishedAt timestamp and final status (success/failed/partial).
  *
+ * @param tenantId - Tenant ID for RLS (passed from caller context)
  * @param runId - Run ID from startJobRun()
  * @param status - Final status ('success' | 'failed' | 'partial')
  * @param metadata - Job completion metadata (optional)
@@ -105,6 +106,7 @@ export async function startJobRun(
  * @example
  * ```typescript
  * await finishJobRun(
+ *   'default',
  *   runId,
  *   'success',
  *   {
@@ -118,28 +120,14 @@ export async function startJobRun(
  * ```
  */
 export async function finishJobRun(
+  tenantId: string,
   runId: string,
   status: 'success' | 'failed' | 'partial',
   metadata?: JobMetadata,
   errorMessage?: string
 ): Promise<void> {
-  // Get existing run to extract tenant ID for RLS
-  // We need to query first to get the tenant ID, then update with tenant context
-  const { getDb } = await import('../db/connection.js');
-  const db = getDb();
-
-  const [existingRun] = await db
-    .select({ tenantId: schema.pluginRuns.tenantId })
-    .from(schema.pluginRuns)
-    .where(eq(schema.pluginRuns.runId, runId))
-    .limit(1);
-
-  if (!existingRun) {
-    throw new Error(`Plugin run with ID ${runId} not found`);
-  }
-
-  // Update run record with tenant context
-  await withTenantContext(existingRun.tenantId, async (tx) => {
+  // Update run record with tenant context directly
+  await withTenantContext(tenantId, async (tx) => {
     // Build result object
     const result: Record<string, unknown> = {
       ...(metadata ?? {}),
