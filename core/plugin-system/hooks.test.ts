@@ -307,11 +307,11 @@ describe('Hook Registry', () => {
       if (!firstRun) throw new Error('Run should exist');
       expect(firstRun.tenantId).toBe(TEST_TENANT_ID);
       expect(firstRun.pluginId).toBe(TEST_PLUGIN_ID_1);
-      expect(firstRun.trigger).toBe('hook');
+      expect(firstRun.jobName).toBe('hook-execution');
       expect(firstRun.status).toBe('success');
 
-      // Verify result structure
-      const resultRecord = firstRun.result as {
+      // Verify metadata structure
+      const metadataRecord = firstRun.metadata as {
         hookName: string;
         argsHash: string;
         errors: unknown[];
@@ -319,12 +319,12 @@ describe('Hook Registry', () => {
         successCount: number;
         failureCount: number;
       };
-      expect(resultRecord.hookName).toBe('test:hook:exec:logging');
-      expect(resultRecord.argsHash).toBeDefined();
-      expect(resultRecord.errors).toHaveLength(0);
-      expect(resultRecord.handlerCount).toBe(1);
-      expect(resultRecord.successCount).toBe(1);
-      expect(resultRecord.failureCount).toBe(0);
+      expect(metadataRecord.hookName).toBe('test:hook:exec:logging');
+      expect(metadataRecord.argsHash).toBeDefined();
+      expect(metadataRecord.errors).toHaveLength(0);
+      expect(metadataRecord.handlerCount).toBe(1);
+      expect(metadataRecord.successCount).toBe(1);
+      expect(metadataRecord.failureCount).toBe(0);
     });
   });
 
@@ -442,7 +442,7 @@ describe('Hook Registry', () => {
         return await tx
           .select()
           .from(schema.pluginRuns)
-          .where(eq(schema.pluginRuns.trigger, 'hook'))
+          .where(eq(schema.pluginRuns.jobName, 'hook-execution'))
           .orderBy(schema.pluginRuns.startedAt);
       });
 
@@ -454,8 +454,8 @@ describe('Hook Registry', () => {
       expect(run2).toBeDefined();
       if (!run1 || !run2) throw new Error('Runs should exist');
 
-      const hash1 = (run1.result as { argsHash: string } | null)?.argsHash;
-      const hash2 = (run2.result as { argsHash: string } | null)?.argsHash;
+      const hash1 = (run1.metadata as { argsHash: string } | null)?.argsHash;
+      const hash2 = (run2.metadata as { argsHash: string } | null)?.argsHash;
 
       expect(hash1).toBeDefined();
       expect(hash2).toBeDefined();
@@ -487,15 +487,15 @@ describe('Hook Registry', () => {
       if (!firstRun) throw new Error('Run should exist');
       expect(firstRun.status).toBe('partial');
 
-      const resultRecord = firstRun.result as {
+      const metadataRecord = firstRun.metadata as {
         successCount: number;
         failureCount: number;
         errors: Array<{ pluginId: string; errorMessage: string }>;
       };
-      expect(resultRecord.successCount).toBe(1);
-      expect(resultRecord.failureCount).toBe(1);
-      expect(resultRecord.errors).toHaveLength(1);
-      const firstError = resultRecord.errors[0];
+      expect(metadataRecord.successCount).toBe(1);
+      expect(metadataRecord.failureCount).toBe(1);
+      expect(metadataRecord.errors).toHaveLength(1);
+      const firstError = metadataRecord.errors[0];
       if (!firstError) throw new Error('Error should exist');
       expect(firstError.pluginId).toBe(TEST_PLUGIN_ID_2);
     });

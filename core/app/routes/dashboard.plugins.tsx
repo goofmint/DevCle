@@ -218,9 +218,12 @@ export default function PluginsPage() {
             {/* Plugin header */}
             <div className="flex items-start justify-between mb-4 pr-10">
               <div className="flex-1">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                <Link
+                  to={`/dashboard/plugins/${plugin.pluginId}`}
+                  className="text-lg font-semibold text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                >
                   {plugin.name}
-                </h3>
+                </Link>
                 <p className="text-sm text-gray-500 dark:text-gray-400">{plugin.key}</p>
               </div>
               <div
@@ -244,6 +247,26 @@ export default function PluginsPage() {
                 <Icon icon="heroicons:clock" className="mr-2 w-4 h-4" />
                 <span>Updated: {new Date(plugin.updatedAt).toLocaleDateString()}</span>
               </div>
+            </div>
+
+            {/* Quick links */}
+            <div className="flex gap-2 mb-4">
+              <Link
+                to={`/dashboard/plugins/${plugin.pluginId}/schedule`}
+                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition-colors"
+                title="Job Schedule"
+              >
+                <Icon icon="mdi:calendar-clock" className="w-4 h-4" />
+                <span>Schedule</span>
+              </Link>
+              <Link
+                to={`/dashboard/plugins/${plugin.pluginId}/runs`}
+                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition-colors"
+                title="Execution History"
+              >
+                <Icon icon="mdi:history" className="w-4 h-4" />
+                <span>Runs</span>
+              </Link>
             </div>
 
             {/* Action button */}

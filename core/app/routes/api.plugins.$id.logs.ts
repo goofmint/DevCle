@@ -43,9 +43,9 @@ import type {
  * GET /api/plugins/:id/logs - Get plugin execution logs
  *
  * Returns paginated execution logs for a specific plugin.
- * Calculates duration for completed runs (finishedAt - startedAt).
- * Extracts error message from result JSON if status is 'failed'.
- * Redacts sensitive fields from execution results.
+ * Calculates duration for completed runs (completedAt - startedAt).
+ * Uses errorMessage field directly from schema for failed runs.
+ * Redacts sensitive fields from execution metadata.
  *
  * Query Parameters:
  * - limit: Number of logs to return (1-100, default 50)
@@ -63,8 +63,8 @@ import type {
  *       startedAt: "2025-01-01T00:00:00.000Z",
  *       finishedAt: "2025-01-01T00:01:00.000Z",
  *       duration: 60000,
- *       error: null,
- *       result: {...}  // Sanitized - sensitive fields redacted
+ *       error: undefined,
+ *       result: {...}  // Sanitized metadata - sensitive fields redacted
  *     }
  *   ],
  *   total: 100,
@@ -167,32 +167,23 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     const logs: PluginLogEntry[] = logsData.map((run) => {
       // Calculate duration if run is completed
       const duration =
-        run.finishedAt && run.startedAt
-          ? run.finishedAt.getTime() - run.startedAt.getTime()
+        run.completedAt && run.startedAt
+          ? run.completedAt.getTime() - run.startedAt.getTime()
           : null;
 
-      // Extract error message from result JSON if status is 'failed'
-      let error: string | undefined = undefined;
-      if (run.status === 'failed' && run.result) {
-        const resultObj = run.result as Record<string, unknown>;
-        const errors = resultObj['errors'];
-        if (errors && Array.isArray(errors) && errors.length > 0) {
-          const firstError = errors[0] as Record<string, unknown>;
-          const errorMessage = firstError['errorMessage'];
-          error = String(errorMessage || 'Unknown error');
-        }
-      }
+      // Use errorMessage field directly from schema
+      const error = run.errorMessage || undefined;
 
-      // Sanitize result to remove sensitive data
-      const sanitizedResult = run.result ? sanitizeResult(run.result) : undefined;
+      // Sanitize metadata to remove sensitive data
+      const sanitizedResult = run.metadata ? sanitizeResult(run.metadata) : undefined;
 
       // Build log entry
       const logEntry: PluginLogEntry = {
         runId: run.runId,
-        hookName: run.trigger, // 'trigger' maps to 'hookName' in API
+        hookName: run.jobName, // 'jobName' maps to 'hookName' in API
         status: run.status as 'running' | 'success' | 'failed',
         startedAt: run.startedAt.toISOString(),
-        finishedAt: run.finishedAt ? run.finishedAt.toISOString() : null,
+        finishedAt: run.completedAt ? run.completedAt.toISOString() : null,
         duration,
         result: sanitizedResult,
       };

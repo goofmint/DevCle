@@ -166,7 +166,7 @@ async function deleteTestPlugin(pluginId: string) {
  */
 async function createTestPluginRun(
   pluginId: string,
-  trigger: string,
+  jobName: string,
   status: 'running' | 'success' | 'failed',
   startedAt: Date,
   finishedAt: Date | null = null
@@ -178,11 +178,13 @@ async function createTestPluginRun(
       runId,
       tenantId: TEST_TENANT,
       pluginId,
-      trigger,
+      jobName,
       status,
       startedAt,
-      finishedAt,
-      result: status === 'failed'
+      completedAt: finishedAt,
+      eventsProcessed: 0,
+      errorMessage: status === 'failed' ? 'Test error' : null,
+      metadata: status === 'failed'
         ? { errors: [{ errorMessage: 'Test error' }] }
         : { success: true },
     });

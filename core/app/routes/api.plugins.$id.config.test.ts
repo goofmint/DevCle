@@ -10,6 +10,10 @@ import { getDb } from '~/db/connection.js';
 import * as schema from '~/db/schema/index.js';
 import { eq } from 'drizzle-orm';
 
+// Test plugin UUID (from seed data)
+const TEST_PLUGIN_ID = '20000000-0000-4000-8000-000000000001'; // drowl-plugin-test
+const FAKE_PLUGIN_ID = '00000000-0000-0000-0000-000000000000'; // Non-existent plugin
+
 let testUserId: string | null = null;
 
 /**
@@ -69,13 +73,13 @@ describe('GET /api/plugins/:id/config', () => {
     await runInTenant('default', async () => {
       // Create authenticated request
       const request = await createAuthenticatedRequest(
-        'http://localhost/api/plugins/drowl-plugin-test/config'
+        `http://localhost/api/plugins/${TEST_PLUGIN_ID}/config`
       );
 
       // Call loader
       const response = await loader({
         request,
-        params: { id: 'drowl-plugin-test' },
+        params: { id: TEST_PLUGIN_ID },
         context: {},
       });
 
@@ -99,14 +103,14 @@ describe('GET /api/plugins/:id/config', () => {
     await runInTenant('default', async () => {
       // Create unauthenticated request
       const request = createUnauthenticatedRequest(
-        'http://localhost/api/plugins/drowl-plugin-test/config'
+        `http://localhost/api/plugins/${TEST_PLUGIN_ID}/config`
       );
 
       // Call loader - expect it to throw (redirect to login)
       await expect(
         loader({
           request,
-          params: { id: 'drowl-plugin-test' },
+          params: { id: TEST_PLUGIN_ID },
           context: {},
         })
       ).rejects.toThrow();
@@ -117,13 +121,13 @@ describe('GET /api/plugins/:id/config', () => {
     await runInTenant('default', async () => {
       // Create authenticated request with non-existing plugin ID
       const request = await createAuthenticatedRequest(
-        'http://localhost/api/plugins/non-existing-plugin/config'
+        `http://localhost/api/plugins/${FAKE_PLUGIN_ID}/config`
       );
 
       // Call loader
       const response = await loader({
         request,
-        params: { id: 'non-existing-plugin' },
+        params: { id: FAKE_PLUGIN_ID },
         context: {},
       });
 
@@ -163,13 +167,13 @@ describe('GET /api/plugins/:id/config', () => {
     await runInTenant('default', async () => {
       // Create authenticated request
       const request = await createAuthenticatedRequest(
-        'http://localhost/api/plugins/drowl-plugin-test/config'
+        `http://localhost/api/plugins/${TEST_PLUGIN_ID}/config`
       );
 
       // Call loader
       const response = await loader({
         request,
-        params: { id: 'drowl-plugin-test' },
+        params: { id: TEST_PLUGIN_ID },
         context: {},
       });
 

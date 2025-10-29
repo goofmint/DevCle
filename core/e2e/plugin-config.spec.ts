@@ -53,9 +53,9 @@ test.describe('Plugin Config Page', () => {
     for (let i = 0; i < pluginCards.length; i++) {
       const card = pluginCards[i];
 
-      // Get plugin name and key
-      const nameHeading = card.locator('h3').first();
-      const pluginName = (await nameHeading.textContent())?.trim() || 'Unknown Plugin';
+      // Get plugin name (now inside a link)
+      const nameLink = card.locator('a').filter({ has: page.locator('text=/./') }).first();
+      const pluginName = (await nameLink.textContent())?.trim() || 'Unknown Plugin';
       const settingsLink = card.locator('a[href*="/edit"]').first();
 
       if (!(await settingsLink.count())) {

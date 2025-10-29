@@ -94,6 +94,8 @@ export interface HookExecutionResultRecord {
   hookName: string;
   /** SHA-256 hash of arguments (for duplicate detection) */
   argsHash: string;
+  /** Flag indicating partial execution (some handlers succeeded, some failed) */
+  partial: boolean;
   /** Array of errors from failed handlers */
   errors: Array<{
     pluginId: string;
@@ -425,19 +427,23 @@ async function logHookExecution(
   const argsHash = computeArgsHash(args);
 
   // Determine execution status
-  let status: 'success' | 'failed' | 'partial';
+  // Note: Database schema only supports 'success' | 'failed', not 'partial'
+  // Partial failures (some handlers succeeded, some failed) are mapped to 'failed'
+  // with partial flag in metadata for UI distinction
+  let status: 'success' | 'failed';
+  const isPartial = successCount > 0 && failureCount > 0;
+
   if (failureCount === 0) {
     status = 'success';
-  } else if (successCount === 0) {
-    status = 'failed';
   } else {
-    status = 'partial';
+    status = 'failed'; // Both complete failures and partial failures
   }
 
   // Build result record
   const result: HookExecutionResultRecord = {
     hookName,
     argsHash,
+    partial: isPartial, // Flag for partial execution (some succeeded, some failed)
     errors: errors.map((e) => {
       // Include stack trace only in development
       const errorRecord: {
@@ -476,11 +482,13 @@ async function logHookExecution(
       .values({
         tenantId,
         pluginId,
-        trigger: 'hook',
+        jobName: 'hook-execution', // Use generic job name for hooks
         startedAt: new Date(),
-        finishedAt: new Date(), // Immediate finish for hooks
+        completedAt: new Date(), // Immediate finish for hooks
         status,
-        result: result as unknown as Record<string, unknown>,
+        eventsProcessed: 0,
+        errorMessage: null,
+        metadata: result as unknown as Record<string, unknown>,
       })
       .returning({ runId: schema.pluginRuns.runId });
 
