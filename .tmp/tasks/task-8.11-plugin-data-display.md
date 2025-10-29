@@ -841,9 +841,10 @@ function EventsStats({ stats }: EventsStatsProps) {
     "key": "data",
     "label": "収集データ",
     "icon": "database",
-    "to": "/plugins/github"
+    "to": "/data"
   }
   ```
+  - `/dashboard/plugins/:id` がベースパスなので、`to: "/data"` は `/dashboard/plugins/github/data` に解決されます
 
 ### 正規化パイプラインとの統合
 
