@@ -87,23 +87,32 @@ export async function action({ params, request }: ActionFunctionArgs) {
       return json({ error: 'Plugin not found' }, { status: 404 });
     }
 
-    // Step 6: Execute job asynchronously (fire-and-forget)
-    // The job will be queued and executed by BullMQ worker
-    // We return immediately with the runId
-    executePluginJob(user.tenantId, pluginId, plugin.key, jobName)
-      .then((result) => {
-        console.log(`Job ${jobName} completed:`, result);
-      })
-      .catch((error) => {
-        console.error(`Job ${jobName} failed:`, error);
-      });
-
-    // Note: In a real implementation, we should:
-    // 1. Create the plugin_runs record immediately (status: pending)
-    // 2. Queue the job in BullMQ
-    // 3. Return the runId
+    // Step 6: Execute job synchronously
+    // TODO: BullMQ Integration (Future Enhancement)
     //
-    // For now, we execute synchronously and return the result
+    // Current Implementation:
+    // - Executes job synchronously via executePluginJob()
+    // - Returns result immediately after completion
+    //
+    // Future BullMQ Integration Plan:
+    // 1. Create plugin_runs record with status='pending' immediately
+    // 2. Queue job in BullMQ via JobScheduler.queueJob()
+    // 3. Return runId immediately (202 Accepted)
+    // 4. BullMQ worker processes job asynchronously
+    // 5. Worker updates plugin_runs status (running→success/failed)
+    //
+    // Architecture Changes Needed:
+    // - Add JobScheduler.queueJob() method for one-time job execution
+    // - Create BullMQ worker that calls executePluginJob()
+    // - Update plugin-run.service.ts to support status transitions
+    // - Add Redis setup to test environment
+    // - Create tests for async job execution and status polling
+    //
+    // Benefits of Async Execution:
+    // - Non-blocking API responses
+    // - Better handling of long-running jobs
+    // - Automatic retry on failure
+    // - Job queue visibility and monitoring
     const result = await executePluginJob(
       user.tenantId,
       pluginId,
