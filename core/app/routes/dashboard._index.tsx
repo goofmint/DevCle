@@ -337,8 +337,12 @@ export default function DashboardOverview() {
       }
 
       // Default sizes based on widget type
+      // stat: 4 height for adequate space (title + value + optional trend)
+      // list: 5 height for list items
+      // timeseries/table: 6 height for charts and tables
+      // card: 4 height for card content
       const defaultWidth = data.type === 'timeseries' ? 12 : data.type === 'table' ? 12 : 4;
-      const defaultHeight = data.type === 'timeseries' ? 6 : data.type === 'table' ? 6 : data.type === 'list' ? 5 : 3;
+      const defaultHeight = data.type === 'timeseries' ? 6 : data.type === 'table' ? 6 : data.type === 'list' ? 5 : 4;
 
       return {
         id: `plugin-${widget.id}`,
