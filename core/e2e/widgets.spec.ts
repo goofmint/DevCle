@@ -161,7 +161,7 @@ test.describe('Widget System', () => {
     expect(data.error).toContain('Invalid widget ID format');
   });
 
-  test('should save and retrieve widget layout', async ({ page, request }) => {
+  test('should save and retrieve widget layout', async ({ page }) => {
     // Create test layout
     const testLayout = {
       'slot-1': 'item-widget-1',
@@ -169,8 +169,8 @@ test.describe('Widget System', () => {
       'slot-3': 'item-widget-3',
     };
 
-    // Save layout via PUT
-    const saveResponse = await request.put(
+    // Save layout via PUT using page.request (inherits auth cookies)
+    const saveResponse = await page.request.put(
       `${BASE_URL}/api/user/widget-layout`,
       {
         data: { layout: testLayout },
@@ -218,10 +218,10 @@ test.describe('Widget System', () => {
   });
 
   test('should return 400 when saving layout without layout field', async ({
-    request,
+    page,
   }) => {
     // Try to save layout with missing layout field
-    const response = await request.put(
+    const response = await page.request.put(
       `${BASE_URL}/api/user/widget-layout`,
       {
         data: {}, // Missing layout field
@@ -235,14 +235,14 @@ test.describe('Widget System', () => {
     expect(data.error).toContain('layout');
   });
 
-  test('should handle widget layout updates', async ({ request }) => {
+  test('should handle widget layout updates', async ({ page }) => {
     // Save initial layout
     const initialLayout = {
       'slot-1': 'item-a',
       'slot-2': 'item-b',
     };
 
-    await request.put(`${BASE_URL}/api/user/widget-layout`, {
+    await page.request.put(`${BASE_URL}/api/user/widget-layout`, {
       data: { layout: initialLayout },
     });
 
@@ -252,7 +252,7 @@ test.describe('Widget System', () => {
       'slot-2': 'item-a',
     };
 
-    const updateResponse = await request.put(
+    const updateResponse = await page.request.put(
       `${BASE_URL}/api/user/widget-layout`,
       {
         data: { layout: updatedLayout },
@@ -262,7 +262,7 @@ test.describe('Widget System', () => {
     expect(updateResponse.status()).toBe(200);
 
     // Verify updated layout
-    const getResponse = await request.get(
+    const getResponse = await page.request.get(
       `${BASE_URL}/api/user/widget-layout`
     );
     const getData = await getResponse.json();
