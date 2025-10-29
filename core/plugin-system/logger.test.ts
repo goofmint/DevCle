@@ -92,9 +92,9 @@ describe('Plugin Logger', () => {
         expect(run).toBeDefined();
         expect(run.pluginId).toBe(TEST_PLUGIN_ID);
         expect(run.tenantId).toBe(TEST_TENANT_ID);
-        expect(run.jobName).toBe('test-job');
+        expect(run.jobName).toBe('test-job-1');
         expect(run.status).toBe('running');
-        expect(run.finishedAt).toBeNull();
+        expect(run.completedAt).toBeNull();
       });
     });
 
@@ -119,8 +119,8 @@ describe('Plugin Logger', () => {
           throw new Error('Run not found');
         }
 
-        const result = run.result as Record<string, unknown>;
-        expect(result['jobId']).toBe(jobId);
+        const metadata = run.metadata as Record<string, unknown>;
+        expect(metadata['jobId']).toBe(jobId);
       });
     });
   });
@@ -156,11 +156,11 @@ describe('Plugin Logger', () => {
         }
 
         expect(run.status).toBe('success');
-        expect(run.finishedAt).not.toBeNull();
+        expect(run.completedAt).not.toBeNull();
 
-        const result = run.result as Record<string, unknown>;
-        expect(result['jobId']).toBe('job-123');
-        expect(result['data']).toEqual({ recordsProcessed: 100 });
+        const metadata = run.metadata as Record<string, unknown>;
+        expect(metadata['jobId']).toBe('job-123');
+        expect(metadata['data']).toEqual({ recordsProcessed: 100 });
       });
     });
 
@@ -195,10 +195,10 @@ describe('Plugin Logger', () => {
         }
 
         expect(run.status).toBe('failed');
-        expect(run.finishedAt).not.toBeNull();
+        expect(run.completedAt).not.toBeNull();
 
-        const result = run.result as Record<string, unknown>;
-        expect(result['error']).toBe('Connection timeout');
+        const metadata = run.metadata as Record<string, unknown>;
+        expect(metadata['error']).toBe('Connection timeout');
       });
     });
 
@@ -240,14 +240,14 @@ describe('Plugin Logger', () => {
         }
 
         expect(run.pluginId).toBe(TEST_PLUGIN_ID);
-        expect(run.jobName).toBe('test-job');
+        expect(run.jobName).toBe('quick-job-1');
         expect(run.status).toBe('success');
         expect(run.startedAt).not.toBeNull();
-        expect(run.finishedAt).not.toBeNull();
+        expect(run.completedAt).not.toBeNull();
 
-        const result = run.result as Record<string, unknown>;
-        expect(result['jobName']).toBe('quick-job-1');
-        expect(result['data']).toEqual({ result: 'done' });
+        const metadata = run.metadata as Record<string, unknown>;
+        expect(metadata['jobName']).toBe('quick-job-1');
+        expect(metadata['data']).toEqual({ result: 'done' });
       });
     });
 
@@ -279,8 +279,8 @@ describe('Plugin Logger', () => {
 
         expect(run.status).toBe('failed');
 
-        const result = run.result as Record<string, unknown>;
-        expect(result['error']).toBe('API error: 500');
+        const metadata = run.metadata as Record<string, unknown>;
+        expect(metadata['error']).toBe('API error: 500');
       });
     });
   });

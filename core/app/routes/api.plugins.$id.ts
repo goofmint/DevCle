@@ -26,7 +26,7 @@ import {
 import { requireAuth } from '~/auth.middleware.js';
 import { isValidUUID } from '~/utils/validation.js';
 import { redactConfig, getPluginById, updatePluginEnabled } from '~/services/plugins.service.js';
-import { getLastRunsPerTrigger } from '~/services/pluginLogs.service.js';
+import { getLastRunsPerJobName } from '~/services/pluginLogs.service.js';
 import { listHooks } from '../../plugin-system/hooks.js';
 import type {
   PluginDetailResponse,
@@ -126,8 +126,8 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     }
 
     // 7. Get registered jobs with last run timestamps (via service)
-    // Uses SQL aggregation to compute max(started_at) grouped by trigger
-    const lastRunsMap = await getLastRunsPerTrigger(tenantId, pluginId);
+    // Uses SQL aggregation to compute max(started_at) grouped by job name
+    const lastRunsMap = await getLastRunsPerJobName(tenantId, pluginId);
 
     const jobs: PluginJobInfo[] = Array.from(lastRunsMap.entries()).map(([jobName, lastRun]) => {
       const job: PluginJobInfo = {
