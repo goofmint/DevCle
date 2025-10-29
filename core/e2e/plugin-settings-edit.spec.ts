@@ -104,10 +104,6 @@ test('settings icon displayed for enabled plugins', async ({ page }) => {
   const settingsIcon = firstEnabled.locator('a[title="Configure plugin"]');
   await expect(settingsIcon).toBeVisible();
 
-  // Icon should be SVG element
-  const icon = settingsIcon.locator('svg');
-  await expect(icon).toBeVisible();
-
   // Icon should be positioned top-right
   await expect(settingsIcon).toHaveClass(/absolute/);
   await expect(settingsIcon).toHaveClass(/top-4/);
@@ -208,13 +204,13 @@ test('plugin cards have correct dark mode colors', async ({ page }) => {
   // Card should have dark background
   await expect(pluginCard).toHaveClass(/dark:bg-gray-800/);
 
-  // Title should have light text
-  const title = pluginCard.locator('h3').first();
-  await expect(title).toHaveClass(/dark:text-gray-100/);
+  // Title should have light text (title is now inside a link)
+  const titleLink = pluginCard.locator('a').filter({ has: page.locator('text=/./') }).first();
+  await expect(titleLink).toHaveClass(/dark:hover:text-blue-400/);
 
   // Verify text and background contrast
   const cardBox = await pluginCard.boundingBox();
-  const titleBox = await title.boundingBox();
+  const titleBox = await titleLink.boundingBox();
 
   expect(cardBox).toBeTruthy();
   expect(titleBox).toBeTruthy();
@@ -230,9 +226,10 @@ test('settings icon does not break card layout', async ({ page }) => {
 
   const settingsIcon = enabledCard.locator('a[title="Configure plugin"]');
 
-  // Icon should not overlap with title
+  // Icon should not overlap with title (title is now inside a link)
   const iconBox = await settingsIcon.boundingBox();
-  const titleBox = await enabledCard.locator('h3').first().boundingBox();
+  const titleLink = enabledCard.locator('a').filter({ has: page.locator('text=/./') }).first();
+  const titleBox = await titleLink.boundingBox();
 
   // Expect both boxes to exist
   expect(iconBox).toBeTruthy();

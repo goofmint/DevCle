@@ -103,10 +103,10 @@ test('plugin cards show name, status, and dates', async ({ page }) => {
   // Verify card has border
   await expect(firstCard).toHaveClass(/border/);
 
-  // Verify plugin name heading is visible
-  const pluginName = firstCard.locator('h3');
-  await expect(pluginName).toBeVisible();
-  const pluginNameText = await pluginName.textContent();
+  // Verify plugin name heading is visible (now inside a Link)
+  const pluginNameLink = firstCard.locator('a').filter({ has: page.locator('text=/./') }).first();
+  await expect(pluginNameLink).toBeVisible();
+  const pluginNameText = await pluginNameLink.textContent();
   expect(pluginNameText).toBeTruthy();
 
   // Optional settings link (enabled plugins with settings)
@@ -197,7 +197,8 @@ test('dark mode has correct color contrast', async ({ page }) => {
   const lightBgColor = await firstCard.evaluate((el) => {
     return window.getComputedStyle(el).backgroundColor;
   });
-  const titleElement = firstCard.locator('h3').first();
+  // Plugin name is now a link, so we need to locate it differently
+  const titleElement = firstCard.locator('a').filter({ has: page.locator('text=/./') }).first();
   const lightTextColor = await titleElement.evaluate((el) => {
     return window.getComputedStyle(el).color;
   });

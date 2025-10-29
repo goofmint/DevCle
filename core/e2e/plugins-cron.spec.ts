@@ -22,8 +22,8 @@ import { test, expect } from '@playwright/test';
 // Base URL for the application
 const BASE_URL = process.env['BASE_URL'] || 'http://localhost:3000';
 
-// Test plugin ID (should exist in test database)
-const TEST_PLUGIN_ID = '550e8400-e29b-41d4-a716-446655440000';
+// Test plugin ID (should exist in test database - from seed data)
+const TEST_PLUGIN_ID = '20000000-0000-4000-8000-000000000001'; // drowl-plugin-test
 
 /**
  * Login as admin before each test
@@ -92,8 +92,9 @@ test('runs history page displays execution records', async ({ page }) => {
 
   // Verify summary cards are displayed
   await expect(page.locator('text=Total')).toBeVisible();
-  await expect(page.locator('text=Success')).toBeVisible();
-  await expect(page.locator('text=Failed')).toBeVisible();
+  // Use span selector to avoid ambiguity between summary card and filter button
+  await expect(page.locator('span.text-sm').filter({ hasText: 'Success' })).toBeVisible();
+  await expect(page.locator('span.text-sm').filter({ hasText: 'Failed' })).toBeVisible();
 
   // Verify filter buttons are displayed
   await expect(page.locator('button:has-text("All")')).toBeVisible();
@@ -118,7 +119,9 @@ test('status filtering works correctly', async ({ page }) => {
 
   // Click "Success" filter
   await page.click('button:has-text("Success")');
-  await page.waitForLoadState('networkidle');
+
+  // Wait for URL to update (setSearchParams doesn't cause full navigation)
+  await page.waitForURL('**/runs?*status=success*');
 
   // Verify URL contains status parameter
   expect(page.url()).toContain('status=success');
@@ -130,7 +133,9 @@ test('status filtering works correctly', async ({ page }) => {
 
   // Click "All" filter to reset
   await page.click('button:has-text("All")');
-  await page.waitForLoadState('networkidle');
+
+  // Wait for URL to update (status param should be removed)
+  await page.waitForFunction(() => !window.location.search.includes('status='));
 
   // Verify URL no longer contains status parameter
   expect(page.url()).not.toContain('status=');
