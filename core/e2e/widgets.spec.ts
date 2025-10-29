@@ -15,8 +15,24 @@
  * - Authenticated user session
  */
 
-import { test, expect } from '@playwright/test';
-import { loginAsAdmin } from './helpers/auth';
+import { test, expect, type Page } from '@playwright/test';
+
+// Base URL for the application
+const BASE_URL = process.env['BASE_URL'] || 'http://localhost:3000';
+
+/**
+ * Helper: Login as admin user
+ * Navigates to login page and authenticates
+ */
+async function loginAsAdmin(page: Page) {
+  await page.goto(`${BASE_URL}/login`);
+  await page.waitForLoadState('networkidle');
+  await page.fill('input[name="email"]', 'admin@example.com');
+  await page.fill('input[name="password"]', 'admin123456');
+  await page.click('button[type="submit"]');
+  await page.waitForURL(`${BASE_URL}/dashboard`, { timeout: 15000 });
+  await page.waitForLoadState('networkidle');
+}
 
 test.describe('Widget System', () => {
   test.beforeEach(async ({ page }) => {
@@ -28,7 +44,7 @@ test.describe('Widget System', () => {
     page,
   }) => {
     // Call widgets list API
-    const response = await page.goto(`${process.env.BASE_URL}/api/widgets`);
+    const response = await page.goto(`${BASE_URL}/api/widgets`);
 
     expect(response).not.toBeNull();
     if (!response) return;
@@ -61,7 +77,7 @@ test.describe('Widget System', () => {
     page,
   }) => {
     // If no widgets are configured, API should still return valid response
-    const response = await page.goto(`${process.env.BASE_URL}/api/widgets`);
+    const response = await page.goto(`${BASE_URL}/api/widgets`);
 
     expect(response).not.toBeNull();
     if (!response) return;
@@ -76,7 +92,7 @@ test.describe('Widget System', () => {
   test('should fetch widget data for valid widget ID', async ({ page }) => {
     // First get list of widgets
     const listResponse = await page.goto(
-      `${process.env.BASE_URL}/api/widgets`
+      `${BASE_URL}/api/widgets`
     );
     expect(listResponse).not.toBeNull();
     if (!listResponse) return;
@@ -94,7 +110,7 @@ test.describe('Widget System', () => {
 
     // Fetch widget data
     const dataResponse = await page.goto(
-      `${process.env.BASE_URL}/api/widgets/${widgetId}/data`
+      `${BASE_URL}/api/widgets/${widgetId}/data`
     );
     expect(dataResponse).not.toBeNull();
     if (!dataResponse) return;
@@ -118,7 +134,7 @@ test.describe('Widget System', () => {
   test('should return 404 for invalid widget ID', async ({ page }) => {
     // Try to fetch data for non-existent widget
     const response = await page.goto(
-      `${process.env.BASE_URL}/api/widgets/invalid-plugin:invalid-widget/data`
+      `${BASE_URL}/api/widgets/invalid-plugin:invalid-widget/data`
     );
 
     expect(response).not.toBeNull();
@@ -131,7 +147,7 @@ test.describe('Widget System', () => {
   test('should return 400 for malformed widget ID', async ({ page }) => {
     // Try to fetch data with invalid ID format (missing colon)
     const response = await page.goto(
-      `${process.env.BASE_URL}/api/widgets/invalid-widget-id/data`
+      `${BASE_URL}/api/widgets/invalid-widget-id/data`
     );
 
     expect(response).not.toBeNull();
@@ -155,7 +171,7 @@ test.describe('Widget System', () => {
 
     // Save layout via PUT
     const saveResponse = await request.put(
-      `${process.env.BASE_URL}/api/user/widget-layout`,
+      `${BASE_URL}/api/user/widget-layout`,
       {
         data: { layout: testLayout },
       }
@@ -169,7 +185,7 @@ test.describe('Widget System', () => {
 
     // Retrieve layout via GET
     const getResponse = await page.goto(
-      `${process.env.BASE_URL}/api/user/widget-layout`
+      `${BASE_URL}/api/user/widget-layout`
     );
 
     expect(getResponse).not.toBeNull();
@@ -187,7 +203,7 @@ test.describe('Widget System', () => {
     // In a real test, you might need to clear the user's layout first
 
     const response = await page.goto(
-      `${process.env.BASE_URL}/api/user/widget-layout`
+      `${BASE_URL}/api/user/widget-layout`
     );
 
     expect(response).not.toBeNull();
@@ -206,7 +222,7 @@ test.describe('Widget System', () => {
   }) => {
     // Try to save layout with missing layout field
     const response = await request.put(
-      `${process.env.BASE_URL}/api/user/widget-layout`,
+      `${BASE_URL}/api/user/widget-layout`,
       {
         data: {}, // Missing layout field
       }
@@ -226,7 +242,7 @@ test.describe('Widget System', () => {
       'slot-2': 'item-b',
     };
 
-    await request.put(`${process.env.BASE_URL}/api/user/widget-layout`, {
+    await request.put(`${BASE_URL}/api/user/widget-layout`, {
       data: { layout: initialLayout },
     });
 
@@ -237,7 +253,7 @@ test.describe('Widget System', () => {
     };
 
     const updateResponse = await request.put(
-      `${process.env.BASE_URL}/api/user/widget-layout`,
+      `${BASE_URL}/api/user/widget-layout`,
       {
         data: { layout: updatedLayout },
       }
@@ -247,7 +263,7 @@ test.describe('Widget System', () => {
 
     // Verify updated layout
     const getResponse = await request.get(
-      `${process.env.BASE_URL}/api/user/widget-layout`
+      `${BASE_URL}/api/user/widget-layout`
     );
     const getData = await getResponse.json();
 
@@ -258,7 +274,7 @@ test.describe('Widget System', () => {
     page,
   }) => {
     // Navigate to dashboard
-    await page.goto(`${process.env.BASE_URL}/dashboard`);
+    await page.goto(`${BASE_URL}/dashboard`);
 
     // Wait for page to load
     await page.waitForSelector('h1:has-text("Overview")');
@@ -291,7 +307,7 @@ test.describe('Widget System', () => {
     page,
   }) => {
     // Navigate to dashboard
-    await page.goto(`${process.env.BASE_URL}/dashboard`);
+    await page.goto(`${BASE_URL}/dashboard`);
 
     // Wait for GridStack to initialize
     await page.waitForSelector('.grid-stack');
@@ -313,7 +329,7 @@ test.describe('Widget System', () => {
 
   test('should display timeseries widget data correctly', async ({ page }) => {
     // Navigate to dashboard
-    await page.goto(`${process.env.BASE_URL}/dashboard`);
+    await page.goto(`${BASE_URL}/dashboard`);
 
     // Wait for widgets to load
     await page.waitForSelector('.grid-stack-item', { timeout: 10000 });
