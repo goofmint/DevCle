@@ -835,18 +835,20 @@
 - **ドキュメント**: [.tmp/tasks/task-8.8-plugin-cron-execution.md](.tmp/tasks/task-8.8-plugin-cron-execution.md)
 - **完了日**: 2025-10-28
 
-### Task 8.9: プラグインの実行ログ確認画面実装
+### Task 8.9: プラグインの実行ログ確認画面実装 ✅
 
-- [ ] `app/routes/dashboard/plugins.$id.logs.tsx`作成
-- [ ] プラグイン実行ログの一覧表示
+- [x] `app/routes/dashboard/plugins.$id.runs.tsx`作成（SPA/fetch-based）
+- [x] プラグイン実行ログの一覧表示
   - 実行日時、ステータス、実行時間、エラーメッセージ
-  - ページネーション、フィルタ（成功/失敗）
-- [ ] `GET /dashboard/plugins/:id/logs`ルート実装
-- [ ] ログ詳細モーダル実装
-- **完了条件**: プラグインの実行ログが表示され、詳細が確認できる
+  - ページネーション、フィルタ（成功/失敗、ジョブ名）
+- [x] `GET /api/plugins/:id/runs`API実装
+- [x] ログ詳細モーダル実装（`RunDetailModal`）
+- [x] E2Eテスト作成（15 tests）
+- **完了条件**: プラグインの実行ログが表示され、詳細が確認できる ✓
 - **依存**: Task 8.4
 - **推定時間**: 3 時間
 - **ドキュメント**: [.tmp/tasks/task-8.9-plugin-logs-ui.md](.tmp/tasks/task-8.9-plugin-logs-ui.md)
+- **完了日**: 2025-10-28
 
 ### Task 8.10: プラグインのウィジェット表示（ダッシュボード）
 
@@ -858,6 +860,7 @@
 - **完了条件**: プラグインのウィジェットがダッシュボードに表示され、配置を変更できる
 - **依存**: Task 8.4, Task 7.2
 - **推定時間**: 5 時間
+- **ドキュメント**: [.tmp/tasks/task-8.10-plugin-widgets.md](.tmp/tasks/task-8.10-plugin-widgets.md)
 
 ### Task 8.11: プラグインの収集結果の詳細表示
 
