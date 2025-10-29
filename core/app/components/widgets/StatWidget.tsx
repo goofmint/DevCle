@@ -45,7 +45,7 @@ export function StatWidget({
   // Loading state: Show skeleton placeholder
   if (isLoading) {
     return (
-      <div className="p-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
+      <div className="h-full p-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
         <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2 mb-4 animate-pulse" />
         <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-3/4 animate-pulse" />
       </div>
@@ -55,7 +55,7 @@ export function StatWidget({
   // Error state: Show error message
   if (isError) {
     return (
-      <div className="p-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+      <div className="h-full p-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
         <h3 className="text-lg font-semibold text-red-900 dark:text-red-100 mb-2">
           {data.title}
         </h3>
@@ -68,7 +68,7 @@ export function StatWidget({
 
   // Success state: Show actual data
   return (
-    <div className="p-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
+    <div className="h-full p-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
       {/* Title */}
       <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">
         {data.title}

@@ -45,7 +45,7 @@ export function ListWidget({
   // Loading state: Show skeleton placeholder
   if (isLoading) {
     return (
-      <div className="p-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
+      <div className="h-full p-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
         <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-4 animate-pulse" />
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (
@@ -62,7 +62,7 @@ export function ListWidget({
   // Error state: Show error message
   if (isError) {
     return (
-      <div className="p-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+      <div className="h-full p-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
         <h3 className="text-lg font-semibold text-red-900 dark:text-red-100 mb-2">
           {data.title}
         </h3>
@@ -75,7 +75,7 @@ export function ListWidget({
 
   // Success state: Show actual list
   return (
-    <div className="p-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
+    <div className="h-full flex flex-col p-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
       {/* Title */}
       <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
         {data.title}
