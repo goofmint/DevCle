@@ -12,9 +12,10 @@
 
 ### 設計方針
 
-- **プラグインは「型＋データ」のみを返す**: ウィジェットの描画はアプリ側が担当
+- **宣言的なデータソース定義**: プラグインは `dataSource` を宣言し、コア側がクエリを実行
 - **標準化されたウィジェット型**: `stat`, `table`, `list`, `timeseries`, `barchart`, `pie`, `funnel`, `card`
-- **Swapyでドラッグ&ドロップ**: ユーザーがウィジェットの配置を自由に変更できる
+- **プラグイン固有データの識別**: `activities.source` フィールドで各プラグインが登録したデータを区別
+- **既存のドラッグ&ドロップ機能を活用**: Task 7.2 で実装済みの Swapy を使用
 - **ユーザー設定の保存**: 配置情報を `user_preferences` テーブルに保存
 
 ---
@@ -42,9 +43,9 @@
       }
     },
     {
-      "key": "dashboard.activities",
+      "key": "dashboard.github_activities",
       "type": "timeseries",
-      "title": "Activities (30d)",
+      "title": "GitHub Activities (30d)",
       "version": "1.0",
       "dataSource": {
         "entity": "activities",
@@ -52,6 +53,7 @@
           "op": "count",
           "bucket": "day",
           "filter": {
+            "source": "github",
             "ts": { "gte": "30d" }
           }
         }
@@ -90,9 +92,13 @@
 | `entity`      | string | ✓    | データソースのエンティティ（`developers`, `activities`, `campaigns`など） |
 | `aggregation` | object |      | 集計定義（`count`, `sum`, `avg`など）                     |
 | `columns`     | array  |      | テーブル表示用のカラムリスト                              |
-| `filter`      | object |      | フィルタ条件（`createdAt`, `ts`など）                     |
+| `filter`      | object |      | フィルタ条件（**必須**: `source` でプラグインを識別、他に `createdAt`, `ts` など） |
 | `sort`        | object |      | ソート条件                                                |
 | `limit`       | number |      | 取得件数制限                                              |
+
+**重要**: `filter.source` は必ず指定してください。これにより各プラグインが登録したデータを識別します。
+- 例: GitHub プラグイン → `"source": "github"`
+- 例: Slack プラグイン → `"source": "slack"`
 
 ---
 
@@ -331,38 +337,26 @@ export function WidgetRenderer({ widget, data }: WidgetRendererProps) {
 
 ---
 
-## 5. Swapyによるドラッグ&ドロップ
+## 5. 既存のドラッグ&ドロップ機能の活用
 
-[Swapy](https://swapy.tahazsh.com/) ライブラリを使用してウィジェットのドラッグ&ドロップを実装します。
+**Task 7.2 で実装済みの Swapy 機能を活用します。** 新規実装は不要です。
 
-### 5.1 Swapyの初期化
+### 5.1 既存の useSwapy フックを使用
 
 ```typescript
 // app/routes/dashboard._index.tsx
 
-import { createSwapy } from 'swapy';
+import { useSwapy } from '~/hooks/useSwapy.js';
 
 export default function DashboardOverviewPage() {
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!containerRef.current) return;
-
-    // Swapyを初期化
-    const swapy = createSwapy(containerRef.current, {
-      animation: 'dynamic',
-    });
-
-    // スワップイベントをリスニング
-    swapy.onSwap((event) => {
-      // ウィジェットの位置が変更されたら保存
-      saveWidgetLayout(event.data.array);
-    });
-
-    return () => {
-      swapy.destroy();
-    };
-  }, []);
+  const { containerRef, resetLayout } = useSwapy({
+    storageKey: 'widget-layout', // localStorage キー
+    animation: 'dynamic',
+    onLayoutChange: async (layout) => {
+      // user_preferences テーブルに保存
+      await saveWidgetLayout(layout);
+    },
+  });
 
   return (
     <div ref={containerRef} className="widget-grid" data-swapy-container>
@@ -378,33 +372,37 @@ export default function DashboardOverviewPage() {
 }
 ```
 
-### 5.2 レイアウト保存
+### 5.2 localStorage から user_preferences テーブルへの移行
+
+**Task 7.2 では localStorage にレイアウトを保存していましたが、Task 8.10 では `user_preferences` テーブルに移行します。**
 
 ```typescript
 // app/services/widget-layout.service.ts
 
 /**
  * ウィジェットレイアウトを保存する
+ *
+ * Task 7.2 の useSwapy フックから呼び出される。
+ * localStorage → user_preferences テーブルへの移行。
  */
 export async function saveWidgetLayout(
   tenantId: string,
   userId: string,
-  widgets: Array<{ id: string; position: number }>
+  layout: Record<string, string> // Swapy の layout 形式
 ): Promise<void> {
   return await withTenantContext(tenantId, async (tx) => {
-    // user_preferencesテーブルに保存
     await tx
       .insert(schema.userPreferences)
       .values({
         userId,
         tenantId,
         key: 'widget_layout',
-        value: widgets,
+        value: layout,
       })
       .onConflictDoUpdate({
         target: [schema.userPreferences.userId, schema.userPreferences.key],
         set: {
-          value: widgets,
+          value: layout,
           updatedAt: new Date(),
         },
       });
@@ -413,11 +411,14 @@ export async function saveWidgetLayout(
 
 /**
  * ウィジェットレイアウトを取得する
+ *
+ * user_preferences テーブルから取得。
+ * 存在しない場合は localStorage のレイアウトを使用（後方互換性）。
  */
 export async function getWidgetLayout(
   tenantId: string,
   userId: string
-): Promise<Array<{ id: string; pluginId: string; widgetKey: string; position: number }>> {
+): Promise<Record<string, string> | null> {
   return await withTenantContext(tenantId, async (tx) => {
     const [preference] = await tx
       .select()
@@ -430,12 +431,7 @@ export async function getWidgetLayout(
       )
       .limit(1);
 
-    if (!preference) {
-      // デフォルトレイアウトを返す（プラグインがインストールされている場合）
-      return [];
-    }
-
-    return preference.value as Array<{ id: string; pluginId: string; widgetKey: string; position: number }>;
+    return preference?.value as Record<string, string> ?? null;
   });
 }
 ```
@@ -480,16 +476,18 @@ CREATE POLICY user_preferences_tenant_isolation
 
 ### 6.2 保存形式
 
+Swapy のレイアウト形式をそのまま保存します：
+
 ```typescript
-// ユーザー設定のJSON形式
-interface WidgetLayoutSettings {
-  widgets: Array<{
-    id: string; // "plugin-123:widget-abc"
-    pluginId: string; // "plugin-123"
-    widgetKey: string; // "dashboard.timeseries"
-    position: number; // 0, 1, 2, ...
-  }>;
-}
+// user_preferences.value の形式（Swapyのレイアウト形式）
+type WidgetLayoutSettings = Record<string, string>;
+
+// 例:
+// {
+//   "slot-1": "item-github-activities",
+//   "slot-2": "item-slack-messages",
+//   "slot-3": "item-campaign-roi"
+// }
 ```
 
 ---
@@ -864,33 +862,38 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
    - データ取得とレンダリング
    - ローディング・エラーハンドリング
 
-4. **Phase 4**: ドラッグ&ドロップとレイアウト保存
-   - Swapyの統合
-   - レイアウト保存API
-   - レイアウト復元機能
+4. **Phase 4**: レイアウト永続化の強化
+   - localStorage → `user_preferences` テーブルへの移行
+   - レイアウト保存API（`saveWidgetLayout`, `getWidgetLayout`）
+   - 既存の `useSwapy` フックとの統合
 
 ---
 
 ## 12. 注意事項
 
 - ウィジェットのデータ取得は**コア側で完結**します（プラグインはdataSourceを宣言的に定義するのみ）
+- **`filter.source` は必須**: 各プラグインが登録したデータを識別するため、必ず `source` フィルタを指定してください
 - ウィジェットデータは必ずバリデーションを行い、不正なデータを受け入れないようにします
-- ユーザーごとにレイアウトを保存できるようにします（`user_preferences` テーブル）
+- **ドラッグ&ドロップは既存実装を活用**: Task 7.2 の `useSwapy` フックを使用します
+- ユーザーごとにレイアウトを保存できるようにします（`user_preferences` テーブル、localStorage からの移行）
 - ウィジェットの表示数が増えた場合のパフォーマンスを考慮し、キャッシングや lazy loading を検討します
 - `refreshHintSec` を尊重してウィジェットデータのキャッシュを実装します
-- **外部API連携**: プラグインがGitHub API等からデータを取得する場合、ジョブ機能で`activities`テーブル等に保存し、ウィジェットはそのコアテーブルを参照します
+- **外部API連携の流れ**:
+  1. プラグインのジョブ機能でGitHub API等からデータを取得
+  2. `activities` テーブル等のコアテーブルに保存（`source` フィールドにプラグイン識別子を設定）
+  3. ウィジェットの `dataSource.filter.source` でそのデータをフィルタ
 
 ---
 
 ## 完了条件
 
-- [ ] プラグインのウィジェット定義（dataSource含む）を `plugin.json` から読み込める
+- [ ] プラグインのウィジェット定義（dataSource含む、**`filter.source`必須**）を `plugin.json` から読み込める
 - [ ] ウィジェット一覧取得API が実装されている（`GET /api/widgets`）
 - [ ] ウィジェットデータ取得API が実装されている（`GET /api/widgets/:widgetId/data`）
-- [ ] `fetchWidgetData()` サービスが dataSource 定義を Drizzle クエリに変換できる
+- [ ] `fetchWidgetData()` サービスが dataSource 定義を Drizzle クエリに変換できる（`source` フィルタを含む）
 - [ ] Overview ページにウィジェットが表示される
-- [ ] Swapyでウィジェットのドラッグ&ドロップができる
-- [ ] ウィジェットレイアウトがユーザーごとに保存される（`user_preferences` テーブル）
+- [ ] 既存の `useSwapy` フックでウィジェットのドラッグ&ドロップができる
+- [ ] ウィジェットレイアウトがユーザーごとに保存される（`user_preferences` テーブル、localStorage からの移行）
 - [ ] ページリロード後もレイアウトが保持される
 - [ ] E2Eテストが全てパスする
 
