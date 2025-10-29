@@ -476,11 +476,13 @@ async function logHookExecution(
       .values({
         tenantId,
         pluginId,
-        trigger: 'hook',
+        jobName: 'hook-execution', // Use generic job name for hooks
         startedAt: new Date(),
-        finishedAt: new Date(), // Immediate finish for hooks
+        completedAt: new Date(), // Immediate finish for hooks
         status,
-        result: result as unknown as Record<string, unknown>,
+        eventsProcessed: 0,
+        errorMessage: null,
+        metadata: result as unknown as Record<string, unknown>,
       })
       .returning({ runId: schema.pluginRuns.runId });
 
