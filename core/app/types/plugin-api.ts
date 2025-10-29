@@ -34,6 +34,9 @@ export interface PluginSummary {
   /** Whether plugin is enabled */
   enabled: boolean;
 
+  /** Whether plugin has a settings schema (for UI purposes) */
+  hasSettings: boolean;
+
   /** Installation timestamp (ISO 8601) */
   installedAt: string;
 

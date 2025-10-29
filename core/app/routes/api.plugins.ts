@@ -76,6 +76,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       name: plugin.name,
       version: plugin.version, // Now read from plugin.json
       enabled: plugin.enabled,
+      hasSettings: plugin.hasSettings,
       installedAt: plugin.createdAt.toISOString(),
       updatedAt: plugin.updatedAt.toISOString(),
     }));

@@ -5,20 +5,15 @@
  * Accessible at: /dashboard/plugins
  *
  * Features:
- * - List all installed plugins
+ * - List all installed plugins (SPA/fetch-based)
  * - Enable/disable plugins
  * - Toast notifications
  * - Dark/Light mode support
  */
 
-import { useState } from 'react';
-import { Link, useLoaderData } from '@remix-run/react';
-import { json } from '@remix-run/node';
-import type { LoaderFunctionArgs } from '@remix-run/node';
-import type { PluginInfo } from '../types/plugin-api.js';
-import { requireAuth } from '~/auth.middleware.js';
-import { listPlugins, redactConfig } from '~/services/plugins.service.js';
-import { getPluginConfig } from '~/services/plugin/plugin-config.service.js';
+import { useState, useEffect } from 'react';
+import { Link } from '@remix-run/react';
+import type { PluginSummary } from '../types/plugin-api.js';
 import { Icon } from '@iconify/react';
 
 /**
@@ -30,75 +25,38 @@ interface Toast {
 }
 
 /**
- * Loader - Fetch plugins server-side for SSR
- *
- * Fetches all installed plugins for the current tenant.
- * This ensures Icon components render during SSR, enabling Iconify to work properly.
- */
-export async function loader({ request }: LoaderFunctionArgs) {
-  try {
-    // 1. Authentication check
-    const user = await requireAuth(request);
-    const tenantId = user.tenantId;
-
-    // 2. Query plugins via service (reads from filesystem + DB state)
-    const pluginsData = await listPlugins(tenantId);
-
-    // 3. Transform to API response format and check for settings schema
-    const plugins: PluginInfo[] = await Promise.all(
-      pluginsData.map(async (plugin) => {
-        // Check if plugin has settings schema
-        let hasSettings = false;
-        try {
-          const config = await getPluginConfig(plugin.key, tenantId);
-          hasSettings = !!(config.settingsSchema && Array.isArray(config.settingsSchema) && config.settingsSchema.length > 0);
-        } catch (error) {
-          // Plugin has no config file or no settings schema
-          hasSettings = false;
-        }
-
-        return {
-          pluginId: plugin.pluginId,
-          key: plugin.key,
-          name: plugin.name,
-          version: plugin.version,
-          enabled: plugin.enabled,
-          config: redactConfig(plugin.config),
-          installedAt: plugin.createdAt.toISOString(),
-          updatedAt: plugin.updatedAt.toISOString(),
-          hasSettings,
-        };
-      })
-    );
-
-    // 4. Return plugin list
-    return json({ plugins });
-  } catch (error) {
-    // Handle requireAuth() redirect
-    if (error instanceof Response) {
-      throw error;
-    }
-
-    // Log error for debugging
-    console.error('Error loading plugins:', error);
-
-    // Return error state
-    return json(
-      { plugins: [], error: 'Failed to load plugins' },
-      { status: 500 }
-    );
-  }
-}
-
-/**
- * Plugin Management Page Component
+ * Plugin Management Page Component (SPA/fetch-based)
  */
 export default function PluginsPage() {
-  // Get plugins from server-side loader
-  const loaderData = useLoaderData<typeof loader>();
-  const [plugins, setPlugins] = useState<PluginInfo[]>(loaderData.plugins as PluginInfo[]);
+  const [plugins, setPlugins] = useState<PluginSummary[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
 
+  // Fetch plugins on mount
+  useEffect(() => {
+    fetchPlugins();
+  }, []);
+
+  /**
+   * Fetch plugins from API
+   */
+  async function fetchPlugins() {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch('/api/plugins');
+      if (!response.ok) {
+        throw new Error('Failed to load plugins');
+      }
+      const data = await response.json() as { plugins: PluginSummary[] };
+      setPlugins(data.plugins);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load plugins');
+    } finally {
+      setLoading(false);
+    }
+  }
 
   /**
    * Toggle plugin enabled status
@@ -128,7 +86,7 @@ export default function PluginsPage() {
         throw new Error('Failed to update plugin');
       }
 
-      const data = await response.json() as { success: boolean; plugin: PluginInfo };
+      const data = await response.json() as { success: boolean; plugin: PluginSummary };
       if (data.success) {
         // Update plugin in list
         setPlugins((prev) =>
@@ -153,12 +111,21 @@ export default function PluginsPage() {
     setTimeout(() => setToast(null), 3000);
   }
 
-  // Check if loader returned error
-  if ('error' in loaderData && loaderData.error) {
+  // Loading state
+  if (loading) {
+    return (
+      <div className="p-6 flex items-center justify-center h-64">
+        <Icon icon="mdi:loading" className="w-8 h-8 animate-spin text-blue-500" />
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
     return (
       <div className="p-6">
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-          <p className="text-red-800 dark:text-red-200">Error: {String(loaderData.error)}</p>
+          <p className="text-red-800 dark:text-red-200">Error: {error}</p>
         </div>
       </div>
     );
