@@ -485,15 +485,19 @@ describe('Hook Registry', () => {
       expect(runs).toHaveLength(1);
       const firstRun = runs[0];
       if (!firstRun) throw new Error('Run should exist');
-      expect(firstRun.status).toBe('partial');
+      // Status is 'failed' for partial failures (some succeeded, some failed)
+      // 'partial' flag in metadata distinguishes this from complete failure
+      expect(firstRun.status).toBe('failed');
 
       const metadataRecord = firstRun.metadata as {
         successCount: number;
         failureCount: number;
+        partial?: boolean;
         errors: Array<{ pluginId: string; errorMessage: string }>;
       };
       expect(metadataRecord.successCount).toBe(1);
       expect(metadataRecord.failureCount).toBe(1);
+      expect(metadataRecord.partial).toBe(true);
       expect(metadataRecord.errors).toHaveLength(1);
       const firstError = metadataRecord.errors[0];
       if (!firstError) throw new Error('Error should exist');

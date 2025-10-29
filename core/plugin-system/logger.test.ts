@@ -135,7 +135,7 @@ describe('Plugin Logger', () => {
       );
 
       // Finish job
-      await finishJobRun(runId, 'success', {
+      await finishJobRun(TEST_TENANT_ID, runId, 'success', {
         jobId: 'job-123',
         jobName: 'test-job-3',
         attemptsMade: 1,
@@ -172,6 +172,7 @@ describe('Plugin Logger', () => {
       );
 
       await finishJobRun(
+        TEST_TENANT_ID,
         runId,
         'failed',
         {
@@ -204,7 +205,7 @@ describe('Plugin Logger', () => {
 
     it('should throw error if run ID not found', async () => {
       await expect(
-        finishJobRun('00000000-0000-0000-0000-000000000999', 'success')
+        finishJobRun(TEST_TENANT_ID, '00000000-0000-0000-0000-000000000999', 'success')
       ).rejects.toThrow(/not found/);
     });
   });

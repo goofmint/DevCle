@@ -139,7 +139,7 @@ export async function finishJobRun(
     }
 
     // Update plugin run record
-    await tx
+    const updated = await tx
       .update(schema.pluginRuns)
       .set({
         completedAt: new Date(),
@@ -148,7 +148,13 @@ export async function finishJobRun(
         errorMessage: errorMessage ?? null,
         metadata: result,
       })
-      .where(eq(schema.pluginRuns.runId, runId));
+      .where(eq(schema.pluginRuns.runId, runId))
+      .returning();
+
+    // Check if run was found and updated
+    if (updated.length === 0) {
+      throw new Error(`Plugin run not found: ${runId}`);
+    }
   });
 }
 

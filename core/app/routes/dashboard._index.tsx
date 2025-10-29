@@ -34,6 +34,12 @@ import {
 } from '~/lib/gridstack';
 import { StatCard } from '~/components/dashboard/StatCard';
 import { ActivityChart } from '~/components/dashboard/ActivityChart';
+import { StatWidget } from '~/components/widgets/StatWidget';
+import { ListWidget } from '~/components/widgets/ListWidget';
+import { TimeseriesWidget } from '~/components/widgets/TimeseriesWidget';
+import { TableWidget } from '~/components/widgets/TableWidget';
+import { CardWidget } from '~/components/widgets/CardWidget';
+import type { WidgetData } from '~/types/widget-api';
 import 'gridstack/dist/gridstack.css';
 
 /**
@@ -89,10 +95,16 @@ function StatCardWrapper(props: Parameters<typeof StatCard>[0] & { icon: string 
  * Component Map
  *
  * Maps component names to actual components for GridStack rendering.
+ * Includes both standard dashboard widgets and plugin widgets.
  */
 const COMPONENT_MAP: ComponentMap = {
   StatCard: StatCardWrapper,
   ActivityChart,
+  StatWidget,
+  ListWidget,
+  TimeseriesWidget,
+  TableWidget,
+  CardWidget,
 };
 
 
@@ -109,6 +121,11 @@ export default function DashboardOverview() {
   const [timeSeriesData, setTimeSeriesData] = useState<OverviewData['timeSeriesData']>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Widget state
+  const [widgets, setWidgets] = useState<Array<{ id: string; title: string; type: string }>>([]);
+  const [widgetData, setWidgetData] = useState<Record<string, WidgetData>>({});
+  const [widgetsLoading, setWidgetsLoading] = useState(true);
 
   // Use ref to store gridOptions and only generate once after data loads
   const gridOptionsRef = useRef<GridStackOptions | null>(null);
@@ -141,6 +158,48 @@ export default function DashboardOverview() {
     fetchData();
   }, []);
 
+  // Fetch plugin widgets
+  useEffect(() => {
+    async function fetchWidgets() {
+      try {
+        // Fetch available widgets
+        const widgetsResponse = await fetch('/api/widgets');
+        if (!widgetsResponse.ok) {
+          throw new Error('Failed to fetch widgets');
+        }
+
+        const widgetsData = await widgetsResponse.json();
+        setWidgets(widgetsData.widgets || []);
+
+        // Fetch data for each widget
+        const dataPromises = (widgetsData.widgets || []).map(async (widget: { id: string }) => {
+          const dataResponse = await fetch(`/api/widgets/${widget.id}/data`);
+          if (!dataResponse.ok) {
+            console.error(`Failed to fetch data for widget ${widget.id}`);
+            return null;
+          }
+          const data = await dataResponse.json();
+          return { id: widget.id, data };
+        });
+
+        const results = await Promise.all(dataPromises);
+        const dataMap: Record<string, WidgetData> = {};
+        for (const result of results) {
+          if (result) {
+            dataMap[result.id] = result.data;
+          }
+        }
+        setWidgetData(dataMap);
+      } catch (err) {
+        console.error('Failed to load widgets:', err);
+      } finally {
+        setWidgetsLoading(false);
+      }
+    }
+
+    fetchWidgets();
+  }, []);
+
   // Loading state
   if (loading) {
     return (
@@ -159,9 +218,9 @@ export default function DashboardOverview() {
     );
   }
 
-  // Generate gridOptions only once after data loads
+  // Generate gridOptions only once after ALL data loads (stats + widgets)
   // Store in ref to prevent re-initialization on subsequent renders
-  if (!gridOptionsRef.current && stats) {
+  if (!gridOptionsRef.current && stats && !widgetsLoading) {
     // Load saved layout from localStorage
     const loadLayout = () => {
       if (typeof window === 'undefined') return null;
@@ -176,7 +235,7 @@ export default function DashboardOverview() {
 
     const savedLayout = loadLayout();
 
-    // Define base children
+    // Define base children (standard dashboard widgets)
     const baseChildren = [
       {
         id: 'total-developers',
@@ -254,9 +313,56 @@ export default function DashboardOverview() {
       },
     ];
 
+    // Add plugin widgets to children
+    // Plugin widgets are rendered using their own components (StatWidget, ListWidget, etc.)
+    const pluginWidgetChildren = widgets.map((widget) => {
+      const data = widgetData[widget.id];
+      if (!data) {
+        // Widget data not loaded yet, skip
+        return null;
+      }
+
+      // Determine widget component name based on type
+      const componentName =
+        data.type === 'stat' ? 'StatWidget' :
+        data.type === 'list' ? 'ListWidget' :
+        data.type === 'timeseries' ? 'TimeseriesWidget' :
+        data.type === 'table' ? 'TableWidget' :
+        data.type === 'card' ? 'CardWidget' :
+        null;
+
+      if (!componentName) {
+        console.warn(`Unknown widget type: ${data.type}`);
+        return null;
+      }
+
+      // Default sizes based on widget type to match standard widgets
+      // stat: 3 height to match standard StatCard (Total Developers, etc.)
+      // list: 5 height for list items
+      // timeseries/table: 6 height for charts and tables
+      // card: 4 height for card content
+      const defaultWidth = data.type === 'timeseries' ? 12 : data.type === 'table' ? 12 : 4;
+      const defaultHeight = data.type === 'timeseries' ? 6 : data.type === 'table' ? 6 : data.type === 'list' ? 5 : data.type === 'stat' ? 3 : 4;
+
+      return {
+        id: `plugin-${widget.id}`,
+        w: defaultWidth,
+        h: defaultHeight,
+        content: JSON.stringify({
+          name: componentName,
+          props: {
+            data,
+          },
+        }),
+      };
+    }).filter((child): child is NonNullable<typeof child> => child !== null); // Remove null entries and type guard
+
+    // Merge standard and plugin widgets
+    const allChildren = [...baseChildren, ...pluginWidgetChildren];
+
     // Apply saved layout if available
     const children = savedLayout
-      ? baseChildren.map((child) => {
+      ? allChildren.map((child) => {
           const saved = savedLayout[child.id || ''];
           if (saved) {
             return {
@@ -269,7 +375,7 @@ export default function DashboardOverview() {
           }
           return child;
         })
-      : baseChildren;
+      : allChildren;
 
     gridOptionsRef.current = {
       column: 12,
@@ -300,7 +406,7 @@ export default function DashboardOverview() {
         </p>
       </div>
 
-      {/* GridStack Dashboard */}
+      {/* GridStack Dashboard - Includes both standard and plugin widgets */}
       <GridStackProvider initialOptions={gridOptions}>
         <GridStackRenderProvider>
           <GridStackRender componentMap={COMPONENT_MAP} />
