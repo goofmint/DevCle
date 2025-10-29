@@ -1,7 +1,7 @@
 /**
  * Runs Table Component
  *
- * Displays a table of plugin runs with sortable columns.
+ * Displays a table of plugin runs.
  * Shows job name, status, timestamps, duration, events processed, and actions.
  */
 
@@ -35,7 +35,7 @@ interface RunsTableProps {
  * Runs Table Component
  *
  * Renders a responsive table of plugin runs.
- * Each row is clickable to view details.
+ * Use the "View Details" action to open the run detail modal.
  *
  * @param runs - List of runs to display
  * @param onViewDetails - Handler for viewing run details
@@ -97,6 +97,7 @@ export function RunsTable({ runs, onViewDetails }: RunsTableProps) {
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm">
                   <button
+                    type="button"
                     onClick={() => onViewDetails(run)}
                     className="text-blue-600 dark:text-blue-400 hover:underline"
                     data-testid={`view-details-${run.runId}`}

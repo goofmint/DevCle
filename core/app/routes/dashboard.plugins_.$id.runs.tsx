@@ -13,7 +13,7 @@
  * - Dark mode support
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useParams, Link, useSearchParams } from '@remix-run/react';
 import { Icon } from '@iconify/react';
 import { SummaryCard } from '~/components/plugins/summary-card.js';
@@ -67,11 +67,25 @@ export default function PluginRunsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedRun, setSelectedRun] = useState<PluginRun | null>(null);
+  const [localJobName, setLocalJobName] = useState('');
+  const jobNameInputRef = useRef<HTMLInputElement>(null);
 
   const status = searchParams.get('status') || undefined;
   const jobName = searchParams.get('jobName') || undefined;
-  const page = parseInt(searchParams.get('page') || '1', 10);
+  const parsedPage = parseInt(searchParams.get('page') || '1', 10);
+  const page = Number.isNaN(parsedPage) || parsedPage < 1 ? 1 : parsedPage;
   const limit = 20;
+
+  // Normalize runs data (must be at top level, before any early returns)
+  const totalPages = useMemo(() =>
+    data ? Math.ceil(data.total / limit) : 0,
+    [data, limit]
+  );
+
+  // Sync local input with URL param
+  useEffect(() => {
+    setLocalJobName(jobName || '');
+  }, [jobName]);
 
   // Fetch runs data from API
   useEffect(() => {
@@ -169,7 +183,6 @@ export default function PluginRunsPage() {
   }
 
   const { runs, total, summary } = data;
-  const totalPages = Math.ceil(total / limit);
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -256,13 +269,15 @@ export default function PluginRunsPage() {
         <div className="flex gap-2">
           <div className="relative flex-1 max-w-md">
             <input
+              ref={jobNameInputRef}
               type="text"
-              defaultValue={jobName || ''}
+              value={localJobName}
+              onChange={(e) => setLocalJobName(e.target.value)}
               placeholder="Filter by job name..."
               className="w-full px-4 py-2 pl-10 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
-                  handleJobNameFilterChange(e.currentTarget.value);
+                  handleJobNameFilterChange(localJobName);
                 }
               }}
               data-testid="job-name-filter-input"
@@ -273,10 +288,10 @@ export default function PluginRunsPage() {
             />
           </div>
           <button
-            onClick={(e) => {
-              const input = e.currentTarget.previousElementSibling?.querySelector('input');
-              if (input) {
-                handleJobNameFilterChange(input.value);
+            type="button"
+            onClick={() => {
+              if (jobNameInputRef.current) {
+                handleJobNameFilterChange(jobNameInputRef.current.value);
               }
             }}
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
@@ -286,6 +301,7 @@ export default function PluginRunsPage() {
           </button>
           {jobName && (
             <button
+              type="button"
               onClick={() => handleJobNameFilterChange('')}
               className="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition-colors"
               data-testid="job-name-filter-clear"
