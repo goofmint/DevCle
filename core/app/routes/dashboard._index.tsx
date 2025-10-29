@@ -95,10 +95,16 @@ function StatCardWrapper(props: Parameters<typeof StatCard>[0] & { icon: string 
  * Component Map
  *
  * Maps component names to actual components for GridStack rendering.
+ * Includes both standard dashboard widgets and plugin widgets.
  */
 const COMPONENT_MAP: ComponentMap = {
   StatCard: StatCardWrapper,
   ActivityChart,
+  StatWidget,
+  ListWidget,
+  TimeseriesWidget,
+  TableWidget,
+  CardWidget,
 };
 
 
@@ -212,9 +218,9 @@ export default function DashboardOverview() {
     );
   }
 
-  // Generate gridOptions only once after data loads
+  // Generate gridOptions only once after ALL data loads (stats + widgets)
   // Store in ref to prevent re-initialization on subsequent renders
-  if (!gridOptionsRef.current && stats) {
+  if (!gridOptionsRef.current && stats && !widgetsLoading) {
     // Load saved layout from localStorage
     const loadLayout = () => {
       if (typeof window === 'undefined') return null;
@@ -229,7 +235,7 @@ export default function DashboardOverview() {
 
     const savedLayout = loadLayout();
 
-    // Define base children
+    // Define base children (standard dashboard widgets)
     const baseChildren = [
       {
         id: 'total-developers',
@@ -307,9 +313,52 @@ export default function DashboardOverview() {
       },
     ];
 
+    // Add plugin widgets to children
+    // Plugin widgets are rendered using their own components (StatWidget, ListWidget, etc.)
+    const pluginWidgetChildren = widgets.map((widget) => {
+      const data = widgetData[widget.id];
+      if (!data) {
+        // Widget data not loaded yet, skip
+        return null;
+      }
+
+      // Determine widget component name based on type
+      const componentName =
+        data.type === 'stat' ? 'StatWidget' :
+        data.type === 'list' ? 'ListWidget' :
+        data.type === 'timeseries' ? 'TimeseriesWidget' :
+        data.type === 'table' ? 'TableWidget' :
+        data.type === 'card' ? 'CardWidget' :
+        null;
+
+      if (!componentName) {
+        console.warn(`Unknown widget type: ${data.type}`);
+        return null;
+      }
+
+      // Default sizes based on widget type
+      const defaultWidth = data.type === 'timeseries' ? 12 : data.type === 'table' ? 12 : 4;
+      const defaultHeight = data.type === 'timeseries' ? 6 : data.type === 'table' ? 6 : data.type === 'list' ? 5 : 3;
+
+      return {
+        id: `plugin-${widget.id}`,
+        w: defaultWidth,
+        h: defaultHeight,
+        content: JSON.stringify({
+          name: componentName,
+          props: {
+            data,
+          },
+        }),
+      };
+    }).filter((child): child is NonNullable<typeof child> => child !== null); // Remove null entries and type guard
+
+    // Merge standard and plugin widgets
+    const allChildren = [...baseChildren, ...pluginWidgetChildren];
+
     // Apply saved layout if available
     const children = savedLayout
-      ? baseChildren.map((child) => {
+      ? allChildren.map((child) => {
           const saved = savedLayout[child.id || ''];
           if (saved) {
             return {
@@ -322,7 +371,7 @@ export default function DashboardOverview() {
           }
           return child;
         })
-      : baseChildren;
+      : allChildren;
 
     gridOptionsRef.current = {
       column: 12,
@@ -341,24 +390,6 @@ export default function DashboardOverview() {
     children: [],
   };
 
-  // Helper function to render widget by type
-  const renderWidget = (data: WidgetData) => {
-    switch (data.type) {
-      case 'stat':
-        return <StatWidget data={data} />;
-      case 'list':
-        return <ListWidget data={data} />;
-      case 'timeseries':
-        return <TimeseriesWidget data={data} />;
-      case 'table':
-        return <TableWidget data={data} />;
-      case 'card':
-        return <CardWidget data={data} />;
-      default:
-        return null;
-    }
-  };
-
   return (
     <div className="space-y-6">
       {/* Page Title */}
@@ -371,55 +402,12 @@ export default function DashboardOverview() {
         </p>
       </div>
 
-      {/* GridStack Dashboard */}
+      {/* GridStack Dashboard - Includes both standard and plugin widgets */}
       <GridStackProvider initialOptions={gridOptions}>
         <GridStackRenderProvider>
           <GridStackRender componentMap={COMPONENT_MAP} />
         </GridStackRenderProvider>
       </GridStackProvider>
-
-      {/* Plugin Widgets Section */}
-      {widgets.length > 0 && (
-        <div className="space-y-4">
-          <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-              Plugin Widgets
-            </h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-              Widgets provided by enabled plugins
-            </p>
-          </div>
-
-          {widgetsLoading ? (
-            <div className="text-center py-8">
-              <div className="text-gray-500 dark:text-gray-400">Loading widgets...</div>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {widgets.map((widget) => {
-                const data = widgetData[widget.id];
-                if (!data) {
-                  return (
-                    <div
-                      key={widget.id}
-                      className="p-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg"
-                    >
-                      <div className="text-gray-500 dark:text-gray-400">
-                        Loading {widget.title}...
-                      </div>
-                    </div>
-                  );
-                }
-                return (
-                  <div key={widget.id} className="widget-container">
-                    {renderWidget(data)}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }

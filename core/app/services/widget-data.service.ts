@@ -199,9 +199,6 @@ async function fetchTimeseriesData(
   const agg = dataSource.aggregation;
   const bucket = agg.bucket || 'day';
 
-  // Build time bucket expression (PostgreSQL date_trunc)
-  const timeBucketExpr = sql`date_trunc(${bucket}, ${table.occurredAt})`;
-
   // Build aggregation expression
   let aggregationExpr: SQL;
   switch (agg.op) {
@@ -219,16 +216,16 @@ async function fetchTimeseriesData(
       throw new Error(`Unsupported timeseries aggregation: ${agg.op}`);
   }
 
-  // Execute query with GROUP BY
+  // Execute query with GROUP BY - use raw SQL for date_trunc to avoid Drizzle issues
   const result = await tx
     .select({
-      bucket: timeBucketExpr,
+      bucket: sql`date_trunc(${bucket}, ${table.occurredAt})`.as('bucket'),
       value: aggregationExpr,
     })
     .from(table)
     .where(and(eq(table.tenantId, tenantId), ...filters))
-    .groupBy(timeBucketExpr)
-    .orderBy(asc(timeBucketExpr));
+    .groupBy(sql`date_trunc(${bucket}, ${table.occurredAt})`)
+    .orderBy(asc(sql`date_trunc(${bucket}, ${table.occurredAt})`));
 
   // Convert to timeseries format
   const points: Array<[string, number]> = result.map((row: any) => [
