@@ -34,6 +34,12 @@ import {
 } from '~/lib/gridstack';
 import { StatCard } from '~/components/dashboard/StatCard';
 import { ActivityChart } from '~/components/dashboard/ActivityChart';
+import { StatWidget } from '~/components/widgets/StatWidget';
+import { ListWidget } from '~/components/widgets/ListWidget';
+import { TimeseriesWidget } from '~/components/widgets/TimeseriesWidget';
+import { TableWidget } from '~/components/widgets/TableWidget';
+import { CardWidget } from '~/components/widgets/CardWidget';
+import type { WidgetData } from '~/types/widget-api';
 import 'gridstack/dist/gridstack.css';
 
 /**
@@ -110,6 +116,11 @@ export default function DashboardOverview() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Widget state
+  const [widgets, setWidgets] = useState<Array<{ id: string; title: string; type: string }>>([]);
+  const [widgetData, setWidgetData] = useState<Record<string, WidgetData>>({});
+  const [widgetsLoading, setWidgetsLoading] = useState(true);
+
   // Use ref to store gridOptions and only generate once after data loads
   const gridOptionsRef = useRef<GridStackOptions | null>(null);
 
@@ -139,6 +150,48 @@ export default function DashboardOverview() {
     }
 
     fetchData();
+  }, []);
+
+  // Fetch plugin widgets
+  useEffect(() => {
+    async function fetchWidgets() {
+      try {
+        // Fetch available widgets
+        const widgetsResponse = await fetch('/api/widgets');
+        if (!widgetsResponse.ok) {
+          throw new Error('Failed to fetch widgets');
+        }
+
+        const widgetsData = await widgetsResponse.json();
+        setWidgets(widgetsData.widgets || []);
+
+        // Fetch data for each widget
+        const dataPromises = (widgetsData.widgets || []).map(async (widget: { id: string }) => {
+          const dataResponse = await fetch(`/api/widgets/${widget.id}/data`);
+          if (!dataResponse.ok) {
+            console.error(`Failed to fetch data for widget ${widget.id}`);
+            return null;
+          }
+          const data = await dataResponse.json();
+          return { id: widget.id, data };
+        });
+
+        const results = await Promise.all(dataPromises);
+        const dataMap: Record<string, WidgetData> = {};
+        for (const result of results) {
+          if (result) {
+            dataMap[result.id] = result.data;
+          }
+        }
+        setWidgetData(dataMap);
+      } catch (err) {
+        console.error('Failed to load widgets:', err);
+      } finally {
+        setWidgetsLoading(false);
+      }
+    }
+
+    fetchWidgets();
   }, []);
 
   // Loading state
@@ -288,6 +341,24 @@ export default function DashboardOverview() {
     children: [],
   };
 
+  // Helper function to render widget by type
+  const renderWidget = (data: WidgetData) => {
+    switch (data.type) {
+      case 'stat':
+        return <StatWidget data={data} />;
+      case 'list':
+        return <ListWidget data={data} />;
+      case 'timeseries':
+        return <TimeseriesWidget data={data} />;
+      case 'table':
+        return <TableWidget data={data} />;
+      case 'card':
+        return <CardWidget data={data} />;
+      default:
+        return null;
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Page Title */}
@@ -306,6 +377,49 @@ export default function DashboardOverview() {
           <GridStackRender componentMap={COMPONENT_MAP} />
         </GridStackRenderProvider>
       </GridStackProvider>
+
+      {/* Plugin Widgets Section */}
+      {widgets.length > 0 && (
+        <div className="space-y-4">
+          <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+              Plugin Widgets
+            </h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+              Widgets provided by enabled plugins
+            </p>
+          </div>
+
+          {widgetsLoading ? (
+            <div className="text-center py-8">
+              <div className="text-gray-500 dark:text-gray-400">Loading widgets...</div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {widgets.map((widget) => {
+                const data = widgetData[widget.id];
+                if (!data) {
+                  return (
+                    <div
+                      key={widget.id}
+                      className="p-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg"
+                    >
+                      <div className="text-gray-500 dark:text-gray-400">
+                        Loading {widget.title}...
+                      </div>
+                    </div>
+                  );
+                }
+                return (
+                  <div key={widget.id} className="widget-container">
+                    {renderWidget(data)}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
