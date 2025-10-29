@@ -21,28 +21,53 @@
 
 ## 1. plugin.json の widgets フィールド
 
-プラグインは `plugin.json` で以下のようにウィジェットを宣言します：
+プラグインは `plugin.json` で以下のように**ウィジェットとデータソースを宣言的に定義**します：
 
 ```json
 {
   "widgets": [
     {
-      "key": "dashboard.timeseries",
-      "type": "timeseries",
-      "title": "Contributions (30d)",
-      "version": "1.0"
-    },
-    {
       "key": "stats.signups",
       "type": "stat",
       "title": "Signups (today)",
-      "version": "1.0"
+      "version": "1.0",
+      "dataSource": {
+        "entity": "developers",
+        "aggregation": {
+          "op": "count",
+          "filter": {
+            "createdAt": { "gte": "today" }
+          }
+        }
+      }
     },
     {
-      "key": "roi.table",
+      "key": "dashboard.activities",
+      "type": "timeseries",
+      "title": "Activities (30d)",
+      "version": "1.0",
+      "dataSource": {
+        "entity": "activities",
+        "aggregation": {
+          "op": "count",
+          "bucket": "day",
+          "filter": {
+            "ts": { "gte": "30d" }
+          }
+        }
+      }
+    },
+    {
+      "key": "roi.campaigns",
       "type": "table",
       "title": "Top ROI Campaigns",
-      "version": "1.0"
+      "version": "1.0",
+      "dataSource": {
+        "entity": "campaigns",
+        "columns": ["name", "clicks", "conversions", "roi"],
+        "sort": { "key": "roi", "dir": "desc" },
+        "limit": 10
+      }
     }
   ]
 }
@@ -50,12 +75,24 @@
 
 ### フィールド定義
 
-| フィールド | 型     | 必須 | 説明                                                      |
-| ---------- | ------ | ---- | --------------------------------------------------------- |
-| `key`      | string | ✓    | ウィジェットの一意なキー（プラグイン内でユニーク）       |
-| `type`     | string | ✓    | ウィジェット型（`stat`, `table`, `timeseries`など）       |
-| `title`    | string | ✓    | ウィジェットのタイトル                                    |
-| `version`  | string | ✓    | ウィジェットのデータスキーマバージョン（例: `"1.0"`）    |
+| フィールド   | 型     | 必須 | 説明                                                      |
+| ------------ | ------ | ---- | --------------------------------------------------------- |
+| `key`        | string | ✓    | ウィジェットの一意なキー（プラグイン内でユニーク）       |
+| `type`       | string | ✓    | ウィジェット型（`stat`, `table`, `timeseries`など）       |
+| `title`      | string | ✓    | ウィジェットのタイトル                                    |
+| `version`    | string | ✓    | ウィジェットのデータスキーマバージョン（例: `"1.0"`）    |
+| `dataSource` | object | ✓    | データソース定義（コア側がクエリを実行）                  |
+
+### dataSource フィールド
+
+| フィールド    | 型     | 必須 | 説明                                                      |
+| ------------- | ------ | ---- | --------------------------------------------------------- |
+| `entity`      | string | ✓    | データソースのエンティティ（`developers`, `activities`, `campaigns`など） |
+| `aggregation` | object |      | 集計定義（`count`, `sum`, `avg`など）                     |
+| `columns`     | array  |      | テーブル表示用のカラムリスト                              |
+| `filter`      | object |      | フィルタ条件（`createdAt`, `ts`など）                     |
+| `sort`        | object |      | ソート条件                                                |
+| `limit`       | number |      | 取得件数制限                                              |
 
 ---
 
@@ -166,14 +203,16 @@ interface CardWidgetData {
 
 ---
 
-## 3. ウィジェットデータ取得 API
+## 3. ウィジェットデータ取得 API（コア側で実装）
 
-### 3.1 ウィジェット一覧取得
+### 3.1 全ウィジェット一覧取得
 
 ```typescript
-// GET /api/plugins/:id/widgets
-interface GetPluginWidgetsResponse {
+// GET /api/widgets
+interface GetWidgetsResponse {
   widgets: Array<{
+    id: string; // "plugin-123:stats.signups"
+    pluginId: string;
     key: string;
     type: string;
     title: string;
@@ -182,35 +221,11 @@ interface GetPluginWidgetsResponse {
 }
 ```
 
-### 3.2 ウィジェットデータ取得
+### 3.2 特定ウィジェットのデータ取得
 
 ```typescript
-// POST /api/plugins/:id/widgets/:key
-interface GetWidgetDataRequest {
-  tenantId: string;
-  filters?: {
-    since?: string; // "2025-09-15/2025-10-14"
-    timezone?: string; // "Asia/Tokyo"
-    [key: string]: unknown;
-  };
-  paging?: {
-    limit: number;
-    offset: number;
-  };
-  sort?: {
-    key: string;
-    dir: "asc" | "desc";
-  };
-  aggregation?: {
-    metric: string; // "activities"
-    filter?: Record<string, unknown>; // { "action": "click" }
-    op: "count" | "sum" | "avg" | "min" | "max";
-    bucket?: "hour" | "day" | "week" | "month";
-    cumulative?: boolean;
-  };
-}
-
-type GetWidgetDataResponse =
+// GET /api/widgets/:widgetId/data
+interface GetWidgetDataResponse =
   | StatWidgetData
   | TableWidgetData
   | TimeseriesWidgetData
@@ -218,11 +233,12 @@ type GetWidgetDataResponse =
   | CardWidgetData;
 ```
 
-**実装注意点:**
+**実装方針:**
 
-- プラグインは `POST /plugins/:id/widgets/:key` エンドポイントを実装する
-- コア側は `plugin.json` の `routes` に該当するルート定義があるか確認する
-- 認証は `auth: "plugin"` (短寿命JWT) を使用
+- コア側が `plugin.json` の `dataSource` 定義を読み取る
+- コア側で Drizzle ORM を使ってクエリを実行
+- プラグイン側のエンドポイント実装は不要（declarative）
+- データ取得ロジックはすべて `app/services/widget-data.service.ts` で実装
 
 ---
 
@@ -249,13 +265,14 @@ export default function DashboardOverviewPage() {
   // ウィジェット一覧を取得
   useEffect(() => {
     // 1. ユーザー設定から配置情報を取得
-    // 2. 各プラグインの GET /api/plugins/:id/widgets を呼んで利用可能なウィジェットを取得
+    // 2. GET /api/widgets を呼んで利用可能なウィジェット一覧を取得
     // 3. widgetsステートに設定
   }, []);
 
   // 各ウィジェットのデータを取得
   useEffect(() => {
-    // widgets配列を元に POST /api/plugins/:id/widgets/:key を呼んでデータを取得
+    // widgets配列を元に GET /api/widgets/:widgetId/data を呼んでデータを取得
+    // コア側が plugin.json の dataSource 定義を読み取ってクエリを実行
     // widgetDataステートに設定
   }, [widgets]);
 
@@ -479,20 +496,17 @@ interface WidgetLayoutSettings {
 
 ## 7. API定義
 
-### 7.1 ウィジェット一覧取得API
+### 7.1 全ウィジェット一覧取得API
 
 ```typescript
-// app/routes/api.plugins.$id.widgets.ts
+// app/routes/api.widgets.ts
 
-export async function loader({ params, request }: LoaderFunctionArgs) {
-  // プラグインIDを取得
-  const pluginId = params.id;
-
+export async function loader({ request }: LoaderFunctionArgs) {
   // 認証チェック
   const user = await requireAuth(request);
 
-  // プラグインのwidgets定義を取得（plugin.jsonから）
-  const widgets = await getPluginWidgets(pluginId);
+  // 全プラグインの widgets 定義を取得（plugin.jsonから）
+  const widgets = await listAllWidgets(user.tenantId);
 
   return json({ widgets });
 }
@@ -501,26 +515,23 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
 ### 7.2 ウィジェットデータ取得API
 
 ```typescript
-// app/routes/api.plugins.$id.widgets.$key.ts
+// app/routes/api.widgets.$widgetId.data.ts
 
-export async function action({ params, request }: ActionFunctionArgs) {
-  // プラグインIDとウィジェットキーを取得
-  const pluginId = params.id;
-  const widgetKey = params.key;
-
+export async function loader({ params, request }: LoaderFunctionArgs) {
   // 認証チェック
   const user = await requireAuth(request);
 
-  // リクエストボディを取得
-  const requestData: GetWidgetDataRequest = await request.json();
+  // widgetId をパース（形式: "pluginId:widgetKey"）
+  const [pluginId, widgetKey] = params.widgetId!.split(':');
 
-  // プラグインのウィジェットエンドポイントを呼び出す
-  // POST /plugins/:id/widgets/:key
-  const widgetData = await fetchPluginWidgetData(
-    pluginId,
-    widgetKey,
+  // プラグインの dataSource 定義を取得
+  const widgetDef = await getWidgetDefinition(pluginId, widgetKey);
+
+  // コア側で dataSource に基づいてクエリを実行
+  const widgetData = await fetchWidgetData(
     user.tenantId,
-    requestData
+    widgetDef.dataSource,
+    widgetDef.type
   );
 
   return json(widgetData);
@@ -617,11 +628,118 @@ export function TimeseriesWidget({ data }: TimeseriesWidgetProps) {
 
 ---
 
-## 9. セキュリティとバリデーション
+## 9. データ取得サービスの実装
 
-### 9.1 ウィジェットデータのバリデーション
+### 9.1 ウィジェットデータサービス
 
-プラグインから返されたウィジェットデータは、JSON Schemaで検証します。
+```typescript
+// app/services/widget-data.service.ts
+
+import { withTenantContext } from '../../db/connection.js';
+import * as schema from '../../db/schema/index.js';
+import { eq, gte, lte, and, count, sum, avg } from 'drizzle-orm';
+
+interface DataSourceDefinition {
+  entity: string;
+  aggregation?: {
+    op: 'count' | 'sum' | 'avg' | 'min' | 'max';
+    field?: string;
+    filter?: Record<string, unknown>;
+    bucket?: 'hour' | 'day' | 'week' | 'month';
+  };
+  columns?: string[];
+  filter?: Record<string, unknown>;
+  sort?: { key: string; dir: 'asc' | 'desc' };
+  limit?: number;
+}
+
+/**
+ * ウィジェットデータを取得する
+ */
+export async function fetchWidgetData(
+  tenantId: string,
+  dataSource: DataSourceDefinition,
+  widgetType: string
+): Promise<unknown> {
+  return await withTenantContext(tenantId, async (tx) => {
+    // エンティティに応じたテーブルを選択
+    const table = getTableForEntity(dataSource.entity);
+
+    // フィルタ条件を構築
+    const filters = buildFilters(dataSource.filter);
+
+    // ウィジェット型に応じてデータを取得
+    if (widgetType === 'stat' && dataSource.aggregation) {
+      // 統計値を取得
+      const result = await tx
+        .select({ value: count() })
+        .from(table)
+        .where(and(eq(table.tenantId, tenantId), ...filters));
+
+      return {
+        version: '1.0',
+        type: 'stat',
+        title: '',
+        data: { value: result[0]?.value ?? 0 },
+      };
+    }
+
+    if (widgetType === 'timeseries' && dataSource.aggregation) {
+      // 時系列データを取得
+      // TODO: bucket に基づいてグループ化
+    }
+
+    if (widgetType === 'table') {
+      // テーブルデータを取得
+      const result = await tx
+        .select()
+        .from(table)
+        .where(and(eq(table.tenantId, tenantId), ...filters))
+        .limit(dataSource.limit ?? 100);
+
+      return {
+        version: '1.0',
+        type: 'table',
+        title: '',
+        data: {
+          columns: dataSource.columns?.map(key => ({ key, label: key })) ?? [],
+          rows: result,
+        },
+      };
+    }
+
+    throw new Error(`Unsupported widget type: ${widgetType}`);
+  });
+}
+
+/**
+ * エンティティ名からテーブルを取得
+ */
+function getTableForEntity(entity: string) {
+  switch (entity) {
+    case 'developers':
+      return schema.developers;
+    case 'activities':
+      return schema.activities;
+    case 'campaigns':
+      return schema.campaigns;
+    default:
+      throw new Error(`Unknown entity: ${entity}`);
+  }
+}
+
+/**
+ * フィルタ条件を構築
+ */
+function buildFilters(filter?: Record<string, unknown>) {
+  // TODO: filter オブジェクトを Drizzle の where 条件に変換
+  return [];
+}
+```
+
+### 9.2 セキュリティとバリデーション
+
+ウィジェットデータは JSON Schema で検証します。
 
 ```typescript
 // app/utils/widget-validator.ts
@@ -673,48 +791,33 @@ export function validateWidgetData(data: unknown): data is GetWidgetDataResponse
 }
 ```
 
-### 9.2 認証とテナント分離
+### 9.3 認証とテナント分離
 
-ウィジェットデータ取得時は必ず認証を行い、テナントIDを検証します。
+ウィジェットデータ取得時は必ず認証を行い、`withTenantContext()` でテナント分離を保証します。
 
 ```typescript
-// app/services/plugin-widget.service.ts
+// app/routes/api.widgets.$widgetId.data.ts
 
-export async function fetchPluginWidgetData(
-  pluginId: string,
-  widgetKey: string,
-  tenantId: string,
-  requestData: GetWidgetDataRequest
-): Promise<GetWidgetDataResponse> {
-  // プラグインのルート定義を確認
-  const route = await getPluginRoute(pluginId, 'POST', `/widgets/${widgetKey}`);
-  if (!route) {
-    throw new Error(`Widget route not found: ${widgetKey}`);
-  }
+export async function loader({ params, request }: LoaderFunctionArgs) {
+  // 認証チェック（必須）
+  const user = await requireAuth(request);
 
-  // 短寿命JWTを生成
-  const token = await generatePluginToken(pluginId, tenantId);
+  const [pluginId, widgetKey] = params.widgetId!.split(':');
 
-  // プラグインのエンドポイントを呼び出す
-  const response = await fetch(`/plugins/${pluginId}/widgets/${widgetKey}`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ ...requestData, tenantId }),
-  });
+  // プラグインの dataSource 定義を取得
+  const widgetDef = await getWidgetDefinition(pluginId, widgetKey);
 
-  if (!response.ok) {
-    throw new Error(`Failed to fetch widget data: ${response.statusText}`);
-  }
-
-  const data = await response.json();
+  // withTenantContext() でテナント分離を保証
+  const widgetData = await fetchWidgetData(
+    user.tenantId, // ユーザーのテナントIDを使用
+    widgetDef.dataSource,
+    widgetDef.type
+  );
 
   // データを検証
-  validateWidgetData(data);
+  validateWidgetData(widgetData);
 
-  return data;
+  return json(widgetData);
 }
 ```
 
@@ -730,9 +833,10 @@ export async function fetchPluginWidgetData(
 
 ### 10.2 統合テスト
 
-- `GET /api/plugins/:id/widgets` の一覧取得テスト
-- `POST /api/plugins/:id/widgets/:key` のデータ取得テスト
+- `GET /api/widgets` の一覧取得テスト
+- `GET /api/widgets/:widgetId/data` のデータ取得テスト
 - レイアウト保存API のテスト
+- `fetchWidgetData()` のテナント分離テスト
 
 ### 10.3 E2Eテスト
 
@@ -751,9 +855,9 @@ export async function fetchPluginWidgetData(
    - 基本的なウィジェットコンポーネント（`StatWidget`, `TableWidget`）
 
 2. **Phase 2**: データ取得API実装
-   - `GET /api/plugins/:id/widgets`
-   - `POST /api/plugins/:id/widgets/:key`
-   - プラグインウィジェットエンドポイントの呼び出し
+   - `GET /api/widgets`
+   - `GET /api/widgets/:widgetId/data`
+   - `fetchWidgetData()` サービスの実装（dataSource → Drizzle クエリ変換）
 
 3. **Phase 3**: Overviewページへの統合
    - ウィジェットコンテナの実装
@@ -769,22 +873,24 @@ export async function fetchPluginWidgetData(
 
 ## 12. 注意事項
 
-- ウィジェットは**プラグインのルーティング**を通じてデータを取得します（`plugin.json` の `routes` で定義）
+- ウィジェットのデータ取得は**コア側で完結**します（プラグインはdataSourceを宣言的に定義するのみ）
 - ウィジェットデータは必ずバリデーションを行い、不正なデータを受け入れないようにします
 - ユーザーごとにレイアウトを保存できるようにします（`user_preferences` テーブル）
 - ウィジェットの表示数が増えた場合のパフォーマンスを考慮し、キャッシングや lazy loading を検討します
 - `refreshHintSec` を尊重してウィジェットデータのキャッシュを実装します
+- **外部API連携**: プラグインがGitHub API等からデータを取得する場合、ジョブ機能で`activities`テーブル等に保存し、ウィジェットはそのコアテーブルを参照します
 
 ---
 
 ## 完了条件
 
-- [ ] プラグインのウィジェット定義を `plugin.json` から読み込める
-- [ ] ウィジェット一覧取得API が実装されている（`GET /api/plugins/:id/widgets`）
-- [ ] ウィジェットデータ取得API が実装されている（`POST /api/plugins/:id/widgets/:key`）
+- [ ] プラグインのウィジェット定義（dataSource含む）を `plugin.json` から読み込める
+- [ ] ウィジェット一覧取得API が実装されている（`GET /api/widgets`）
+- [ ] ウィジェットデータ取得API が実装されている（`GET /api/widgets/:widgetId/data`）
+- [ ] `fetchWidgetData()` サービスが dataSource 定義を Drizzle クエリに変換できる
 - [ ] Overview ページにウィジェットが表示される
 - [ ] Swapyでウィジェットのドラッグ&ドロップができる
-- [ ] ウィジェットレイアウトがユーザーごとに保存される
+- [ ] ウィジェットレイアウトがユーザーごとに保存される（`user_preferences` テーブル）
 - [ ] ページリロード後もレイアウトが保持される
 - [ ] E2Eテストが全てパスする
 
