@@ -3,12 +3,28 @@
  *
  * Displays execution history for plugin jobs with filtering and pagination.
  * Shows run status, timestamps, events processed, and error messages.
+ *
+ * Features:
+ * - Status filter (pending/running/success/failed)
+ * - Job name filter
+ * - Pagination
+ * - Run details modal
+ * - Summary statistics
+ * - Dark mode support
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useParams, Link, useSearchParams } from '@remix-run/react';
 import { Icon } from '@iconify/react';
+import { SummaryCard } from '~/components/plugins/summary-card.js';
+import { FilterButton } from '~/components/plugins/filter-button.js';
+import { RunDetailModal } from '~/components/plugins/run-detail-modal.js';
+import { RunsTable } from '~/components/plugins/runs-table.js';
+import { RunsPagination } from '~/components/plugins/runs-pagination.js';
 
+/**
+ * Plugin run record from database
+ */
 interface PluginRun {
   runId: string;
   jobName: string;
@@ -19,6 +35,9 @@ interface PluginRun {
   errorMessage: string | null;
 }
 
+/**
+ * Aggregated statistics for all runs
+ */
 interface RunSummary {
   total: number;
   success: number;
@@ -29,12 +48,18 @@ interface RunSummary {
   avgDuration: number;
 }
 
+/**
+ * API response structure
+ */
 interface RunsData {
   runs: PluginRun[];
   total: number;
   summary: RunSummary;
 }
 
+/**
+ * Main component
+ */
 export default function PluginRunsPage() {
   const { id } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -42,17 +67,34 @@ export default function PluginRunsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedRun, setSelectedRun] = useState<PluginRun | null>(null);
+  const [localJobName, setLocalJobName] = useState('');
+  const jobNameInputRef = useRef<HTMLInputElement>(null);
 
   const status = searchParams.get('status') || undefined;
-  const page = parseInt(searchParams.get('page') || '1', 10);
+  const jobName = searchParams.get('jobName') || undefined;
+  const parsedPage = parseInt(searchParams.get('page') || '1', 10);
+  const page = Number.isNaN(parsedPage) || parsedPage < 1 ? 1 : parsedPage;
   const limit = 20;
 
+  // Normalize runs data (must be at top level, before any early returns)
+  const totalPages = useMemo(() =>
+    data ? Math.ceil(data.total / limit) : 0,
+    [data, limit]
+  );
+
+  // Sync local input with URL param
+  useEffect(() => {
+    setLocalJobName(jobName || '');
+  }, [jobName]);
+
+  // Fetch runs data from API
   useEffect(() => {
     if (!id) return;
 
     setLoading(true);
     const params = new URLSearchParams();
     if (status) params.set('status', status);
+    if (jobName) params.set('jobName', jobName);
     params.set('offset', String((page - 1) * limit));
     params.set('limit', String(limit));
 
@@ -70,9 +112,12 @@ export default function PluginRunsPage() {
         setError(err.message || 'Failed to load runs');
       })
       .finally(() => setLoading(false));
-  }, [id, status, page]);
+  }, [id, status, jobName, page]);
 
-  const handleFilterChange = (newStatus: string | null) => {
+  /**
+   * Update status filter and reset to page 1
+   */
+  const handleStatusFilterChange = (newStatus: string | null) => {
     const newParams = new URLSearchParams(searchParams);
     if (newStatus) {
       newParams.set('status', newStatus);
@@ -83,6 +128,21 @@ export default function PluginRunsPage() {
     setSearchParams(newParams);
   };
 
+  /**
+   * Update job name filter and reset to page 1
+   */
+  const handleJobNameFilterChange = (newJobName: string) => {
+    const newParams = new URLSearchParams(searchParams);
+    if (newJobName.trim()) {
+      newParams.set('jobName', newJobName.trim());
+    } else {
+      newParams.delete('jobName');
+    }
+    newParams.set('page', '1'); // Reset to page 1
+    setSearchParams(newParams);
+  };
+
+  // Loading state
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -91,6 +151,7 @@ export default function PluginRunsPage() {
     );
   }
 
+  // Error state
   if (error) {
     return (
       <div className="p-4">
@@ -112,6 +173,7 @@ export default function PluginRunsPage() {
     );
   }
 
+  // No data state
   if (!data) {
     return (
       <div className="p-4">
@@ -121,7 +183,6 @@ export default function PluginRunsPage() {
   }
 
   const { runs, total, summary } = data;
-  const totalPages = Math.ceil(total / limit);
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -174,265 +235,105 @@ export default function PluginRunsPage() {
       </div>
 
       {/* Filters */}
-      <div className="mb-4 flex gap-2">
-        <FilterButton
-          label="All"
-          active={!status}
-          onClick={() => handleFilterChange(null)}
-        />
-        <FilterButton
-          label="Success"
-          active={status === 'success'}
-          onClick={() => handleFilterChange('success')}
-        />
-        <FilterButton
-          label="Failed"
-          active={status === 'failed'}
-          onClick={() => handleFilterChange('failed')}
-        />
-        <FilterButton
-          label="Running"
-          active={status === 'running'}
-          onClick={() => handleFilterChange('running')}
-        />
-        <FilterButton
-          label="Pending"
-          active={status === 'pending'}
-          onClick={() => handleFilterChange('pending')}
-        />
+      <div className="mb-4 space-y-4">
+        {/* Status Filters */}
+        <div className="flex flex-wrap gap-2">
+          <FilterButton
+            label="All"
+            active={!status}
+            onClick={() => handleStatusFilterChange(null)}
+          />
+          <FilterButton
+            label="Success"
+            active={status === 'success'}
+            onClick={() => handleStatusFilterChange('success')}
+          />
+          <FilterButton
+            label="Failed"
+            active={status === 'failed'}
+            onClick={() => handleStatusFilterChange('failed')}
+          />
+          <FilterButton
+            label="Running"
+            active={status === 'running'}
+            onClick={() => handleStatusFilterChange('running')}
+          />
+          <FilterButton
+            label="Pending"
+            active={status === 'pending'}
+            onClick={() => handleStatusFilterChange('pending')}
+          />
+        </div>
+
+        {/* Job Name Filter */}
+        <div className="flex gap-2">
+          <div className="relative flex-1 max-w-md">
+            <input
+              ref={jobNameInputRef}
+              type="text"
+              value={localJobName}
+              onChange={(e) => setLocalJobName(e.target.value)}
+              placeholder="Filter by job name..."
+              className="w-full px-4 py-2 pl-10 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handleJobNameFilterChange(localJobName);
+                }
+              }}
+              data-testid="job-name-filter-input"
+            />
+            <Icon
+              icon="mdi:magnify"
+              className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              if (jobNameInputRef.current) {
+                handleJobNameFilterChange(jobNameInputRef.current.value);
+              }
+            }}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+            data-testid="job-name-filter-button"
+          >
+            <Icon icon="mdi:magnify" className="w-5 h-5" />
+          </button>
+          {jobName && (
+            <button
+              type="button"
+              onClick={() => handleJobNameFilterChange('')}
+              className="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition-colors"
+              data-testid="job-name-filter-clear"
+            >
+              <Icon icon="mdi:close" className="w-5 h-5" />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Runs Table */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-          <thead className="bg-gray-50 dark:bg-gray-900">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Job
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Status
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Started
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Duration
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Events
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-            {runs.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
-                  No runs found
-                </td>
-              </tr>
-            ) : (
-              runs.map((run) => (
-                <tr key={run.runId} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
-                    {run.jobName}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <StatusBadge status={run.status} />
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
-                    {new Date(run.startedAt).toLocaleString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
-                    {run.completedAt
-                      ? formatDuration(
-                          new Date(run.completedAt).getTime() - new Date(run.startedAt).getTime()
-                        )
-                      : '-'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
-                    {run.eventsProcessed}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    <button
-                      onClick={() => setSelectedRun(run)}
-                      className="text-blue-600 dark:text-blue-400 hover:underline"
-                    >
-                      View Details
-                    </button>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      <RunsTable runs={runs} onViewDetails={setSelectedRun} />
 
       {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="mt-4 flex items-center justify-between">
-          <div className="text-sm text-gray-600 dark:text-gray-400">
-            Page {page} of {totalPages} ({total} total runs)
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => {
-                const newParams = new URLSearchParams(searchParams);
-                newParams.set('page', String(page - 1));
-                setSearchParams(newParams);
-              }}
-              disabled={page === 1}
-              className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Previous
-            </button>
-            <button
-              onClick={() => {
-                const newParams = new URLSearchParams(searchParams);
-                newParams.set('page', String(page + 1));
-                setSearchParams(newParams);
-              }}
-              disabled={page === totalPages}
-              className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Next
-            </button>
-          </div>
-        </div>
-      )}
+      <RunsPagination
+        page={page}
+        totalPages={totalPages}
+        total={total}
+        onPrevious={() => {
+          const newParams = new URLSearchParams(searchParams);
+          newParams.set('page', String(page - 1));
+          setSearchParams(newParams);
+        }}
+        onNext={() => {
+          const newParams = new URLSearchParams(searchParams);
+          newParams.set('page', String(page + 1));
+          setSearchParams(newParams);
+        }}
+      />
 
       {/* Details Modal */}
-      {selectedRun && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
-          onClick={() => setSelectedRun(null)}
-        >
-          <div
-            className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-start justify-between mb-4">
-              <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-                Run Details
-              </h3>
-              <button
-                onClick={() => setSelectedRun(null)}
-                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-              >
-                <Icon icon="mdi:close" className="w-6 h-6" />
-              </button>
-            </div>
-            <div className="space-y-3 text-sm">
-              <DetailRow label="Run ID" value={selectedRun.runId} mono />
-              <DetailRow label="Job Name" value={selectedRun.jobName} />
-              <DetailRow label="Status" value={<StatusBadge status={selectedRun.status} />} />
-              <DetailRow label="Started At" value={new Date(selectedRun.startedAt).toLocaleString()} />
-              <DetailRow
-                label="Completed At"
-                value={selectedRun.completedAt ? new Date(selectedRun.completedAt).toLocaleString() : 'Not completed'}
-              />
-              <DetailRow label="Events Processed" value={String(selectedRun.eventsProcessed)} />
-              {selectedRun.errorMessage && (
-                <DetailRow label="Error Message" value={selectedRun.errorMessage} error />
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      {selectedRun && <RunDetailModal run={selectedRun} onClose={() => setSelectedRun(null)} />}
     </div>
   );
-}
-
-function SummaryCard({
-  label,
-  value,
-  icon,
-  color,
-}: {
-  label: string;
-  value: number;
-  icon: string;
-  color: string;
-}) {
-  const colorClasses = {
-    gray: 'text-gray-600 dark:text-gray-400',
-    green: 'text-green-600 dark:text-green-400',
-    red: 'text-red-600 dark:text-red-400',
-    blue: 'text-blue-600 dark:text-blue-400',
-    purple: 'text-purple-600 dark:text-purple-400',
-  };
-
-  return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-      <div className="flex items-center gap-2 mb-2">
-        <Icon icon={icon} className={`w-5 h-5 ${colorClasses[color as keyof typeof colorClasses]}`} />
-        <span className="text-sm text-gray-600 dark:text-gray-400">{label}</span>
-      </div>
-      <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">{value}</div>
-    </div>
-  );
-}
-
-function FilterButton({
-  label,
-  active,
-  onClick,
-}: {
-  label: string;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`px-4 py-2 rounded ${
-        active
-          ? 'bg-blue-600 text-white'
-          : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-      }`}
-    >
-      {label}
-    </button>
-  );
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const colors = {
-    pending: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
-    running: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
-    success: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
-    failed: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',
-  };
-
-  return (
-    <span className={`px-2 py-1 rounded text-xs font-semibold ${colors[status as keyof typeof colors]}`}>
-      {status}
-    </span>
-  );
-}
-
-function DetailRow({ label, value, mono = false, error = false }: { label: string; value: React.ReactNode; mono?: boolean; error?: boolean }) {
-  return (
-    <div className="flex gap-4">
-      <span className="font-semibold text-gray-700 dark:text-gray-300 w-32 flex-shrink-0">
-        {label}:
-      </span>
-      <span className={`flex-1 ${mono ? 'font-mono text-xs' : ''} ${error ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-gray-100'}`}>
-        {value}
-      </span>
-    </div>
-  );
-}
-
-function formatDuration(ms: number): string {
-  const seconds = Math.floor(ms / 1000);
-  const minutes = Math.floor(seconds / 60);
-  const hours = Math.floor(minutes / 60);
-
-  if (hours > 0) return `${hours}h ${minutes % 60}m`;
-  if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
-  return `${seconds}s`;
 }

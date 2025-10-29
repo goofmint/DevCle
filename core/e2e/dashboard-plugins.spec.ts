@@ -109,17 +109,39 @@ test('plugin cards show name, status, and dates', async ({ page }) => {
   const pluginNameText = await pluginNameLink.textContent();
   expect(pluginNameText).toBeTruthy();
 
-  // Optional settings link (enabled plugins with settings)
-  const settingsLink = firstCard.locator('a[href*="/edit"]');
-  if (await settingsLink.count()) {
-    await expect(settingsLink.first()).toBeVisible();
-  }
-
   // Verify status badge exists (Enabled or Disabled)
   const statusBadge = firstCard.locator('div.px-3.py-1.rounded-full');
   await expect(statusBadge).toBeVisible();
   const statusText = await statusBadge.textContent();
   expect(statusText).toMatch(/Enabled|Disabled/);
+
+  // Check settings link (should exist only for enabled plugins with settingsSchema)
+  const settingsLink = firstCard.locator('a[href*="/edit"]');
+  const isEnabled = statusText?.includes('Enabled');
+
+  // If plugin is enabled, we need to verify hasSettings from API
+  if (isEnabled) {
+    // Fetch plugin data from API to check hasSettings
+    const pluginLink = await pluginNameLink.getAttribute('href');
+    const pluginId = pluginLink?.split('/').pop();
+
+    if (pluginId) {
+      const apiResponse = await page.request.get('/api/plugins');
+      const apiData = await apiResponse.json() as { plugins: Array<{ pluginId: string; hasSettings: boolean }> };
+      const plugin = apiData.plugins.find(p => p.pluginId === pluginId);
+
+      if (plugin?.hasSettings) {
+        // Plugin has settings - gear icon should be visible
+        await expect(settingsLink).toBeVisible();
+      } else {
+        // Plugin has no settings - gear icon should not exist
+        await expect(settingsLink).not.toBeVisible();
+      }
+    }
+  } else {
+    // Disabled plugin - gear icon should not be visible regardless of hasSettings
+    await expect(settingsLink).not.toBeVisible();
+  }
 
   // Verify dates are displayed (Installed, Updated)
   await expect(firstCard.locator('text=Installed:')).toBeVisible();

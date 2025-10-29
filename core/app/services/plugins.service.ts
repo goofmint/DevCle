@@ -60,6 +60,7 @@ export async function listPlugins(tenantId: string) {
         version: config.basicInfo.version,
         enabled: dbPlugin?.enabled ?? false,
         config: dbPlugin?.config ?? {},
+        hasSettings: (config.settingsSchema?.length ?? 0) > 0,
         createdAt: dbPlugin?.createdAt ?? new Date(),
         updatedAt: dbPlugin?.updatedAt ?? new Date(),
       });
@@ -80,6 +81,7 @@ export async function listPlugins(tenantId: string) {
         version: '0.0.0', // No plugin.json, use default
         enabled: dbPlugin.enabled,
         config: dbPlugin.config ?? {},
+        hasSettings: false, // No plugin.json, no settings
         createdAt: dbPlugin.createdAt,
         updatedAt: dbPlugin.updatedAt,
       });
