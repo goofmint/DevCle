@@ -557,26 +557,140 @@ export async function action({ request }: ActionFunctionArgs) {
 
 ---
 
-## 8. ウィジェットコンポーネント実装例
+## 8. ウィジェットコンポーネント実装ガイド
+
+### 8.0 共通定数とヘルパー関数
+
+#### 8.0.1 カラーパレット定義
+
+**ファイル**: `app/components/widgets/constants.ts`
+
+```typescript
+/**
+ * ウィジェットグラフのカラーパレット
+ * Recharts の Line/Bar/Area コンポーネントで使用
+ */
+export const CHART_COLORS = [
+  '#3b82f6', // blue-500
+  '#10b981', // green-500
+  '#f59e0b', // amber-500
+  '#ef4444', // red-500
+  '#8b5cf6', // violet-500
+  '#ec4899', // pink-500
+  '#06b6d4', // cyan-500
+  '#f97316', // orange-500
+] as const;
+```
+
+#### 8.0.2 時系列データ変換ヘルパー
+
+**ファイル**: `app/components/widgets/TimeseriesWidget.tsx`
+
+```typescript
+/**
+ * 時系列データを Recharts 形式に変換
+ *
+ * @param series - TimeseriesWidgetData の series フィールド
+ * @returns Recharts 互換の配列
+ *
+ * 入力例:
+ * [
+ *   { label: "PRs", points: [["2025-10-01", 5], ["2025-10-02", 7]] },
+ *   { label: "Issues", points: [["2025-10-01", 3], ["2025-10-02", 4]] }
+ * ]
+ *
+ * 出力例:
+ * [
+ *   { date: "2025-10-01", PRs: 5, Issues: 3 },
+ *   { date: "2025-10-02", PRs: 7, Issues: 4 }
+ * ]
+ */
+function transformToChartData(
+  series: Array<{ label: string; points: Array<[string, number]> }>
+): Array<{ date: string; [seriesLabel: string]: string | number }> {
+  // 1. 全ての日付を収集（重複を排除）
+  const allDates = new Set<string>();
+  for (const s of series) {
+    for (const [date] of s.points) {
+      allDates.add(date);
+    }
+  }
+
+  // 2. 日付でソート
+  const sortedDates = Array.from(allDates).sort();
+
+  // 3. 各日付ごとに、全シリーズのデータをマージ
+  return sortedDates.map((date) => {
+    const dataPoint: { date: string; [key: string]: string | number } = { date };
+
+    for (const s of series) {
+      // この日付のデータポイントを探す
+      const point = s.points.find(([d]) => d === date);
+      dataPoint[s.label] = point ? point[1] : 0; // データがなければ 0
+    }
+
+    return dataPoint;
+  });
+}
+```
 
 ### 8.1 StatWidget
 
+**ファイル**: `app/components/widgets/StatWidget.tsx`
+
 ```typescript
-// app/components/widgets/StatWidget.tsx
+import type { StatWidgetData } from '~/types/widget-api.js';
 
 interface StatWidgetProps {
   data: StatWidgetData;
+  isLoading?: boolean;
+  isError?: boolean;
+  errorMessage?: string;
 }
 
-export function StatWidget({ data }: StatWidgetProps) {
+export function StatWidget({ data, isLoading, isError, errorMessage }: StatWidgetProps) {
+  // ローディング状態
+  if (isLoading) {
+    return (
+      <div className="p-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
+        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2 mb-4 animate-pulse" />
+        <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-3/4 animate-pulse" />
+      </div>
+    );
+  }
+
+  // エラー状態
+  if (isError) {
+    return (
+      <div className="p-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+        <h3 className="text-lg font-semibold text-red-900 dark:text-red-100 mb-2">
+          {data.title}
+        </h3>
+        <p className="text-sm text-red-700 dark:text-red-300">
+          {errorMessage || 'Failed to load data'}
+        </p>
+      </div>
+    );
+  }
+
   return (
-    <div className="widget-card">
-      <h3>{data.title}</h3>
-      <div className="stat-value">{data.data.value}</div>
+    <div className="p-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
+      <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">
+        {data.title}
+      </h3>
+      <div className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+        {data.data.value.toLocaleString()}
+      </div>
       {data.data.trend && (
-        <div className={`stat-trend ${data.data.trend.direction}`}>
-          {data.data.trend.direction === 'up' ? '↑' : '↓'} {data.data.trend.value}%
-          {data.data.label && <span> {data.data.label}</span>}
+        <div className="mt-2 flex items-center gap-1">
+          <span className={data.data.trend.direction === 'up' ? 'text-green-600' : 'text-red-600'}>
+            {data.data.trend.direction === 'up' ? '↑' : '↓'} {data.data.trend.value}%
+          </span>
+          {data.data.label && (
+            <span className="text-sm text-gray-500 dark:text-gray-400">
+              {data.data.label}
+            </span>
+          )}
         </div>
       )}
     </div>
@@ -586,28 +700,65 @@ export function StatWidget({ data }: StatWidgetProps) {
 
 ### 8.2 TimeseriesWidget
 
-```typescript
-// app/components/widgets/TimeseriesWidget.tsx
+**ファイル**: `app/components/widgets/TimeseriesWidget.tsx`
 
+```typescript
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { CHART_COLORS } from './constants.js';
+import type { TimeseriesWidgetData } from '~/types/widget-api.js';
 
 interface TimeseriesWidgetProps {
   data: TimeseriesWidgetData;
+  isLoading?: boolean;
+  isError?: boolean;
+  errorMessage?: string;
 }
 
-export function TimeseriesWidget({ data }: TimeseriesWidgetProps) {
+export function TimeseriesWidget({ data, isLoading, isError, errorMessage }: TimeseriesWidgetProps) {
+  // ローディング状態
+  if (isLoading) {
+    return (
+      <div className="p-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
+        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-4 animate-pulse" />
+        <div className="h-64 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+      </div>
+    );
+  }
+
+  // エラー状態
+  if (isError) {
+    return (
+      <div className="p-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+        <h3 className="text-lg font-semibold text-red-900 dark:text-red-100 mb-2">
+          {data.title}
+        </h3>
+        <p className="text-sm text-red-700 dark:text-red-300">
+          {errorMessage || 'Failed to load chart data'}
+        </p>
+      </div>
+    );
+  }
+
   // データをRechartsの形式に変換
   const chartData = transformToChartData(data.data.series);
 
   return (
-    <div className="widget-card">
-      <h3>{data.title}</h3>
+    <div className="p-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
+      <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+        {data.title}
+      </h3>
       <ResponsiveContainer width="100%" height={300}>
         <LineChart data={chartData}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="date" />
-          <YAxis />
-          <Tooltip />
+          <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-700" />
+          <XAxis dataKey="date" className="text-xs text-gray-600 dark:text-gray-400" />
+          <YAxis className="text-xs text-gray-600 dark:text-gray-400" />
+          <Tooltip
+            contentStyle={{
+              backgroundColor: 'rgba(255, 255, 255, 0.95)',
+              border: '1px solid #e5e7eb',
+              borderRadius: '0.5rem',
+            }}
+          />
           <Legend />
           {data.data.series.map((series, index) => (
             <Line
@@ -615,10 +766,278 @@ export function TimeseriesWidget({ data }: TimeseriesWidgetProps) {
               type="monotone"
               dataKey={series.label}
               stroke={CHART_COLORS[index % CHART_COLORS.length]}
+              strokeWidth={2}
             />
           ))}
         </LineChart>
       </ResponsiveContainer>
+    </div>
+  );
+}
+
+/**
+ * 時系列データを Recharts 形式に変換（上記 8.0.2 の実装）
+ */
+function transformToChartData(
+  series: Array<{ label: string; points: Array<[string, number]> }>
+): Array<{ date: string; [seriesLabel: string]: string | number }> {
+  const allDates = new Set<string>();
+  for (const s of series) {
+    for (const [date] of s.points) {
+      allDates.add(date);
+    }
+  }
+
+  const sortedDates = Array.from(allDates).sort();
+
+  return sortedDates.map((date) => {
+    const dataPoint: { date: string; [key: string]: string | number } = { date };
+    for (const s of series) {
+      const point = s.points.find(([d]) => d === date);
+      dataPoint[s.label] = point ? point[1] : 0;
+    }
+    return dataPoint;
+  });
+}
+```
+
+### 8.3 TableWidget（スタブ実装）
+
+**ファイル**: `app/components/widgets/TableWidget.tsx`
+
+```typescript
+import type { TableWidgetData } from '~/types/widget-api.js';
+
+interface TableWidgetProps {
+  data: TableWidgetData;
+  isLoading?: boolean;
+  isError?: boolean;
+  errorMessage?: string;
+}
+
+export function TableWidget({ data, isLoading, isError, errorMessage }: TableWidgetProps) {
+  if (isLoading) {
+    return (
+      <div className="p-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
+        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-4 animate-pulse" />
+        <div className="space-y-2">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-8 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="p-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+        <h3 className="text-lg font-semibold text-red-900 dark:text-red-100 mb-2">
+          {data.title}
+        </h3>
+        <p className="text-sm text-red-700 dark:text-red-300">
+          {errorMessage || 'Failed to load table data'}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
+      <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+        {data.title}
+      </h3>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm text-left">
+          <thead className="text-xs uppercase bg-gray-50 dark:bg-gray-700">
+            <tr>
+              {data.data.columns.map((col) => (
+                <th
+                  key={col.key}
+                  className={`px-4 py-3 text-${col.align || 'left'}`}
+                >
+                  {col.label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {data.data.rows.map((row, idx) => (
+              <tr
+                key={idx}
+                className="border-b border-gray-200 dark:border-gray-700"
+              >
+                {data.data.columns.map((col) => (
+                  <td
+                    key={col.key}
+                    className={`px-4 py-3 text-${col.align || 'left'}`}
+                  >
+                    {String(row[col.key] ?? '-')}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+```
+
+### 8.4 ListWidget（スタブ実装）
+
+**ファイル**: `app/components/widgets/ListWidget.tsx`
+
+```typescript
+import type { ListWidgetData } from '~/types/widget-api.js';
+
+interface ListWidgetProps {
+  data: ListWidgetData;
+  isLoading?: boolean;
+  isError?: boolean;
+  errorMessage?: string;
+}
+
+export function ListWidget({ data, isLoading, isError, errorMessage }: ListWidgetProps) {
+  if (isLoading) {
+    return (
+      <div className="p-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
+        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-4 animate-pulse" />
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="space-y-2">
+              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 animate-pulse" />
+              <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2 animate-pulse" />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="p-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+        <h3 className="text-lg font-semibold text-red-900 dark:text-red-100 mb-2">
+          {data.title}
+        </h3>
+        <p className="text-sm text-red-700 dark:text-red-300">
+          {errorMessage || 'Failed to load list data'}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
+      <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+        {data.title}
+      </h3>
+      <ul className="space-y-3">
+        {data.data.items.map((item) => (
+          <li
+            key={item.id}
+            className="border-l-2 border-blue-500 pl-4 py-2"
+          >
+            {item.link ? (
+              <a
+                href={item.link}
+                className="font-medium text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                {item.title}
+              </a>
+            ) : (
+              <div className="font-medium text-gray-900 dark:text-gray-100">
+                {item.title}
+              </div>
+            )}
+            {item.description && (
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                {item.description}
+              </p>
+            )}
+            {item.timestamp && (
+              <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                {new Date(item.timestamp).toLocaleString()}
+              </p>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+```
+
+### 8.5 CardWidget（スタブ実装）
+
+**ファイル**: `app/components/widgets/CardWidget.tsx`
+
+```typescript
+import type { CardWidgetData } from '~/types/widget-api.js';
+
+interface CardWidgetProps {
+  data: CardWidgetData;
+  isLoading?: boolean;
+  isError?: boolean;
+  errorMessage?: string;
+}
+
+export function CardWidget({ data, isLoading, isError, errorMessage }: CardWidgetProps) {
+  if (isLoading) {
+    return (
+      <div className="p-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
+        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-4 animate-pulse" />
+        <div className="space-y-2">
+          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full animate-pulse" />
+          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-5/6 animate-pulse" />
+        </div>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="p-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+        <h3 className="text-lg font-semibold text-red-900 dark:text-red-100 mb-2">
+          {data.title}
+        </h3>
+        <p className="text-sm text-red-700 dark:text-red-300">
+          {errorMessage || 'Failed to load card data'}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
+      <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+        {data.title}
+      </h3>
+      <div className="prose prose-sm dark:prose-invert max-w-none mb-4">
+        {/* TODO: Markdown レンダリング（react-markdown 等を使用） */}
+        <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+          {data.data.content}
+        </p>
+      </div>
+      {data.data.actions && data.data.actions.length > 0 && (
+        <div className="flex gap-2 mt-4">
+          {data.data.actions.map((action, idx) => (
+            <a
+              key={idx}
+              href={action.url}
+              className={
+                action.variant === 'primary'
+                  ? 'px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700'
+                  : 'px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600'
+              }
+            >
+              {action.label}
+            </a>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
