@@ -344,8 +344,8 @@ test.describe('Widget System', () => {
       // Verify the chart is visible
       await expect(timeseriesWidget.first()).toBeVisible();
 
-      // Verify Recharts SVG is rendered
-      const chartSvg = timeseriesWidget.first().locator('svg.recharts-surface');
+      // Verify Recharts SVG is rendered (use first() to handle multiple SVG elements)
+      const chartSvg = timeseriesWidget.first().locator('svg.recharts-surface').first();
       await expect(chartSvg).toBeVisible();
     }
   });
