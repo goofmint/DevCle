@@ -96,23 +96,36 @@ export const pluginRuns = pgTable('plugin_runs', {
  * Used for traceability, debugging, and event replay.
  *
  * Fields:
- * - raw_id: UUID primary key
+ * - event_id: UUID primary key
  * - tenant_id: Foreign key to tenants (cascade delete)
  * - plugin_id: Foreign key to plugins (cascade delete)
- * - payload: Raw event/document as JSONB
- * - received_at: Timestamp when event was received (defaults to now)
- * - dedup_key: Deduplication hash (unique) to prevent duplicate events
+ * - event_type: Event type classification (e.g., "github:pull_request", "slack:message")
+ * - raw_data: Raw event/document as JSONB
+ * - ingested_at: Timestamp when event was received (defaults to now)
+ * - processed_at: Timestamp when event was processed (NULL = pending)
+ * - status: Processing status ("pending", "processed", "failed")
+ * - error_message: Error message if processing failed
+ *
+ * Indexes:
+ * - (tenant_id, plugin_id, ingested_at DESC) for querying recent events by plugin
+ * - (tenant_id, plugin_id, status) for filtering by status
  *
  * Note: This table can grow large. Consider archiving old data periodically.
  */
 export const pluginEventsRaw = pgTable('plugin_events_raw', {
-  rawId: uuid('raw_id').primaryKey().default(sql`uuid_generate_v4()`),
+  eventId: uuid('event_id').primaryKey().default(sql`uuid_generate_v4()`),
   tenantId: text('tenant_id').notNull().references(() => tenants.tenantId, { onDelete: 'cascade' }),
   pluginId: uuid('plugin_id').notNull().references(() => plugins.pluginId, { onDelete: 'cascade' }),
-  payload: jsonb('payload').notNull(),
-  receivedAt: timestamp('received_at', { withTimezone: true }).notNull().defaultNow(),
-  dedupKey: text('dedup_key').unique(),
-});
+  eventType: text('event_type').notNull(),
+  rawData: jsonb('raw_data').notNull(),
+  ingestedAt: timestamp('ingested_at', { withTimezone: true }).notNull().defaultNow(),
+  processedAt: timestamp('processed_at', { withTimezone: true }),
+  status: text('status').notNull().default('pending'),
+  errorMessage: text('error_message'),
+}, (t) => ({
+  tenantPluginTimeIdx: index('idx_plugin_events_raw_tenant_plugin_time').on(t.tenantId, t.pluginId, t.ingestedAt),
+  tenantPluginStatusIdx: index('idx_plugin_events_raw_tenant_plugin_status').on(t.tenantId, t.pluginId, t.status),
+}));
 
 /**
  * Import Jobs Table

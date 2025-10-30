@@ -874,6 +874,7 @@
 - **完了条件**: プラグインが収集したデータが表示され、詳細が確認できる
 - **依存**: Task 8.4
 - **推定時間**: 4 時間
+- **ドキュメント**: [.tmp/tasks/task-8.11-plugin-data-display.md](.tmp/tasks/task-8.11-plugin-data-display.md)
 
 ### Task 8.12: プラグインのルーティング追加と呼び出しテスト
 
