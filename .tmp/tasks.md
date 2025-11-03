@@ -864,19 +864,39 @@
 
 ### Task 8.11: プラグインの収集結果の詳細用API実装
 
-- [ ] `app/routes/dashboard/plugins.$id._index.tsx`作成
-- [ ] プラグインが収集したデータの一覧表示
+- [ ] サービス層実装（`core/services/plugin-events.service.ts`）
+  - `listPluginEvents()`: イベント一覧取得（ページネーション、フィルタ、ソート）
+  - `getPluginEventDetail()`: イベント詳細取得（機密情報マスキング付き）
+  - `getPluginEventsStats()`: 統計情報取得
+  - `reprocessEvent()`: イベント再処理（オプション）
+  - `sanitizeRawData()`: 機密情報の再帰的マスキング関数
+- [ ] `GET /api/plugins/:id/events` 実装
   - plugin_events_raw テーブルからデータ取得
+  - クエリパラメータ: page, perPage, status, eventType, startDate, endDate, sort
   - ページネーション、フィルタ、ソート機能
-- [ ] `GET /dashboard/plugins/:id/data` ルート実装
-- [ ] 収集データの統計情報表示
-- **完了条件**: プラグインが収集したデータが表示され、詳細が確認できる
+- [ ] `GET /api/plugins/:id/events/:eventId` 実装
+  - イベント詳細取得（rawData含む）
+- [ ] `GET /api/plugins/:id/events/stats` 実装
+  - 統計情報取得（total, processed, failed, pending, latestIngestedAt, oldestIngestedAt）
+- [ ] `POST /api/plugins/:id/events/:eventId/reprocess` 実装（オプション）
+  - 失敗したイベントの再処理キュー追加
+  - レート制限ミドルウェア実装（`core/middleware/rate-limiter.ts`）
+  - 10リクエスト/分/ユーザー（またはIP）の制限
+  - HTTP 429 + Retry-Afterヘッダー返却
+- [ ] 単体テスト実装（Vitest）
+  - サービス層テスト
+  - API テスト
+  - 機密情報マスキングのテスト（ネスト構造、配列、クレデンシャルパターン）
+  - レート制限のテスト
+- **完了条件**: プラグイン収集データを取得するREST APIが実装され、テストが通る
 - **依存**: Task 8.4
-- **推定時間**: 4 時間
+- **推定時間**: 3 時間
+- **注意**: API実装のみ。UI実装はTask 8.12で対応
 
 ### Task 8.12: プラグインの収集結果の詳細表示（UI）
 
 - [ ] イベント一覧ページ実装（`/dashboard/plugins/:id/data`）
+  - ファイル: `core/app/routes/dashboard.plugins_.$id.data.tsx`
   - Task 8.11で実装したAPI（`GET /api/plugins/:id/events`）を使用
   - テーブルコンポーネント（EventsTable）
   - フィルタUI（EventsFilter）：ステータス、イベント種別、日付範囲

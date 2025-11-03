@@ -674,17 +674,274 @@ describe('POST /api/plugins/:id/events/:eventId/reprocess', () => {
    - すべての API エンドポイントで `requireAuth()` を使用
    - プラグインへのアクセス権限を確認（テナント ID チェック）
 
-2. **データ露出の制限**
+2. **データ露出の制限と機密情報のマスキング**
    - `rawData` は詳細表示時のみ取得（一覧では含めない）
-   - 機密情報（API キー、トークン）が rawData に含まれる場合、マスキング処理を検討
+   - `getPluginEventDetail()` で rawData を返す前に機密情報をマスキング
+
+   **マスキングポリシー実装**:
+
+   ```typescript
+   // core/services/plugin-events.service.ts に追加
+
+   // マスキング対象のフィールド名（設定可能なリスト）
+   const SENSITIVE_FIELD_NAMES = [
+     'token', 'api_key', 'apiKey', 'secret', 'password',
+     'access_token', 'accessToken', 'refresh_token', 'refreshToken',
+     'authorization', 'auth', 'credentials', 'private_key', 'privateKey',
+     'client_secret', 'clientSecret', 'bearer'
+   ];
+
+   // クレデンシャルパターン（正規表現）
+   const CREDENTIAL_PATTERNS = [
+     /^[A-Za-z0-9\-_]{20,}$/, // 長いランダム文字列
+     /^sk_[a-z]+_[A-Za-z0-9]{20,}$/, // Stripe形式
+     /^ghp_[A-Za-z0-9]{36}$/, // GitHub Personal Access Token
+     /^gho_[A-Za-z0-9]{36}$/, // GitHub OAuth Token
+   ];
+
+   /**
+    * 機密情報を再帰的にマスキング
+    */
+   function sanitizeRawData(data: unknown): unknown {
+     if (data === null || data === undefined) {
+       return data;
+     }
+
+     // 配列の場合
+     if (Array.isArray(data)) {
+       return data.map(item => sanitizeRawData(item));
+     }
+
+     // オブジェクトの場合
+     if (typeof data === 'object') {
+       const sanitized: Record<string, unknown> = {};
+       for (const [key, value] of Object.entries(data)) {
+         // フィールド名が機密情報の場合
+         const keyLower = key.toLowerCase();
+         if (SENSITIVE_FIELD_NAMES.some(sensitive => keyLower.includes(sensitive))) {
+           sanitized[key] = maskValue(value);
+         }
+         // 文字列値がクレデンシャルパターンに一致する場合
+         else if (typeof value === 'string' && looksLikeCredential(value)) {
+           sanitized[key] = maskValue(value);
+         }
+         // それ以外は再帰的に処理
+         else {
+           sanitized[key] = sanitizeRawData(value);
+         }
+       }
+       return sanitized;
+     }
+
+     // プリミティブ値はそのまま返す
+     return data;
+   }
+
+   /**
+    * 値がクレデンシャルに見えるかチェック
+    */
+   function looksLikeCredential(value: string): boolean {
+     return CREDENTIAL_PATTERNS.some(pattern => pattern.test(value));
+   }
+
+   /**
+    * 値をマスキング（部分的にマスク）
+    */
+   function maskValue(value: unknown): string {
+     if (typeof value !== 'string') {
+       return '***REDACTED***';
+     }
+
+     // 8文字未満は完全マスク
+     if (value.length < 8) {
+       return '***REDACTED***';
+     }
+
+     // 8文字以上は最初の4文字と最後の4文字を表示
+     const start = value.slice(0, 4);
+     const end = value.slice(-4);
+     return `${start}***${end}`;
+   }
+   ```
+
+   **getPluginEventDetail の更新**:
+   ```typescript
+   export async function getPluginEventDetail(
+     tenantId: string,
+     pluginId: string,
+     eventId: string
+   ): Promise<PluginEventDetail | null> {
+     return await withTenantContext(tenantId, async (tx) => {
+       const [event] = await tx
+         .select()
+         .from(schema.pluginEventsRaw)
+         .where(/* ... */)
+         .limit(1);
+
+       if (!event) {
+         return null;
+       }
+
+       return {
+         eventId: event.eventId,
+         eventType: event.eventType,
+         status: event.status as 'pending' | 'processed' | 'failed',
+         ingestedAt: event.ingestedAt,
+         processedAt: event.processedAt,
+         errorMessage: event.errorMessage,
+         rawData: sanitizeRawData(event.rawData), // マスキング適用
+         activityId,
+       };
+     });
+   }
+   ```
+
+   **マスキングされるフィールドのドキュメント**:
+   - APIレスポンスでマスキングされるフィールド: `token`, `api_key`, `secret`, `password`, `access_token`, `refresh_token`, `authorization`, `credentials`, `private_key`, `client_secret`, `bearer` を含むキー名
+   - クレデンシャルパターンに一致する文字列値（長いランダム文字列、特定のプレフィックス付きトークンなど）
+   - マスキング形式: 短い値は `***REDACTED***`、長い値は `abcd***wxyz` 形式（最初と最後の4文字のみ表示）
+
+   **テスト要件**:
+   ```typescript
+   describe('sanitizeRawData', () => {
+     it('should mask sensitive field names', () => {
+       const input = { api_key: 'secret123', user: 'john' };
+       const output = sanitizeRawData(input);
+       expect(output).toEqual({ api_key: '***REDACTED***', user: 'john' });
+     });
+
+     it('should mask nested sensitive fields', () => {
+       const input = {
+         config: {
+           token: 'verylongtokenvalue1234567890',
+           endpoint: 'https://api.example.com'
+         }
+       };
+       const output = sanitizeRawData(input);
+       expect(output.config.token).toMatch(/^very\*\*\*7890$/);
+       expect(output.config.endpoint).toBe('https://api.example.com');
+     });
+
+     it('should mask credential-like strings', () => {
+       const input = {
+         id: 'ghp_1234567890abcdefghijklmnopqrstuvwxyz'
+       };
+       const output = sanitizeRawData(input);
+       expect(output.id).toMatch(/^ghp_\*\*\*wxyz$/);
+     });
+
+     it('should handle arrays', () => {
+       const input = {
+         tokens: ['token1', 'token2'],
+         keys: [{ api_key: 'secret' }]
+       };
+       const output = sanitizeRawData(input);
+       expect(output.tokens[0]).toBe('***REDACTED***');
+       expect(output.keys[0].api_key).toBe('***REDACTED***');
+     });
+   });
+   ```
 
 3. **SQL インジェクション対策**
    - Drizzle ORM のパラメータ化クエリを使用
    - ユーザー入力は Zod で検証
 
 4. **レート制限**
-   - 統計情報のキャッシュ（Redis、60秒間）を検討
-   - 再処理 API のレート制限（1分間に10回まで）を検討
+
+   **統計情報のキャッシュ**:
+   - Redis に60秒間キャッシュ
+   - キャッシュキー: `plugin_events_stats:{tenantId}:{pluginId}`
+
+   **再処理 API のレート制限実装**:
+
+   ミドルウェアレベルのレート制限を実装：
+
+   ```typescript
+   // core/middleware/rate-limiter.ts
+
+   import { RateLimiterRedis, RateLimiterRes } from 'rate-limiter-flexible';
+   import Redis from 'ioredis';
+
+   const redis = new Redis({
+     host: process.env.REDIS_HOST || 'localhost',
+     port: parseInt(process.env.REDIS_PORT || '6379'),
+   });
+
+   // 再処理API用のレート制限（10 req/min per user）
+   const reprocessRateLimiter = new RateLimiterRedis({
+     storeClient: redis,
+     keyPrefix: 'rate_limit:reprocess',
+     points: 10, // 10リクエスト
+     duration: 60, // 1分間
+   });
+
+   /**
+    * レート制限ミドルウェア
+    */
+   export async function applyRateLimit(
+     userId: string | null,
+     ip: string
+   ): Promise<void> {
+     // 認証済みユーザーIDを優先、なければIPアドレス
+     const key = userId || `ip:${ip}`;
+
+     try {
+       await reprocessRateLimiter.consume(key);
+     } catch (error) {
+       if (error instanceof RateLimiterRes) {
+         const retryAfter = Math.ceil(error.msBeforeNext / 1000);
+         throw new Response('Too Many Requests', {
+           status: 429,
+           headers: {
+             'Retry-After': retryAfter.toString(),
+             'X-RateLimit-Limit': '10',
+             'X-RateLimit-Remaining': '0',
+             'X-RateLimit-Reset': new Date(Date.now() + error.msBeforeNext).toISOString(),
+           },
+         });
+       }
+       throw error;
+     }
+   }
+   ```
+
+   **再処理APIルートでの適用**:
+   ```typescript
+   // core/app/routes/api.plugins.$id.events.$eventId.reprocess.ts
+
+   import { applyRateLimit } from '~/middleware/rate-limiter';
+
+   export async function action({ request, params }: ActionFunctionArgs) {
+     const user = await requireAuth(request);
+     const { id: pluginId, eventId } = params;
+
+     // レート制限チェック
+     const clientIp = request.headers.get('x-forwarded-for') ||
+                      request.headers.get('x-real-ip') ||
+                      'unknown';
+     await applyRateLimit(user.userId, clientIp);
+
+     if (!eventId) {
+       throw new Response('Event ID is required', { status: 400 });
+     }
+
+     await reprocessEvent(user.tenantId, pluginId!, eventId);
+
+     return json({ success: true, message: 'Reprocessing queued' });
+   }
+   ```
+
+   **レート制限の設定**:
+   - デフォルトポリシー: 10リクエスト/分/ユーザー（またはIP）
+   - 認証済みユーザーIDで識別、未認証の場合はIPアドレスにフォールバック
+   - Redisでカウンターを永続化（マルチインスタンス対応）
+   - 制限超過時: HTTP 429 Too Many Requests + `Retry-After` ヘッダー
+
+   **依存パッケージ**:
+   ```bash
+   pnpm add rate-limiter-flexible ioredis
+   pnpm add -D @types/ioredis
+   ```
 
 ---
 
