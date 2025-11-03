@@ -22,7 +22,7 @@
  * ```
  */
 
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, desc } from 'drizzle-orm';
 import { withTenantContext } from '../db/connection.js';
 import * as schema from '../db/schema/index.js';
 import type { JobMetadata } from './scheduler.js';

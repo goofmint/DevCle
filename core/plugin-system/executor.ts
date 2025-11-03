@@ -19,7 +19,7 @@
  * 5. Complete with success/failed status
  */
 
-import type { PluginJob, PluginManifest } from './types.js';
+import type { PluginJob } from './types.js';
 import type { PluginRunMetadata } from '../services/plugin-run.service.js';
 import {
   createPluginRun,
@@ -192,7 +192,9 @@ async function executeJobWithRetry(
       if (attempt > 0 && jobDef.retry?.backoffSec) {
         const delayIndex = Math.min(attempt - 1, jobDef.retry.backoffSec.length - 1);
         const delaySec = jobDef.retry.backoffSec[delayIndex];
-        await new Promise((resolve) => setTimeout(resolve, delaySec * 1000));
+        if (delaySec !== undefined) {
+          await new Promise((resolve) => setTimeout(resolve, delaySec * 1000));
+        }
       }
 
       // Execute job with timeout
@@ -295,11 +297,11 @@ async function executeJobWithTimeout(
  * @private
  */
 async function callPluginRoute(
-  tenantId: string,
-  pluginId: string,
-  pluginKey: string,
-  jobDef: PluginJob,
-  metadata: PluginRunMetadata
+  _tenantId: string,
+  _pluginId: string,
+  _pluginKey: string,
+  _jobDef: PluginJob,
+  _metadata: PluginRunMetadata
 ): Promise<{ eventsProcessed: number; metadata: PluginRunMetadata }> {
   // Simulate network delay
   await new Promise((resolve) => setTimeout(resolve, 100));

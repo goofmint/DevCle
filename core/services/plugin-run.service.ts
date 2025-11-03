@@ -312,7 +312,7 @@ export async function listPluginRuns(
     }
 
     // Execute queries in parallel
-    const [runs, [{ count: totalCount }]] = await Promise.all([
+    const [runs, countResult] = await Promise.all([
       tx
         .select()
         .from(schema.pluginRuns)
@@ -329,6 +329,8 @@ export async function listPluginRuns(
         .from(schema.pluginRuns)
         .where(and(...conditions)),
     ]);
+
+    const totalCount = countResult[0]?.count ?? 0;
 
     return {
       runs: runs.map((run) => ({

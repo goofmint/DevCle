@@ -16,6 +16,7 @@ import type { LoaderFunctionArgs, ActionFunctionArgs } from '@remix-run/node';
 import { json } from '@remix-run/node';
 import { requireAuth } from '~/auth.middleware.js';
 import { getPluginConfig } from '../../services/plugin/plugin-config.service.js';
+import type { PluginConfigInfo } from '../../services/plugin/plugin-config.types.js';
 import { updatePluginConfig, getPluginById } from '../../services/plugin.service.js';
 import { validatePluginConfig } from '../../plugin-system/config-validator.js';
 import type { PluginConfigSchema } from '../../plugin-system/config-validator.js';
@@ -208,7 +209,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
     }
 
     // 5. Get plugin configuration schema from plugin.json (use plugin.key, not pluginId)
-    let pluginConfig: { settingsSchema?: { fields?: unknown[] } };
+    let pluginConfig: PluginConfigInfo;
     try {
       pluginConfig = await getPluginConfig(plugin.key, tenantId);
     } catch (error) {

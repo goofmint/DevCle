@@ -6,7 +6,6 @@ import { test, expect } from '@playwright/test';
 
 const BASE_URL = process.env['BASE_URL'] || 'https://devcle.test';
 const TEST_PLUGIN_ID = '20000000-0000-4000-8000-000000000001';
-const TEST_PLUGIN_KEY = 'drowl-plugin-test';
 const TEST_PLUGIN_NAME = 'Test Plugin';
 
 // Read credentials from environment variables
@@ -52,6 +51,7 @@ test.describe('Plugin Config Page', () => {
     // For each plugin, click the name link and verify config page loads
     for (let i = 0; i < pluginCards.length; i++) {
       const card = pluginCards[i];
+      if (!card) continue;
 
       // Get plugin name (now inside a link)
       const nameLink = card.locator('a').filter({ has: page.locator('text=/./') }).first();

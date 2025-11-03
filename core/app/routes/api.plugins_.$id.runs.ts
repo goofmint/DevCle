@@ -67,8 +67,8 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
     // Get runs and summary in parallel
     const [{ runs, total }, summary] = await Promise.all([
       listPluginRuns(user.tenantId, pluginId, {
-        status: status ?? undefined,
-        jobName: jobName ?? undefined,
+        ...(status ? { status } : {}),
+        ...(jobName ? { jobName } : {}),
         limit,
         offset,
         sort,

@@ -23,18 +23,28 @@ import Redis from 'ioredis';
  * Redis client for rate limiting
  * Shared across all rate limiters
  */
-const redis = new Redis({
-  host: process.env['REDIS_HOST'] || 'localhost',
-  port: parseInt(process.env['REDIS_PORT'] || '6379', 10),
-  password: process.env['REDIS_PASSWORD'],
-  // Enable reconnection on failure
-  retryStrategy: (times) => {
-    const delay = Math.min(times * 50, 2000);
-    return delay;
-  },
-  // Limit connection pool size
-  maxRetriesPerRequest: 3,
-});
+const redis = process.env['REDIS_URL']
+  ? new Redis(process.env['REDIS_URL'], {
+      // Enable reconnection on failure
+      retryStrategy: (times: number) => {
+        const delay = Math.min(times * 50, 2000);
+        return delay;
+      },
+      // Limit connection pool size
+      maxRetriesPerRequest: 3,
+    })
+  : new Redis({
+      host: process.env['REDIS_HOST'] || 'localhost',
+      port: parseInt(process.env['REDIS_PORT'] || '6379', 10),
+      password: process.env['REDIS_PASSWORD'],
+      // Enable reconnection on failure
+      retryStrategy: (times: number) => {
+        const delay = Math.min(times * 50, 2000);
+        return delay;
+      },
+      // Limit connection pool size
+      maxRetriesPerRequest: 3,
+    });
 
 /**
  * Rate limiter for reprocess API
@@ -101,8 +111,10 @@ export function getClientIp(request: Request): string {
   const forwardedFor = request.headers.get('x-forwarded-for');
   if (forwardedFor) {
     // Take first IP in chain (client IP)
-    const firstIp = forwardedFor.split(',')[0].trim();
-    return firstIp;
+    const firstIp = forwardedFor.split(',')[0]?.trim();
+    if (firstIp) {
+      return firstIp;
+    }
   }
 
   // Check X-Real-IP

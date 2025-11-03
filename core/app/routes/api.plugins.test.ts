@@ -195,7 +195,10 @@ describe('Plugin Management API - List and Enable/Disable', () => {
 
       // Plugins not in DB should have enabled=false by default
       const filesystemPlugin = data.plugins[0];
-      expect(filesystemPlugin.enabled).toBe(false);
+      expect(filesystemPlugin).toBeDefined();
+      if (filesystemPlugin) {
+        expect(filesystemPlugin.enabled).toBe(false);
+      }
     });
 
     it('should return list of plugins with merged filesystem and DB data', async () => {

@@ -13,13 +13,13 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-// Read .env file from parent directory (where docker-compose is located)
+// Read .env file from core directory (where tests run)
 // This ensures tests can access database credentials
 // If NODE_ENV=test, use .env.test, otherwise use .env
 try {
   const isTestEnv = process.env['NODE_ENV'] === 'test';
   const envFileName = isTestEnv ? '.env.test' : '.env';
-  const envPath = resolve(__dirname, '..', envFileName);
+  const envPath = resolve(__dirname, envFileName);
   const envFile = readFileSync(envPath, 'utf-8');
 
   // Parse .env file and set environment variables

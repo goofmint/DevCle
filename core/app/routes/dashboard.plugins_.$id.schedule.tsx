@@ -8,9 +8,14 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from '@remix-run/react';
 import { Icon } from '@iconify/react';
-import type { PluginJob } from '~/plugin-system/types.js';
+import type { PluginJob } from '../../plugin-system/types.js';
 
-interface JobSchedule extends PluginJob {
+interface JobSchedule {
+  name: string;
+  route: string;
+  cron: string;
+  timeoutSec: number;
+  description?: string;
   lastRun: {
     runId: string;
     status: 'success' | 'failed';
@@ -237,7 +242,7 @@ export default function PluginSchedulePage() {
  * Calculate next run time from cron expression
  * This is a simplified implementation - in production, use a library like cron-parser
  */
-function calculateNextRun(cron: string): string {
+function calculateNextRun(_cron: string): string {
   // Mock: return 1 hour from now
   const next = new Date();
   next.setHours(next.getHours() + 1);

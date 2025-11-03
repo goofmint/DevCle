@@ -270,10 +270,12 @@ export async function listPluginEvents(
       .offset((input.page - 1) * input.perPage);
 
     // Get total count
-    const [{ total }] = await tx
+    const countResult = await tx
       .select({ total: count() })
       .from(schema.pluginEventsRaw)
       .where(whereClause);
+
+    const total = countResult[0]?.total ?? 0;
 
     return {
       items: items as PluginEventListItem[],
@@ -326,7 +328,6 @@ export async function getPluginEventDetail(
     // This would require:
     // 1. Adding a sourceEventId column to activities table, OR
     // 2. Storing eventId in activity metadata
-    const activityId: string | undefined = undefined;
 
     // Return event with masked raw data
     return {
@@ -337,7 +338,7 @@ export async function getPluginEventDetail(
       processedAt: event.processedAt,
       errorMessage: event.errorMessage,
       rawData: sanitizeRawData(event.rawData),
-      activityId,
+      // activityId is optional - omit if not found
     };
   });
 }
@@ -395,12 +396,12 @@ export async function getPluginEventsStats(
       .where(baseConditions);
 
     return {
-      total: Number(counts.total),
-      processed: Number(counts.processed),
-      failed: Number(counts.failed),
-      pending: Number(counts.pending),
-      latestIngestedAt: dates.latest,
-      oldestIngestedAt: dates.oldest,
+      total: Number(counts?.total ?? 0),
+      processed: Number(counts?.processed ?? 0),
+      failed: Number(counts?.failed ?? 0),
+      pending: Number(counts?.pending ?? 0),
+      latestIngestedAt: dates?.latest ?? null,
+      oldestIngestedAt: dates?.oldest ?? null,
     };
   });
 }

@@ -3,11 +3,11 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { runInTenant } from '~/db/tenant-test-utils.js';
+import { runInTenant } from '../../db/tenant-test-utils.js';
 import { loader } from './api.plugins.$id.config.js';
-import { getSession, commitSession } from '~/sessions.server.js';
-import { getDb } from '~/db/connection.js';
-import * as schema from '~/db/schema/index.js';
+import { getSession, commitSession } from '../sessions.server.js';
+import { getDb } from '../../db/connection.js';
+import * as schema from '../../db/schema/index.js';
 import { eq } from 'drizzle-orm';
 
 // Test plugin UUID (from seed data)
@@ -27,7 +27,7 @@ beforeAll(async () => {
     .where(eq(schema.users.email, 'test@example.com'))
     .limit(1);
 
-  if (users.length > 0) {
+  if (users.length > 0 && users[0]) {
     testUserId = users[0].userId;
   }
 });
@@ -89,6 +89,12 @@ describe('GET /api/plugins/:id/config', () => {
       // Assertions
       expect(response.status).toBe(200);
       expect(data).toBeDefined();
+
+      // Type guard for PluginConfigInfo
+      if ('error' in data) {
+        throw new Error('Expected success response, got error');
+      }
+
       expect(data.basicInfo).toBeDefined();
       expect(data.basicInfo.id).toBe('drowl-plugin-test');
       expect(data.basicInfo.name).toBe('drowl-plugin-test');
@@ -136,6 +142,12 @@ describe('GET /api/plugins/:id/config', () => {
 
       // Assertions
       expect(response.status).toBe(404);
+
+      // Type guard for error response
+      if (!('error' in data)) {
+        throw new Error('Expected error response');
+      }
+
       expect(data.error).toBe('Plugin not found');
     });
   });
@@ -159,6 +171,12 @@ describe('GET /api/plugins/:id/config', () => {
 
       // Assertions
       expect(response.status).toBe(400);
+
+      // Type guard for error response
+      if (!('error' in data)) {
+        throw new Error('Expected error response');
+      }
+
       expect(data.error).toBe('Plugin ID is required');
     });
   });
@@ -179,6 +197,11 @@ describe('GET /api/plugins/:id/config', () => {
 
       // Parse JSON response
       const data = await response.json();
+
+      // Type guard for PluginConfigInfo
+      if ('error' in data) {
+        throw new Error('Expected success response, got error');
+      }
 
       // Verify response structure
       expect(data).toHaveProperty('basicInfo');
