@@ -40,10 +40,10 @@ services:
       # Plugins directory path
       PLUGINS_DIR: /plugins
     volumes:
-      # Mount source code for hot reloading (use host path via LOCAL_WORKSPACE_FOLDER env var)
+      # Mount source code for hot reloading (use host path via LOCAL_WORKSPACE_FOLDER env var from .env)
       - ${LOCAL_WORKSPACE_FOLDER}/core:/app
-      # Mount plugins directory for plugin discovery
-      - ${LOCAL_WORKSPACE_FOLDER}/plugins:/plugins
+      # Mount plugins directory for plugin discovery (parent directory of workspace on host)
+      - ${LOCAL_WORKSPACE_FOLDER}/../plugins:/plugins
       # Use named volume to preserve container's node_modules (Linux Alpine binaries)
       - core-node-modules-test:/app/node_modules
     ports:

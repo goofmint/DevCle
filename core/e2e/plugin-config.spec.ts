@@ -54,9 +54,9 @@ test.describe('Plugin Config Page', () => {
       if (!card) continue;
 
       // Get plugin name (now inside a link)
-      const nameLink = card.locator('a').filter({ has: page.locator('text=/./') }).first();
+      const nameLink = card!.locator('a').filter({ has: page.locator('text=/./') }).first();
       const pluginName = (await nameLink.textContent())?.trim() || 'Unknown Plugin';
-      const settingsLink = card.locator('a[href*="/edit"]').first();
+      const settingsLink = card!.locator('a[href*="/edit"]').first();
 
       if (!(await settingsLink.count())) {
         console.log(`Skipping plugin without settings link: ${pluginName}`);

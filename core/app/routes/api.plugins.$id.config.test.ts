@@ -3,12 +3,13 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { runInTenant } from '../../db/tenant-test-utils.js';
+import { runInTenant } from '~/db/tenant-test-utils.js';
 import { loader } from './api.plugins.$id.config.js';
 import { getSession, commitSession } from '../sessions.server.js';
-import { getDb } from '../../db/connection.js';
-import * as schema from '../../db/schema/index.js';
+import { getDb } from '~/db/connection.js';
+import * as schema from '~/db/schema/index.js';
 import { eq } from 'drizzle-orm';
+import type { PluginConfigInfo } from '~/services/plugin/plugin-config.types.js';
 
 // Test plugin UUID (from seed data)
 const TEST_PLUGIN_ID = '20000000-0000-4000-8000-000000000001'; // drowl-plugin-test
@@ -84,17 +85,11 @@ describe('GET /api/plugins/:id/config', () => {
       });
 
       // Parse JSON response
-      const data = await response.json();
+      const data = await response.json() as PluginConfigInfo;
 
       // Assertions
       expect(response.status).toBe(200);
       expect(data).toBeDefined();
-
-      // Type guard for PluginConfigInfo
-      if ('error' in data) {
-        throw new Error('Expected success response, got error');
-      }
-
       expect(data.basicInfo).toBeDefined();
       expect(data.basicInfo.id).toBe('drowl-plugin-test');
       expect(data.basicInfo.name).toBe('drowl-plugin-test');
@@ -138,17 +133,18 @@ describe('GET /api/plugins/:id/config', () => {
       });
 
       // Parse JSON response
-      const data = await response.json();
+      const data: unknown = await response.json();
 
       // Assertions
       expect(response.status).toBe(404);
 
       // Type guard for error response
-      if (!('error' in data)) {
+      if (!data || typeof data !== 'object' || !('error' in data)) {
         throw new Error('Expected error response');
       }
 
-      expect(data.error).toBe('Plugin not found');
+      const errorData = data as { error: string };
+      expect(errorData.error).toBe('Plugin not found');
     });
   });
 
@@ -167,17 +163,18 @@ describe('GET /api/plugins/:id/config', () => {
       });
 
       // Parse JSON response
-      const data = await response.json();
+      const data: unknown = await response.json();
 
       // Assertions
       expect(response.status).toBe(400);
 
       // Type guard for error response
-      if (!('error' in data)) {
+      if (!data || typeof data !== 'object' || !('error' in data)) {
         throw new Error('Expected error response');
       }
 
-      expect(data.error).toBe('Plugin ID is required');
+      const errorData = data as { error: string };
+      expect(errorData.error).toBe('Plugin ID is required');
     });
   });
 
@@ -196,38 +193,33 @@ describe('GET /api/plugins/:id/config', () => {
       });
 
       // Parse JSON response
-      const data = await response.json();
-
-      // Type guard for PluginConfigInfo
-      if ('error' in data) {
-        throw new Error('Expected success response, got error');
-      }
+      const config = await response.json() as PluginConfigInfo;
 
       // Verify response structure
-      expect(data).toHaveProperty('basicInfo');
-      expect(data).toHaveProperty('capabilities');
-      expect(data).toHaveProperty('settingsSchema');
-      expect(data).toHaveProperty('routes');
+      expect(config).toHaveProperty('basicInfo');
+      expect(config).toHaveProperty('capabilities');
+      expect(config).toHaveProperty('settingsSchema');
+      expect(config).toHaveProperty('routes');
 
       // Verify basicInfo structure
-      expect(data.basicInfo).toHaveProperty('id');
-      expect(data.basicInfo).toHaveProperty('name');
-      expect(data.basicInfo).toHaveProperty('version');
-      expect(data.basicInfo).toHaveProperty('description');
-      expect(data.basicInfo).toHaveProperty('vendor');
-      expect(data.basicInfo).toHaveProperty('license');
+      expect(config.basicInfo).toHaveProperty('id');
+      expect(config.basicInfo).toHaveProperty('name');
+      expect(config.basicInfo).toHaveProperty('version');
+      expect(config.basicInfo).toHaveProperty('description');
+      expect(config.basicInfo).toHaveProperty('vendor');
+      expect(config.basicInfo).toHaveProperty('license');
 
       // Verify capabilities structure
-      expect(data.capabilities).toHaveProperty('scopes');
-      expect(data.capabilities).toHaveProperty('network');
-      expect(data.capabilities).toHaveProperty('secrets');
-      expect(Array.isArray(data.capabilities.scopes)).toBe(true);
-      expect(Array.isArray(data.capabilities.network)).toBe(true);
-      expect(Array.isArray(data.capabilities.secrets)).toBe(true);
+      expect(config.capabilities).toHaveProperty('scopes');
+      expect(config.capabilities).toHaveProperty('network');
+      expect(config.capabilities).toHaveProperty('secrets');
+      expect(Array.isArray(config.capabilities.scopes)).toBe(true);
+      expect(Array.isArray(config.capabilities.network)).toBe(true);
+      expect(Array.isArray(config.capabilities.secrets)).toBe(true);
 
       // Verify arrays
-      expect(Array.isArray(data.settingsSchema)).toBe(true);
-      expect(Array.isArray(data.routes)).toBe(true);
+      expect(Array.isArray(config.settingsSchema)).toBe(true);
+      expect(Array.isArray(config.routes)).toBe(true);
     });
   });
 });

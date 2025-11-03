@@ -164,7 +164,7 @@ export default function PluginSchedulePage() {
             <p className="text-gray-600 dark:text-gray-400">No scheduled jobs configured</p>
           </div>
         ) : (
-          data.jobs.map((job) => (
+          data.jobs.map((job: JobSchedule) => (
             <div
               key={job.name}
               className="bg-white dark:bg-gray-800 rounded-lg shadow p-6"
