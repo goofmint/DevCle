@@ -862,20 +862,50 @@
 - **推定時間**: 5 時間
 - **ドキュメント**: [.tmp/tasks/task-8.10-plugin-widgets.md](.tmp/tasks/task-8.10-plugin-widgets.md)
 
-### Task 8.11: プラグインの収集結果の詳細表示
+### Task 8.11: プラグインの収集結果の詳細用API実装
 
 - [ ] `app/routes/dashboard/plugins.$id._index.tsx`作成
 - [ ] プラグインが収集したデータの一覧表示
   - plugin_events_raw テーブルからデータ取得
   - ページネーション、フィルタ、ソート機能
-- [ ] `GET /dashboard/plugins/:id`ルート実装
-- [ ] データの詳細モーダル実装
+- [ ] `GET /dashboard/plugins/:id/data` ルート実装
 - [ ] 収集データの統計情報表示
 - **完了条件**: プラグインが収集したデータが表示され、詳細が確認できる
 - **依存**: Task 8.4
 - **推定時間**: 4 時間
 
-### Task 8.12: プラグインのルーティング追加と呼び出しテスト
+### Task 8.12: プラグインの収集結果の詳細表示（UI）
+
+- [ ] イベント一覧ページ実装（`/dashboard/plugins/:id/data`）
+  - Task 8.11で実装したAPI（`GET /api/plugins/:id/events`）を使用
+  - テーブルコンポーネント（EventsTable）
+  - フィルタUI（EventsFilter）：ステータス、イベント種別、日付範囲
+  - ページネーション
+  - 統計サマリー表示（EventsStats）
+- [ ] イベント詳細モーダル実装（EventDetailModal）
+  - Task 8.11のAPI（`GET /api/plugins/:id/events/:eventId`）を使用
+  - JSON ビューア（react-json-view または類似ライブラリ）
+  - 再処理ボタン（失敗イベント用）
+- [ ] 再処理機能実装
+  - Task 8.11のAPI（`POST /api/plugins/:id/events/:eventId/reprocess`）を使用
+  - 楽観的UI更新
+- [ ] E2E テスト作成（`core/e2e/plugin-data-display.spec.ts`）
+  - ページ読み込みとデータ表示
+  - フィルタリング機能
+  - 詳細モーダル表示
+  - 再処理機能
+- **実装方針**:
+  - SPA (Single Page Application) として実装
+  - Remix の `useFetcher` または `fetch` でAPIをクライアントサイドから呼び出し
+  - SSR (Server-Side Rendering) は使用しない
+  - **UIテキストはすべて英語で実装**
+- **完了条件**: プラグインの収集データを一覧表示し、フィルタ・詳細表示・再処理ができる
+- **依存**: Task 8.11（API実装）
+- **推定時間**: 4 時間
+
+---
+
+### Task 8.13: プラグインのルーティング追加と呼び出しテスト
 
 - [ ] プラグインのカスタムルート定義機能（plugin.json に`routes`フィールド）
 - [ ] 動的ルート登録機能実装（Remix の Resource Routes 使用）
