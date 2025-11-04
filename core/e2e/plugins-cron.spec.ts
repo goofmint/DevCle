@@ -22,8 +22,8 @@ import { test, expect } from '@playwright/test';
 // Base URL for the application
 const BASE_URL = process.env['BASE_URL'] || 'http://localhost:3000';
 
-// Test plugin ID (should exist in test database - from seed data)
-const TEST_PLUGIN_ID = '20000000-0000-4000-8000-000000000001'; // drowl-plugin-test
+// Test plugin key (should exist in test database - from seed data)
+const TEST_PLUGIN_KEY = 'drowl-plugin-test';
 
 /**
  * Login as admin before each test
@@ -47,7 +47,7 @@ test.beforeEach(async ({ page }) => {
  */
 test('schedule page displays job definitions', async ({ page }) => {
   // Navigate to schedule page
-  await page.goto(`${BASE_URL}/dashboard/plugins/${TEST_PLUGIN_ID}/schedule`);
+  await page.goto(`${BASE_URL}/dashboard/plugins/${TEST_PLUGIN_KEY}/schedule`);
   await page.waitForLoadState('networkidle');
 
   // Verify page title
@@ -84,7 +84,7 @@ test('schedule page displays job definitions', async ({ page }) => {
  */
 test('runs history page displays execution records', async ({ page }) => {
   // Navigate to runs page
-  await page.goto(`${BASE_URL}/dashboard/plugins/${TEST_PLUGIN_ID}/runs`);
+  await page.goto(`${BASE_URL}/dashboard/plugins/${TEST_PLUGIN_KEY}/runs`);
   await page.waitForLoadState('networkidle');
 
   // Verify page title
@@ -114,7 +114,7 @@ test('runs history page displays execution records', async ({ page }) => {
  * Verifies that clicking filter buttons updates the URL and table content.
  */
 test('status filtering works correctly', async ({ page }) => {
-  await page.goto(`${BASE_URL}/dashboard/plugins/${TEST_PLUGIN_ID}/runs`);
+  await page.goto(`${BASE_URL}/dashboard/plugins/${TEST_PLUGIN_KEY}/runs`);
   await page.waitForLoadState('networkidle');
 
   // Click "Success" filter
@@ -148,7 +148,7 @@ test('status filtering works correctly', async ({ page }) => {
  */
 test('pages support dark mode', async ({ page }) => {
   // Add dark class to html element to enable dark mode
-  await page.goto(`${BASE_URL}/dashboard/plugins/${TEST_PLUGIN_ID}/schedule`);
+  await page.goto(`${BASE_URL}/dashboard/plugins/${TEST_PLUGIN_KEY}/schedule`);
   await page.evaluate(() => {
     document.documentElement.classList.add('dark');
   });
@@ -160,7 +160,7 @@ test('pages support dark mode', async ({ page }) => {
   expect(scheduleClasses).toMatch(/dark:bg-gray-\d{3}/);
 
   // Check runs page dark mode
-  await page.goto(`${BASE_URL}/dashboard/plugins/${TEST_PLUGIN_ID}/runs`);
+  await page.goto(`${BASE_URL}/dashboard/plugins/${TEST_PLUGIN_KEY}/runs`);
   await page.evaluate(() => {
     document.documentElement.classList.add('dark');
   });
@@ -178,7 +178,7 @@ test('pages support dark mode', async ({ page }) => {
  */
 test('navigation between pages works', async ({ page }) => {
   // Start on schedule page
-  await page.goto(`${BASE_URL}/dashboard/plugins/${TEST_PLUGIN_ID}/schedule`);
+  await page.goto(`${BASE_URL}/dashboard/plugins/${TEST_PLUGIN_KEY}/schedule`);
 
   // Verify back to plugins link works
   await page.click('a:has-text("Back to Plugins")');

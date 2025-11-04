@@ -28,11 +28,11 @@ import {
   sanitizeResult,
 } from '~/services/pluginLogs.service.js';
 import {
-  isValidUUID,
   isValidStatus,
   parseLimit,
   parseOffset,
 } from '~/utils/validation.js';
+import { getPluginByKey } from '../../services/plugin.service.js';
 import type {
   PluginLogsResponse,
   PluginLogEntry,
@@ -105,13 +105,13 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       });
     }
 
-    // 3. Validate plugin ID format
-    const pluginId = params['id'];
-    if (!isValidUUID(pluginId)) {
+    // 3. Get plugin by key and resolve to pluginId
+    const key = params['id'];
+    if (!key) {
       const errorResponse: ApiErrorResponse = {
         status: 400,
-        message: 'Invalid plugin ID format (must be UUID)',
-        code: 'INVALID_UUID',
+        message: 'Plugin key is required',
+        code: 'MISSING_PLUGIN_KEY',
       };
       return json(errorResponse, {
         status: 400,
@@ -120,6 +120,23 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
         },
       });
     }
+
+    // Resolve plugin key to pluginId
+    const plugin = await getPluginByKey(tenantId, key);
+    if (!plugin) {
+      const errorResponse: ApiErrorResponse = {
+        status: 404,
+        message: 'Plugin not found',
+        code: 'PLUGIN_NOT_FOUND',
+      };
+      return json(errorResponse, {
+        status: 404,
+        headers: {
+          'Cache-Control': 'no-store',
+        },
+      });
+    }
+    const pluginId = plugin.pluginId;
 
     // 4. Parse and validate query parameters
     const url = new URL(request.url);

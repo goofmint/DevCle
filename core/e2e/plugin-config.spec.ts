@@ -5,7 +5,7 @@
 import { test, expect } from '@playwright/test';
 
 const BASE_URL = process.env['BASE_URL'] || 'https://devcle.test';
-const TEST_PLUGIN_ID = '20000000-0000-4000-8000-000000000001';
+const TEST_PLUGIN_KEY = 'drowl-plugin-test';
 const TEST_PLUGIN_NAME = 'Test Plugin';
 
 // Read credentials from environment variables
@@ -97,7 +97,7 @@ test.describe('Plugin Config Page', () => {
   });
 
   test('should display plugin configuration page correctly', async ({ page }) => {
-    await page.goto(`${BASE_URL}/dashboard/plugins/${TEST_PLUGIN_ID}/edit`);
+    await page.goto(`${BASE_URL}/dashboard/plugins/${TEST_PLUGIN_KEY}/edit`);
 
     // Wait for loading to complete
     await page.waitForSelector(`h1:has-text("Configure")`);
@@ -132,7 +132,7 @@ test.describe('Plugin Config Page', () => {
   });
 
   test('should have proper dark mode styling', async ({ page }) => {
-    await page.goto(`${BASE_URL}/dashboard/plugins/${TEST_PLUGIN_ID}/edit`);
+    await page.goto(`${BASE_URL}/dashboard/plugins/${TEST_PLUGIN_KEY}/edit`);
     await page.waitForSelector('h1:has-text("Configure")');
 
     // Check text color in dark mode
@@ -157,7 +157,7 @@ test.describe('Plugin Config Page', () => {
     });
 
     // Navigate to the page
-    await page.goto(`${BASE_URL}/dashboard/plugins/${TEST_PLUGIN_ID}/config`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${BASE_URL}/dashboard/plugins/${TEST_PLUGIN_KEY}/config`, { waitUntil: 'domcontentloaded' });
 
     // Check that the loading spinner was visible at some point
     // Since API is delayed, spinner should show up initially
@@ -179,7 +179,7 @@ test.describe('Plugin Config Page', () => {
   });
 
   test('should have proper layout without visual偏り', async ({ page }) => {
-    await page.goto(`${BASE_URL}/dashboard/plugins/${TEST_PLUGIN_ID}/edit`);
+    await page.goto(`${BASE_URL}/dashboard/plugins/${TEST_PLUGIN_KEY}/edit`);
     await page.waitForSelector('h1:has-text("Configure")');
 
     const fieldContainer = page.locator('form .space-y-6').first();

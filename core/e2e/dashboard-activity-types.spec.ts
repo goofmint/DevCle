@@ -253,14 +253,30 @@ test.describe('Activity Types Settings - CRUD Operations', () => {
     await page.goto(`${BASE_URL}/dashboard/settings/activity-types`);
     await page.waitForLoadState('networkidle');
 
+    // First, create a new activity type to delete
+    await page.getByTestId('create-activity-type-button').click();
+    await page.fill('input#action-input', 'to-delete-test');
+
+    // Select an icon
+    const iconButtons = page.locator('button:has(svg)').first();
+    await iconButtons.click();
+
+    // Select a color
+    const colorCircle = page.locator('.circle-picker span').first();
+    await colorCircle.click();
+
+    // Submit form
+    await page.click('button[type="submit"]:has-text("Create Activity Type")');
+    await page.waitForTimeout(1500);
+
     // Count initial rows
     const initialCount = await page.locator('table tbody tr').count();
 
     // Setup dialog handler to accept confirmation
     page.on('dialog', (dialog) => dialog.accept());
 
-    // Find "download" row (created in previous test) and click delete button
-    const downloadRow = page.locator('tr:has(td:has-text("download"))');
+    // Find "to-delete-test" row and click delete button
+    const downloadRow = page.locator('tr:has(td:has-text("to-delete-test"))');
     const deleteButton = downloadRow.locator('button:has-text("Delete")');
     await deleteButton.click();
 
@@ -271,8 +287,8 @@ test.describe('Activity Types Settings - CRUD Operations', () => {
     const newCount = await page.locator('table tbody tr').count();
     expect(newCount).toBeLessThan(initialCount);
 
-    // Verify "download" is no longer in the table
-    await expect(page.locator('td:has-text("download")')).not.toBeVisible();
+    // Verify "to-delete-test" is no longer in the table
+    await expect(page.locator('td:has-text("to-delete-test")')).not.toBeVisible();
   });
 });
 

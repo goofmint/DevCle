@@ -10,9 +10,9 @@ import { getDb } from '../../db/connection.js';
 import * as schema from '../../db/schema/index.js';
 import { eq } from 'drizzle-orm';
 
-// Test plugin UUID (from seed data)
-const TEST_PLUGIN_ID = '20000000-0000-4000-8000-000000000001'; // drowl-plugin-test
-const FAKE_PLUGIN_ID = '00000000-0000-0000-0000-000000000000'; // Non-existent plugin
+// Test plugin key (from seed data)
+const TEST_PLUGIN_KEY = 'drowl-plugin-test'; // Plugin key
+const FAKE_PLUGIN_KEY = 'non-existent-plugin'; // Non-existent plugin
 
 let testUserId: string | null = null;
 
@@ -73,13 +73,13 @@ describe('GET /api/plugins/:id/runs', () => {
     await runInTenant('default', async () => {
       // Create authenticated request
       const request = await createAuthenticatedRequest(
-        `http://localhost/api/plugins/${TEST_PLUGIN_ID}/runs`
+        `http://localhost/api/plugins/${TEST_PLUGIN_KEY}/runs`
       );
 
       // Call loader
       const response = await loader({
         request,
-        params: { id: TEST_PLUGIN_ID },
+        params: { id: TEST_PLUGIN_KEY },
         context: {},
       });
 
@@ -108,14 +108,14 @@ describe('GET /api/plugins/:id/runs', () => {
     await runInTenant('default', async () => {
       // Create unauthenticated request
       const request = createUnauthenticatedRequest(
-        `http://localhost/api/plugins/${TEST_PLUGIN_ID}/runs`
+        `http://localhost/api/plugins/${TEST_PLUGIN_KEY}/runs`
       );
 
       // Call loader - expect it to throw (redirect to login)
       await expect(
         loader({
           request,
-          params: { id: TEST_PLUGIN_ID },
+          params: { id: TEST_PLUGIN_KEY },
           context: {},
         })
       ).rejects.toThrow();
@@ -124,15 +124,15 @@ describe('GET /api/plugins/:id/runs', () => {
 
   it('should return 404 for non-existing plugin', async () => {
     await runInTenant('default', async () => {
-      // Create authenticated request with non-existing plugin ID
+      // Create authenticated request with non-existing plugin key
       const request = await createAuthenticatedRequest(
-        `http://localhost/api/plugins/${FAKE_PLUGIN_ID}/runs`
+        `http://localhost/api/plugins/${FAKE_PLUGIN_KEY}/runs`
       );
 
       // Call loader
       const response = await loader({
         request,
-        params: { id: FAKE_PLUGIN_ID },
+        params: { id: FAKE_PLUGIN_KEY },
         context: {},
       });
 
@@ -178,7 +178,7 @@ describe('GET /api/plugins/:id/runs', () => {
       }
 
       const errorData = data as { error: string };
-      expect(errorData.error).toBe('Plugin ID is required');
+      expect(errorData.error).toBe('Plugin key is required');
     });
   });
 
@@ -186,13 +186,13 @@ describe('GET /api/plugins/:id/runs', () => {
     await runInTenant('default', async () => {
       // Create authenticated request with pagination params
       const request = await createAuthenticatedRequest(
-        `http://localhost/api/plugins/${TEST_PLUGIN_ID}/runs?limit=5&offset=0`
+        `http://localhost/api/plugins/${TEST_PLUGIN_KEY}/runs?limit=5&offset=0`
       );
 
       // Call loader
       const response = await loader({
         request,
-        params: { id: TEST_PLUGIN_ID },
+        params: { id: TEST_PLUGIN_KEY },
         context: {},
       });
 
@@ -217,13 +217,13 @@ describe('GET /api/plugins/:id/runs', () => {
     await runInTenant('default', async () => {
       // Create authenticated request with status filter
       const request = await createAuthenticatedRequest(
-        `http://localhost/api/plugins/${TEST_PLUGIN_ID}/runs?status=success`
+        `http://localhost/api/plugins/${TEST_PLUGIN_KEY}/runs?status=success`
       );
 
       // Call loader
       const response = await loader({
         request,
-        params: { id: TEST_PLUGIN_ID },
+        params: { id: TEST_PLUGIN_KEY },
         context: {},
       });
 
@@ -251,13 +251,13 @@ describe('GET /api/plugins/:id/runs', () => {
     await runInTenant('default', async () => {
       // Create authenticated request
       const request = await createAuthenticatedRequest(
-        `http://localhost/api/plugins/${TEST_PLUGIN_ID}/runs`
+        `http://localhost/api/plugins/${TEST_PLUGIN_KEY}/runs`
       );
 
       // Call loader
       const response = await loader({
         request,
-        params: { id: TEST_PLUGIN_ID },
+        params: { id: TEST_PLUGIN_KEY },
         context: {},
       });
 

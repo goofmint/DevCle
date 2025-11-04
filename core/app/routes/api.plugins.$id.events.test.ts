@@ -174,8 +174,8 @@ describe('Plugin Events API', () => {
       const pluginId = await createTestPlugin();
       createdPlugins.push(pluginId);
 
-      const request = new Request(`http://localhost/api/plugins/${pluginId}/events`);
-      const response = await eventsLoader({ request, params: { id: pluginId }, context: {} });
+      const request = new Request(`http://localhost/api/plugins/drowl-plugin-test-events-api/events`);
+      const response = await eventsLoader({ request, params: { id: 'drowl-plugin-test-events-api' }, context: {} });
 
       expect(response.status).toBe(302);
     });
@@ -201,10 +201,10 @@ describe('Plugin Events API', () => {
       const pluginId = await createTestPlugin();
       createdPlugins.push(pluginId);
 
-      const request = new Request(`http://localhost/api/plugins/${pluginId}/events`);
+      const request = new Request(`http://localhost/api/plugins/drowl-plugin-test-events-api/events`);
       request.headers.set('cookie', cookie);
 
-      const response = await eventsLoader({ request, params: { id: pluginId }, context: {} });
+      const response = await eventsLoader({ request, params: { id: 'drowl-plugin-test-events-api' }, context: {} });
       expect(response.status).toBe(200);
 
       const data: unknown = await response.json();
@@ -226,10 +226,10 @@ describe('Plugin Events API', () => {
       await createTestEvent(pluginId, { eventType: 'test:event-2' });
       await createTestEvent(pluginId, { eventType: 'test:event-3' });
 
-      const request = new Request(`http://localhost/api/plugins/${pluginId}/events`);
+      const request = new Request(`http://localhost/api/plugins/drowl-plugin-test-events-api/events`);
       request.headers.set('cookie', cookie);
 
-      const response = await eventsLoader({ request, params: { id: pluginId }, context: {} });
+      const response = await eventsLoader({ request, params: { id: 'drowl-plugin-test-events-api' }, context: {} });
       expect(response.status).toBe(200);
 
       const data: unknown = await response.json();
@@ -251,11 +251,11 @@ describe('Plugin Events API', () => {
       await createTestEvent(pluginId, { status: 'failed', errorMessage: 'Test error' });
 
       const request = new Request(
-        `http://localhost/api/plugins/${pluginId}/events?status=pending`
+        `http://localhost/api/plugins/drowl-plugin-test-events-api/events?status=pending`
       );
       request.headers.set('cookie', cookie);
 
-      const response = await eventsLoader({ request, params: { id: pluginId }, context: {} });
+      const response = await eventsLoader({ request, params: { id: 'drowl-plugin-test-events-api' }, context: {} });
       expect(response.status).toBe(200);
 
       const data: unknown = await response.json();
@@ -283,11 +283,11 @@ describe('Plugin Events API', () => {
       await createTestEvent(pluginId, { eventType: 'github:pull_request' });
 
       const request = new Request(
-        `http://localhost/api/plugins/${pluginId}/events?eventType=github:pull_request`
+        `http://localhost/api/plugins/drowl-plugin-test-events-api/events?eventType=github:pull_request`
       );
       request.headers.set('cookie', cookie);
 
-      const response = await eventsLoader({ request, params: { id: pluginId }, context: {} });
+      const response = await eventsLoader({ request, params: { id: 'drowl-plugin-test-events-api' }, context: {} });
       expect(response.status).toBe(200);
 
       const data: unknown = await response.json();
@@ -315,11 +315,11 @@ describe('Plugin Events API', () => {
       }
 
       const request = new Request(
-        `http://localhost/api/plugins/${pluginId}/events?page=2&perPage=10`
+        `http://localhost/api/plugins/drowl-plugin-test-events-api/events?page=2&perPage=10`
       );
       request.headers.set('cookie', cookie);
 
-      const response = await eventsLoader({ request, params: { id: pluginId }, context: {} });
+      const response = await eventsLoader({ request, params: { id: 'drowl-plugin-test-events-api' }, context: {} });
       expect(response.status).toBe(200);
 
       const data: unknown = await response.json();
@@ -342,11 +342,11 @@ describe('Plugin Events API', () => {
       createdPlugins.push(pluginId);
 
       const request = new Request(
-        `http://localhost/api/plugins/${pluginId}/events?page=0`
+        `http://localhost/api/plugins/drowl-plugin-test-events-api/events?page=0`
       );
       request.headers.set('cookie', cookie);
 
-      const response = await eventsLoader({ request, params: { id: pluginId }, context: {} });
+      const response = await eventsLoader({ request, params: { id: 'drowl-plugin-test-events-api' }, context: {} });
       expect(response.status).toBe(400);
 
       const data: unknown = await response.json();
@@ -359,8 +359,8 @@ describe('Plugin Events API', () => {
       const pluginId = await createTestPlugin();
       createdPlugins.push(pluginId);
 
-      const request = new Request(`http://localhost/api/plugins/${pluginId}/events/stats`);
-      const response = await statsLoader({ request, params: { id: pluginId }, context: {} });
+      const request = new Request(`http://localhost/api/plugins/drowl-plugin-test-events-api/events/stats`);
+      const response = await statsLoader({ request, params: { id: 'drowl-plugin-test-events-api' }, context: {} });
 
       expect(response.status).toBe(302);
     });
@@ -386,10 +386,10 @@ describe('Plugin Events API', () => {
       const pluginId = await createTestPlugin();
       createdPlugins.push(pluginId);
 
-      const request = new Request(`http://localhost/api/plugins/${pluginId}/events/stats`);
+      const request = new Request(`http://localhost/api/plugins/drowl-plugin-test-events-api/events/stats`);
       request.headers.set('cookie', cookie);
 
-      const response = await statsLoader({ request, params: { id: pluginId }, context: {} });
+      const response = await statsLoader({ request, params: { id: 'drowl-plugin-test-events-api' }, context: {} });
       expect(response.status).toBe(200);
 
       const data: unknown = await response.json();
@@ -419,10 +419,10 @@ describe('Plugin Events API', () => {
       await createTestEvent(pluginId, { status: 'processed', processedAt: new Date() });
       await createTestEvent(pluginId, { status: 'failed', errorMessage: 'Test error' });
 
-      const request = new Request(`http://localhost/api/plugins/${pluginId}/events/stats`);
+      const request = new Request(`http://localhost/api/plugins/drowl-plugin-test-events-api/events/stats`);
       request.headers.set('cookie', cookie);
 
-      const response = await statsLoader({ request, params: { id: pluginId }, context: {} });
+      const response = await statsLoader({ request, params: { id: 'drowl-plugin-test-events-api' }, context: {} });
       expect(response.status).toBe(200);
 
       const data: unknown = await response.json();
@@ -451,7 +451,7 @@ describe('Plugin Events API', () => {
 
       const eventId = crypto.randomUUID();
       const request = new Request(
-        `http://localhost/api/plugins/${pluginId}/events/${eventId}`
+        `http://localhost/api/plugins/drowl-plugin-test-events-api/events/${eventId}`
       );
       const response = await eventDetailLoader({
         request,
@@ -488,12 +488,12 @@ describe('Plugin Events API', () => {
       const pluginId = await createTestPlugin();
       createdPlugins.push(pluginId);
 
-      const request = new Request(`http://localhost/api/plugins/${pluginId}/events/`);
+      const request = new Request(`http://localhost/api/plugins/drowl-plugin-test-events-api/events/`);
       request.headers.set('cookie', cookie);
 
       const response = await eventDetailLoader({
         request,
-        params: { id: pluginId },
+        params: { id: 'drowl-plugin-test-events-api' },
         context: {},
       });
       expect(response.status).toBe(400);
@@ -511,7 +511,7 @@ describe('Plugin Events API', () => {
 
       const eventId = crypto.randomUUID();
       const request = new Request(
-        `http://localhost/api/plugins/${pluginId}/events/${eventId}`
+        `http://localhost/api/plugins/drowl-plugin-test-events-api/events/${eventId}`
       );
       request.headers.set('cookie', cookie);
 
@@ -541,7 +541,7 @@ describe('Plugin Events API', () => {
       });
 
       const request = new Request(
-        `http://localhost/api/plugins/${pluginId}/events/${eventId}`
+        `http://localhost/api/plugins/drowl-plugin-test-events-api/events/${eventId}`
       );
       request.headers.set('cookie', cookie);
 
@@ -582,7 +582,7 @@ describe('Plugin Events API', () => {
       });
 
       const request = new Request(
-        `http://localhost/api/plugins/${pluginId}/events/${eventId}`
+        `http://localhost/api/plugins/drowl-plugin-test-events-api/events/${eventId}`
       );
       request.headers.set('cookie', cookie);
 
@@ -609,7 +609,7 @@ describe('Plugin Events API', () => {
 
       const eventId = crypto.randomUUID();
       const request = new Request(
-        `http://localhost/api/plugins/${pluginId}/events/${eventId}/reprocess`,
+        `http://localhost/api/plugins/drowl-plugin-test-events-api/events/${eventId}/reprocess`,
         { method: 'POST' }
       );
       const response = await reprocessAction({
@@ -651,14 +651,14 @@ describe('Plugin Events API', () => {
       createdPlugins.push(pluginId);
 
       const request = new Request(
-        `http://localhost/api/plugins/${pluginId}/events//reprocess`,
+        `http://localhost/api/plugins/drowl-plugin-test-events-api/events//reprocess`,
         { method: 'POST' }
       );
       request.headers.set('cookie', cookie);
 
       const response = await reprocessAction({
         request,
-        params: { id: pluginId },
+        params: { id: 'drowl-plugin-test-events-api' },
         context: {},
       });
       expect(response.status).toBe(400);
@@ -676,7 +676,7 @@ describe('Plugin Events API', () => {
 
       const eventId = crypto.randomUUID();
       const request = new Request(
-        `http://localhost/api/plugins/${pluginId}/events/${eventId}/reprocess`,
+        `http://localhost/api/plugins/drowl-plugin-test-events-api/events/${eventId}/reprocess`,
         { method: 'POST' }
       );
       request.headers.set('cookie', cookie);
@@ -706,7 +706,7 @@ describe('Plugin Events API', () => {
       });
 
       const request = new Request(
-        `http://localhost/api/plugins/${pluginId}/events/${eventId}/reprocess`,
+        `http://localhost/api/plugins/drowl-plugin-test-events-api/events/${eventId}/reprocess`,
         { method: 'POST' }
       );
       request.headers.set('cookie', cookie);
@@ -751,7 +751,7 @@ describe('Plugin Events API', () => {
       });
 
       const request = new Request(
-        `http://localhost/api/plugins/${pluginId}/events/${eventId}/reprocess`,
+        `http://localhost/api/plugins/drowl-plugin-test-events-api/events/${eventId}/reprocess`,
         { method: 'POST' }
       );
       request.headers.set('cookie', cookie);
