@@ -82,6 +82,16 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
       summary,
     });
   } catch (error) {
+    // Re-throw Response objects (e.g., redirects from requireAuth)
+    if (error instanceof Response) {
+      throw error;
+    }
+
+    // Handle plugin not found errors
+    if (error instanceof Error && error.message.includes('Plugin not found')) {
+      return json({ error: 'Plugin not found' }, { status: 404 });
+    }
+
     console.error('Failed to list plugin runs:', error);
     return json({ error: 'Failed to list plugin runs' }, { status: 500 });
   }
