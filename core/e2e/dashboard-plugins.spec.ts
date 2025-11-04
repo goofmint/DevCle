@@ -124,12 +124,12 @@ test('plugin cards show name, status, and dates', async ({ page }) => {
   if (isEnabled) {
     // Fetch plugin data from API to check hasSettings
     const pluginLink = await pluginNameLink.getAttribute('href');
-    const pluginId = pluginLink?.split('/')[3]; // Extract ID from /dashboard/plugins/ID
+    const pluginKey = pluginLink?.split('/')[3]; // Extract key from /dashboard/plugins/KEY
 
-    if (pluginId) {
+    if (pluginKey) {
       const apiResponse = await page.request.get('/api/plugins');
       const apiData = await apiResponse.json() as { plugins: Array<{ pluginId: string; key: string; hasSettings: boolean }> };
-      const plugin = apiData.plugins.find(p => p.pluginId === pluginId);
+      const plugin = apiData.plugins.find(p => p.key === pluginKey);
 
       if (plugin?.hasSettings) {
         // Plugin has settings - gear icon should be visible
