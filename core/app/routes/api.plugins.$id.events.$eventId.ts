@@ -16,6 +16,7 @@
 import { json, type LoaderFunctionArgs } from '@remix-run/node';
 import { requireAuth } from '../auth.middleware.js';
 import { getPluginEventDetail } from '../../services/plugin-events.service.js';
+import { getPluginByKey } from '../services/plugins.service.js';
 
 /**
  * GET /api/plugins/:id/events/:eventId - Get event detail
@@ -53,11 +54,11 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     const user = await requireAuth(request);
     const tenantId = user.tenantId;
 
-    // 2. Get plugin ID and event ID from URL params
-    const pluginId = params['id'];
+    // 2. Get plugin key and event ID from URL params
+    const pluginKey = params['id'];
     const eventId = params['eventId'];
 
-    if (!pluginId) {
+    if (!pluginKey) {
       return json(
         {
           error: 'Plugin ID is required',
@@ -85,8 +86,24 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       );
     }
 
-    // 3. Query event detail via service layer (with automatic masking)
-    const event = await getPluginEventDetail(tenantId, pluginId, eventId);
+    // Lookup plugin to get UUID
+    const plugin = await getPluginByKey(tenantId, pluginKey);
+    if (!plugin) {
+      return json(
+        {
+          error: 'Plugin not found',
+        },
+        {
+          status: 404,
+          headers: {
+            'Cache-Control': 'no-store',
+          },
+        }
+      );
+    }
+
+    // 3. Query event detail via service layer (use plugin UUID, with automatic masking)
+    const event = await getPluginEventDetail(tenantId, plugin.pluginId, eventId);
 
     if (!event) {
       return json(

@@ -15,6 +15,7 @@
 import { json, type LoaderFunctionArgs } from '@remix-run/node';
 import { requireAuth } from '../auth.middleware.js';
 import { getPluginEventsStats } from '../../services/plugin-events.service.js';
+import { getPluginByKey } from '../services/plugins.service.js';
 
 /**
  * GET /api/plugins/:id/events/stats - Get event statistics
@@ -44,9 +45,9 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     const user = await requireAuth(request);
     const tenantId = user.tenantId;
 
-    // 2. Get plugin ID from URL params
-    const pluginId = params['id'];
-    if (!pluginId) {
+    // 2. Get plugin key from URL params and resolve to UUID
+    const pluginKey = params['id'];
+    if (!pluginKey) {
       return json(
         {
           error: 'Plugin ID is required',
@@ -60,8 +61,24 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       );
     }
 
-    // 3. Query statistics via service layer
-    const stats = await getPluginEventsStats(tenantId, pluginId);
+    // Lookup plugin to get UUID
+    const plugin = await getPluginByKey(tenantId, pluginKey);
+    if (!plugin) {
+      return json(
+        {
+          error: 'Plugin not found',
+        },
+        {
+          status: 404,
+          headers: {
+            'Cache-Control': 'no-store',
+          },
+        }
+      );
+    }
+
+    // 3. Query statistics via service layer (use plugin UUID)
+    const stats = await getPluginEventsStats(tenantId, plugin.pluginId);
 
     // 4. Build response
     return json(

@@ -86,9 +86,23 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     }
 
     // 3. Query plugin from database via service layer (by key)
-    const pluginData = await getPluginByKey(tenantId, key);
+    let pluginData;
+    try {
+      pluginData = await getPluginByKey(tenantId, key);
+    } catch (error) {
+      // Handle plugin not found
+      if (error instanceof Error && error.message.includes('Plugin not found')) {
+        const errorResponse: ApiErrorResponse = {
+          status: 404,
+          message: 'Plugin not found',
+          code: 'PLUGIN_NOT_FOUND',
+        };
+        return json(errorResponse, { status: 404 });
+      }
+      throw error; // Re-throw other errors
+    }
 
-    // 4. Check if plugin exists
+    // 4. Check if plugin exists (should not happen due to throw above, but keeping for safety)
     if (!pluginData) {
       const errorResponse: ApiErrorResponse = {
         status: 404,
@@ -200,7 +214,22 @@ export async function action({ request, params }: ActionFunctionArgs) {
     }
 
     // Get plugin to resolve pluginId
-    const existingPlugin = await getPluginByKey(tenantId, key);
+    let existingPlugin;
+    try {
+      existingPlugin = await getPluginByKey(tenantId, key);
+    } catch (error) {
+      // Handle plugin not found
+      if (error instanceof Error && error.message.includes('Plugin not found')) {
+        const errorResponse: ApiErrorResponse = {
+          status: 404,
+          message: 'Plugin not found',
+          code: 'PLUGIN_NOT_FOUND',
+        };
+        return json(errorResponse, { status: 404 });
+      }
+      throw error; // Re-throw other errors
+    }
+
     if (!existingPlugin) {
       const errorResponse: ApiErrorResponse = {
         status: 404,

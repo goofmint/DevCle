@@ -175,9 +175,16 @@ describe('Plugin Events API', () => {
       createdPlugins.push(pluginId);
 
       const request = new Request(`http://localhost/api/plugins/drowl-plugin-test-events-api/events`);
-      const response = await eventsLoader({ request, params: { id: 'drowl-plugin-test-events-api' }, context: {} });
 
-      expect(response.status).toBe(302);
+      // requireAuth throws a redirect Response
+      try {
+        await eventsLoader({ request, params: { id: 'drowl-plugin-test-events-api' }, context: {} });
+        throw new Error('Should have thrown redirect');
+      } catch (error) {
+        expect(error).toBeInstanceOf(Response);
+        const response = error as Response;
+        expect(response.status).toBe(302);
+      }
     });
 
     it('should return 400 for missing plugin ID', async () => {
@@ -360,9 +367,16 @@ describe('Plugin Events API', () => {
       createdPlugins.push(pluginId);
 
       const request = new Request(`http://localhost/api/plugins/drowl-plugin-test-events-api/events/stats`);
-      const response = await statsLoader({ request, params: { id: 'drowl-plugin-test-events-api' }, context: {} });
 
-      expect(response.status).toBe(302);
+      // requireAuth throws a redirect Response
+      try {
+        await statsLoader({ request, params: { id: 'drowl-plugin-test-events-api' }, context: {} });
+        throw new Error('Should have thrown redirect');
+      } catch (error) {
+        expect(error).toBeInstanceOf(Response);
+        const response = error as Response;
+        expect(response.status).toBe(302);
+      }
     });
 
     it('should return 400 for missing plugin ID', async () => {
@@ -412,12 +426,13 @@ describe('Plugin Events API', () => {
 
       const oldDate = new Date('2025-01-01T00:00:00Z');
       const newDate = new Date('2025-01-10T00:00:00Z');
+      const midDate = new Date('2025-01-05T00:00:00Z');
 
       await createTestEvent(pluginId, { status: 'pending', ingestedAt: oldDate });
       await createTestEvent(pluginId, { status: 'pending', ingestedAt: newDate });
-      await createTestEvent(pluginId, { status: 'processed', processedAt: new Date() });
-      await createTestEvent(pluginId, { status: 'processed', processedAt: new Date() });
-      await createTestEvent(pluginId, { status: 'failed', errorMessage: 'Test error' });
+      await createTestEvent(pluginId, { status: 'processed', processedAt: new Date(), ingestedAt: midDate });
+      await createTestEvent(pluginId, { status: 'processed', processedAt: new Date(), ingestedAt: midDate });
+      await createTestEvent(pluginId, { status: 'failed', errorMessage: 'Test error', ingestedAt: midDate });
 
       const request = new Request(`http://localhost/api/plugins/drowl-plugin-test-events-api/events/stats`);
       request.headers.set('cookie', cookie);
@@ -453,13 +468,20 @@ describe('Plugin Events API', () => {
       const request = new Request(
         `http://localhost/api/plugins/drowl-plugin-test-events-api/events/${eventId}`
       );
-      const response = await eventDetailLoader({
-        request,
-        params: { id: pluginId, eventId },
-        context: {},
-      });
 
-      expect(response.status).toBe(302);
+      // requireAuth throws a redirect Response
+      try {
+        await eventDetailLoader({
+          request,
+          params: { id: 'drowl-plugin-test-events-api', eventId },
+          context: {},
+        });
+        throw new Error('Should have thrown redirect');
+      } catch (error) {
+        expect(error).toBeInstanceOf(Response);
+        const response = error as Response;
+        expect(response.status).toBe(302);
+      }
     });
 
     it('should return 400 for missing plugin ID', async () => {
@@ -517,7 +539,7 @@ describe('Plugin Events API', () => {
 
       const response = await eventDetailLoader({
         request,
-        params: { id: pluginId, eventId },
+        params: { id: 'drowl-plugin-test-events-api', eventId },
         context: {},
       });
       expect(response.status).toBe(404);
@@ -547,7 +569,7 @@ describe('Plugin Events API', () => {
 
       const response = await eventDetailLoader({
         request,
-        params: { id: pluginId, eventId },
+        params: { id: 'drowl-plugin-test-events-api', eventId },
         context: {},
       });
       expect(response.status).toBe(200);
@@ -577,7 +599,7 @@ describe('Plugin Events API', () => {
         rawData: {
           user: 'john',
           token: 'secret_token_12345678',
-          api_key: 'sk_test_abcdefghijklmnopqrstuvwxyz',
+          apiKey: 'sk_test_abcdefghijklmnopqrstuvwxyz',
         },
       });
 
@@ -588,7 +610,7 @@ describe('Plugin Events API', () => {
 
       const response = await eventDetailLoader({
         request,
-        params: { id: pluginId, eventId },
+        params: { id: 'drowl-plugin-test-events-api', eventId },
         context: {},
       });
       expect(response.status).toBe(200);
@@ -598,7 +620,7 @@ describe('Plugin Events API', () => {
 
       expect(typedData.rawData['user']).toBe('john');
       expect(typedData.rawData['token']).toBe('secr***5678');
-      expect(typedData.rawData['api_key']).toBe('sk_t***wxyz');
+      expect(typedData.rawData['apiKey']).toBe('sk_t***wxyz');
     });
   });
 
@@ -612,13 +634,20 @@ describe('Plugin Events API', () => {
         `http://localhost/api/plugins/drowl-plugin-test-events-api/events/${eventId}/reprocess`,
         { method: 'POST' }
       );
-      const response = await reprocessAction({
-        request,
-        params: { id: pluginId, eventId },
-        context: {},
-      });
 
-      expect(response.status).toBe(302);
+      // requireAuth throws a redirect Response
+      try {
+        await reprocessAction({
+          request,
+          params: { id: 'drowl-plugin-test-events-api', eventId },
+          context: {},
+        });
+        throw new Error('Should have thrown redirect');
+      } catch (error) {
+        expect(error).toBeInstanceOf(Response);
+        const response = error as Response;
+        expect(response.status).toBe(302);
+      }
     });
 
     it('should return 400 for missing plugin ID', async () => {
@@ -683,7 +712,7 @@ describe('Plugin Events API', () => {
 
       const response = await reprocessAction({
         request,
-        params: { id: pluginId, eventId },
+        params: { id: 'drowl-plugin-test-events-api', eventId },
         context: {},
       });
       expect(response.status).toBe(404);
@@ -713,7 +742,7 @@ describe('Plugin Events API', () => {
 
       const response = await reprocessAction({
         request,
-        params: { id: pluginId, eventId },
+        params: { id: 'drowl-plugin-test-events-api', eventId },
         context: {},
       });
       expect(response.status).toBe(200);
@@ -758,7 +787,7 @@ describe('Plugin Events API', () => {
 
       const response = await reprocessAction({
         request,
-        params: { id: pluginId, eventId },
+        params: { id: 'drowl-plugin-test-events-api', eventId },
         context: {},
       });
       expect(response.status).toBe(200);
