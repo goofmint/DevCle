@@ -1163,6 +1163,96 @@ async function seedPlugins(): Promise<void> {
   console.log('    ✅ Plugins seeded (2)');
 }
 
+/**
+ * Seed sample plugin events
+ *
+ * Creates test plugin events for plugin data display testing.
+ * These events represent different scenarios:
+ * - Various statuses (processed, failed, pending)
+ * - Different event types (github.push, slack.message, etc.)
+ * - Different timestamps for date filtering
+ * - Error messages for failed events
+ *
+ * Total: 25 events to test pagination (default perPage is 20)
+ */
+async function seedPluginEvents(): Promise<void> {
+  const db = getDb();
+
+  console.log('  📊 Seeding plugin events...');
+
+  // Use test plugin ID
+  const testPluginId = '20000000-0000-4000-8000-000000000001';
+
+  // Create 25 events with mix of statuses and types
+  const events = [];
+  const baseDate = new Date('2025-10-01T00:00:00Z');
+
+  // Generate 10 processed events
+  for (let i = 0; i < 10; i++) {
+    events.push({
+      pluginEventId: generateUUID(),
+      tenantId: 'default',
+      pluginId: testPluginId,
+      eventType: i % 2 === 0 ? 'github.push' : 'slack.message',
+      status: 'processed' as const,
+      rawData: {
+        action: 'push',
+        repository: 'test-repo',
+        user: `user-${i}`,
+        timestamp: new Date(baseDate.getTime() + i * 3600000).toISOString(),
+      },
+      errorMessage: null,
+      ingestedAt: new Date(baseDate.getTime() + i * 3600000),
+      processedAt: new Date(baseDate.getTime() + i * 3600000 + 60000),
+    });
+  }
+
+  // Generate 8 failed events (with error messages)
+  for (let i = 0; i < 8; i++) {
+    events.push({
+      pluginEventId: generateUUID(),
+      tenantId: 'default',
+      pluginId: testPluginId,
+      eventType: i % 2 === 0 ? 'github.pull_request' : 'discord.message',
+      status: 'failed' as const,
+      rawData: {
+        action: 'opened',
+        repository: 'error-repo',
+        user: `error-user-${i}`,
+      },
+      errorMessage: `API error: ${i % 2 === 0 ? 'Rate limit exceeded' : 'Invalid token'}`,
+      ingestedAt: new Date(baseDate.getTime() + (10 + i) * 3600000),
+      processedAt: new Date(baseDate.getTime() + (10 + i) * 3600000 + 120000),
+    });
+  }
+
+  // Generate 7 pending events (not yet processed)
+  for (let i = 0; i < 7; i++) {
+    events.push({
+      pluginEventId: generateUUID(),
+      tenantId: 'default',
+      pluginId: testPluginId,
+      eventType: i % 3 === 0 ? 'github.issue' : i % 3 === 1 ? 'slack.reaction' : 'twitter.tweet',
+      status: 'pending' as const,
+      rawData: {
+        action: 'created',
+        content: `Pending event ${i}`,
+      },
+      errorMessage: null,
+      ingestedAt: new Date(baseDate.getTime() + (18 + i) * 3600000),
+      processedAt: null,
+    });
+  }
+
+  // Insert all events
+  await db
+    .insert(schema.pluginEventsRaw)
+    .values(events)
+    .onConflictDoNothing();
+
+  console.log('    ✅ Plugin events seeded (25)');
+}
+
 // ============================================================================
 // Main Seed Function
 // ============================================================================
@@ -1274,6 +1364,8 @@ async function seed(): Promise<void> {
 
     await seedPlugins(); // Plugins for plugin management
 
+    await seedPluginEvents(); // Plugin events for data display testing
+
     const orgIds = await seedOrganizations(); // Organizations for developer affiliation
 
     const devIds = await seedDevelopers(orgIds); // Developers (core entity)
@@ -1298,7 +1390,8 @@ async function seed(): Promise<void> {
     console.log('\n📊 Summary:');
     console.log('  - Tenant: 1');
     console.log('  - Users: 2 (1 admin, 1 member)');
-    console.log('  - Plugins: 1');
+    console.log('  - Plugins: 2');
+    console.log('  - Plugin Events: 25 (10 processed, 8 failed, 7 pending)');
     console.log('  - Organizations: 3');
     console.log('  - Developers: 5');
     console.log('  - Accounts: 4');
