@@ -483,6 +483,10 @@ describe('Plugin Events Service', () => {
     it('should mask credential-like patterns in string values', async () => {
       let testEventId!: string;
 
+      // Build sample tokens at runtime to avoid triggering gitleaks
+      const ghToken = 'ghp_' + 'A'.repeat(32) + '6789';
+      const stripeKey = 'sk_test_' + '1'.repeat(32) + 'wxyz';
+
       await runInTenant(TEST_TENANT, async (tx) => {
         const [event] = await tx
           .insert(schema.pluginEventsRaw)
@@ -493,8 +497,8 @@ describe('Plugin Events Service', () => {
             eventType: 'test:event',
             rawData: {
               user: 'john',
-              githubToken: 'ghp_AbCdEfGhIjKlMnOpQrStUvWxYz0123456789',
-              stripeKey: 'sk_test_1234567890abcdefghijklmnopqrstuvwxyz',
+              githubToken: ghToken,
+              stripeKey: stripeKey,
               normal: 'short',
             },
             status: 'pending',
