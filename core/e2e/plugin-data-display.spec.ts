@@ -124,14 +124,20 @@ test.describe('Plugin Data Display Page', () => {
     );
 
     // Next button should be enabled on page 1 (since we have 2 pages)
-    if (await nextButton.count() > 0) {
+    const nextCount = await nextButton.count();
+    if (nextCount > 0) {
       await expect(nextButton.first()).toBeVisible();
+    } else {
+      throw new Error('Next button not found');
     }
 
     // Previous button should be disabled on page 1
-    if (await prevButton.count() > 0) {
+    const prevCount = await prevButton.count();
+    if (prevCount > 0) {
       const isDisabled = await prevButton.first().isDisabled();
       expect(isDisabled).toBe(true);
+    } else {
+      throw new Error('Previous button not found');
     }
   });
 
@@ -180,6 +186,10 @@ test.describe('Plugin Data Display Page', () => {
     // Verify only github.push events are shown
     const eventTypes = page.locator('tbody tr td:nth-child(2)');
     const count = await eventTypes.count();
+
+    if (count === 0) {
+      throw new Error('No event rows found after filtering by event type');
+    }
 
     for (let i = 0; i < count; i++) {
       const text = await eventTypes.nth(i).textContent();
@@ -266,15 +276,23 @@ test.describe('Plugin Data Display Page', () => {
     ).first();
 
     // Check if next button exists and is enabled
-    if (await nextButton.count() > 0 && !(await nextButton.isDisabled())) {
-      await nextButton.click();
-
-      // Wait for page to update
-      await page.waitForTimeout(1000);
-
-      // Verify we're on page 2
-      await expect(page.locator('text=Page')).toContainText('2');
+    const hasNextButton = await nextButton.count() > 0;
+    if (!hasNextButton) {
+      throw new Error('Next button not found');
     }
+
+    const isNextDisabled = await nextButton.isDisabled();
+    if (isNextDisabled) {
+      throw new Error('Next button is disabled (only 1 page of data)');
+    }
+
+    await nextButton.click();
+
+    // Wait for page to update
+    await page.waitForTimeout(1000);
+
+    // Verify we're on page 2
+    await expect(page.locator('text=Page')).toContainText('2');
   });
 
   /**
@@ -456,7 +474,8 @@ test.describe('Plugin Data Display Page', () => {
       page.locator('button[title*="dark"]')
     );
 
-    if (await darkModeToggle.count() > 0) {
+    const toggleCount = await darkModeToggle.count();
+    if (toggleCount > 0) {
       await darkModeToggle.first().click();
       await page.waitForTimeout(300);
 
@@ -468,6 +487,8 @@ test.describe('Plugin Data Display Page', () => {
       // Verify dark mode has dark background or transparent (inherits from parent dark bg)
       // Note: Tailwind 4.x uses OKLCH color space by default
       expect(darkBgColor).toMatch(/oklch\(0\.\d+\s+[\d.]+\s+[\d.]+\)|rgb\((31|55), (41|65), (51|85)\)|transparent|rgba\(0, 0, 0, 0\)/);
+    } else {
+      throw new Error('Dark mode toggle not found');
     }
   });
 
@@ -502,6 +523,8 @@ test.describe('Plugin Data Display Page', () => {
     if (tableBox) {
       // Table should not extend beyond viewport
       expect(tableBox.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+    } else {
+      throw new Error('Table bounding box not found');
     }
   });
 
