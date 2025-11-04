@@ -1,7 +1,6 @@
 # docker-compose-test.yml (Test environment)
 # Note: Use Compose V2 (docker compose)
 # Usage: docker compose --env-file .env.test -f docker-compose.yml -f docker-compose-test.yml up -d
-version: '3.9'
 
 services:
   nginx:
@@ -9,19 +8,35 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.nginx-test
-    volumes: []
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      # Application domain (used in nginx server_name directive)
+      APP_DOMAIN: ${APP_DOMAIN:-devcle.test}
+    depends_on:
+      - core
     networks:
       - devcle-network
+    restart: unless-stopped
+    healthcheck:
+      # Check if nginx master process is running
+      test: ["CMD-SHELL", "pgrep nginx || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      # Allow 30s for nginx to boot before starting healthchecks
+      start_period: 30s
 
   core:
     container_name: devcle-core-test
     build:
-      # Build from core directory
-      context: ./core
+      # Build from workspace root to include plugins directory
+      context: .
       # Use development target for hot reloading
       target: development
       # Use the same Dockerfile as production but different target
-      dockerfile: ../docker/Dockerfile.core
+      dockerfile: docker/Dockerfile.core-test
     environment:
       # Override NODE_ENV for test
       NODE_ENV: test
@@ -38,14 +53,14 @@ services:
       # Encryption key for sensitive data (from .env.test)
       ENCRYPTION_KEY: ${ENCRYPTION_KEY}
       # Plugins directory path
-      PLUGINS_DIR: /plugins
+      PLUGINS_DIR: /workspace/plugins
     volumes:
       # Mount source code for hot reloading (use host path via LOCAL_WORKSPACE_FOLDER env var from .env)
-      - ${LOCAL_WORKSPACE_FOLDER}/core:/app
+      - ${LOCAL_WORKSPACE_FOLDER}/core:/workspace/core
       # Mount plugins directory for plugin discovery (parent directory of workspace on host)
-      - ${LOCAL_WORKSPACE_FOLDER}/../plugins:/plugins
+      - ${LOCAL_WORKSPACE_FOLDER}/../plugins:/workspace/plugins
       # Use named volume to preserve container's node_modules (Linux Alpine binaries)
-      - core-node-modules-test:/app/node_modules
+      - core-node-modules-test:/workspace/core/node_modules
     ports:
       # Expose test server on different port
       - "3001:3000"

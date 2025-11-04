@@ -1,0 +1,51 @@
+# docker/Dockerfile.core-test
+# Multi-stage build for DevCle core application (test environment)
+# This Dockerfile is used for test environment with plugins directory support
+
+# ============================================
+# Base stage: Node.js 20 with pnpm
+# ============================================
+FROM node:20-alpine AS base
+
+# Enable corepack and install pnpm
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+# Use /workspace/core to match volume mount paths in docker-compose-test.yml
+WORKDIR /workspace/core
+
+# ============================================
+# Development dependencies stage
+# ============================================
+FROM base AS deps-dev
+
+# Copy plugins directory first (required by package.json dependencies)
+# Use /workspace/plugins to match relative path ../plugins from /workspace/core
+COPY plugins /workspace/plugins
+
+# Copy package files for dependency installation
+COPY core/package.json core/pnpm-lock.yaml* ./
+
+# Install all dependencies (including devDependencies)
+# Use --frozen-lockfile to ensure reproducible builds
+RUN pnpm install --frozen-lockfile
+
+# ============================================
+# Development stage
+# ============================================
+FROM base AS development
+
+# Copy plugins directory for runtime access
+# Use /workspace/plugins to match relative path ../plugins from /workspace/core
+COPY plugins /workspace/plugins
+
+# Copy all dependencies (including devDependencies) from deps-dev stage
+COPY --from=deps-dev /workspace/core/node_modules ./node_modules
+
+# Copy source code
+COPY core .
+
+# Expose port 3000 for Remix dev server
+EXPOSE 3000
+
+# Run development server with hot reload
+CMD ["pnpm", "dev"]
