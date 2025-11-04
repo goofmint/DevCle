@@ -10,6 +10,8 @@
  * - PUT /api/user/widget-layout - Save widget layout
  */
 
+import type { FilterValue } from '../../plugin-system/types.js';
+
 /**
  * Data source definition in plugin.json
  *
@@ -27,7 +29,7 @@ export interface WidgetDataSource {
     /** Field to aggregate (required for sum/avg/min/max) */
     field?: string;
     /** Filter conditions */
-    filter?: Record<string, unknown>;
+    filter?: Record<string, FilterValue>;
     /** Time bucket (for timeseries) - when set, timestampField is required */
     bucket?: 'hour' | 'day' | 'week' | 'month';
     /**
@@ -43,7 +45,7 @@ export interface WidgetDataSource {
   columns?: string[];
 
   /** Filter conditions (MUST include "source" to identify plugin data) */
-  filter?: Record<string, unknown>;
+  filter?: Record<string, FilterValue>;
 
   /** Sort specification */
   sort?: {

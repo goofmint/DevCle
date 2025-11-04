@@ -5,6 +5,7 @@
  */
 
 import { withTenantContext } from '../db/connection.js';
+import type { PluginConfigValues } from '../plugin-system/types.js';
 import * as schema from '../db/schema/index.js';
 import { eq, and } from 'drizzle-orm';
 import {
@@ -148,7 +149,7 @@ export async function updateShortlink(
       campaignId: result.campaignId,
       resourceId: result.resourceId,
       attributes: result.attributes
-        ? (result.attributes as Record<string, unknown>)
+        ? (result.attributes as PluginConfigValues)
         : null,
       createdAt: result.createdAt,
       updatedAt: result.updatedAt,

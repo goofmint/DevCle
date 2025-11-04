@@ -20,6 +20,7 @@ import type { PluginConfigInfo } from '../../services/plugin/plugin-config.types
 import { updatePluginConfig, getPluginByKey } from '../../services/plugin.service.js';
 import { validatePluginConfig } from '../../plugin-system/config-validator.js';
 import type { PluginConfigSchema } from '../../plugin-system/config-validator.js';
+import type { PluginConfigValues } from '../../plugin-system/types.js';
 
 /**
  * GET /api/plugins/:id/config
@@ -177,7 +178,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
       );
     }
 
-    const config = requestBody.config as Record<string, unknown>;
+    const config = requestBody.config as PluginConfigValues;
 
     // 4. Get plugin from database by key, then load schema
     let plugin;

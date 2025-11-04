@@ -12,6 +12,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import type { PluginConfigValues } from '../plugin-system/types.js';
 import { eq, and } from 'drizzle-orm';
 import { runInTenant, ensureTenantExists } from '../db/tenant-test-utils.js';
 import * as schema from '../db/schema/index.js';
@@ -468,14 +469,14 @@ describe('Plugin Events Service', () => {
 
       const result = await getPluginEventDetail(TEST_TENANT, testPluginId, testEventId);
 
-      const rawData = result?.rawData as Record<string, unknown>;
+      const rawData = result?.rawData as PluginConfigValues;
       expect(rawData['user']).toBe('john');
 
       // Field name 'auth' is sensitive, so entire object is masked
       expect(rawData['auth']).toBe('***REDACTED***');
 
       // Field name 'credentials' is also sensitive, so it's masked too
-      const metadata = rawData['metadata'] as Record<string, unknown>;
+      const metadata = rawData['metadata'] as unknown as PluginConfigValues;
       expect(metadata['credentials']).toBe('***REDACTED***');
     });
 
@@ -507,7 +508,7 @@ describe('Plugin Events Service', () => {
 
       const result = await getPluginEventDetail(TEST_TENANT, testPluginId, testEventId);
 
-      const rawData = result?.rawData as Record<string, unknown>;
+      const rawData = result?.rawData as PluginConfigValues;
       expect(rawData['user']).toBe('john');
       expect(rawData['githubToken']).toBe('ghp_***6789');
       expect(rawData['stripeKey']).toBe('sk_t***wxyz');
@@ -540,7 +541,7 @@ describe('Plugin Events Service', () => {
 
       const result = await getPluginEventDetail(TEST_TENANT, testPluginId, testEventId);
 
-      const rawData = result?.rawData as Record<string, unknown>;
+      const rawData = result?.rawData as PluginConfigValues;
       expect(rawData['users']).toEqual(['alice', 'bob']);
       // Field name 'tokens' contains 'token', so entire field is masked
       expect(rawData['tokens']).toBe('***REDACTED***');

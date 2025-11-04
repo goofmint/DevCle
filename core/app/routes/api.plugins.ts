@@ -24,6 +24,7 @@ import {
 import { requireAuth } from '~/auth.middleware.js';
 import { isValidUUID } from '~/utils/validation.js';
 import { listPlugins, updatePluginEnabled, redactConfig } from '~/services/plugins.service.js';
+import type { PluginConfigValues } from '../../plugin-system/types.js';
 import type {
   PluginListResponse,
   PluginSummary,
@@ -170,7 +171,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
       tenantId,
       pluginId,
       isEnable,
-      configUpdate
+      configUpdate as PluginConfigValues | undefined
     );
 
     // 6. Check if plugin was found
@@ -190,7 +191,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
       name: updatedPlugin.name,
       version: updatedPlugin.version,
       enabled: updatedPlugin.enabled,
-      config: redactConfig(updatedPlugin.config),
+      config: redactConfig(updatedPlugin.config as PluginConfigValues | null),
       installedAt: updatedPlugin.createdAt.toISOString(),
       updatedAt: updatedPlugin.updatedAt.toISOString(),
     };

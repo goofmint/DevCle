@@ -11,6 +11,62 @@
  */
 
 /**
+ * Plugin setting value types
+ *
+ * These are the types that can be stored in plugin configuration.
+ * - text, url, email, textarea → string
+ * - number → number
+ * - boolean → boolean
+ * - select → string
+ * - multiselect → string[]
+ * - secret → string (encrypted value)
+ */
+export type PluginSettingValue = string | number | boolean | string[];
+
+/**
+ * Plugin configuration values
+ *
+ * The actual configuration object for a plugin instance.
+ * Keys correspond to settingsSchema field keys.
+ */
+export type PluginConfigValues = Record<string, PluginSettingValue>;
+
+/**
+ * Database filter value types
+ *
+ * Used in widget data source filters and database queries.
+ */
+export type FilterValue = string | number | boolean | null | string[] | number[];
+
+/**
+ * Plugin run result
+ *
+ * The JSON result returned from a plugin execution (job or hook).
+ * Contains arbitrary data returned by the plugin.
+ */
+export interface PluginRunResult {
+  /** Success status */
+  success?: boolean;
+  /** Result message */
+  message?: string;
+  /** Number of records processed (for ETL jobs) */
+  processed?: number;
+  /** Error details (if failed) */
+  error?: string;
+  /** Arbitrary plugin-specific data */
+  data?: Record<string, string | number | boolean | null | Array<string | number | boolean | null>>;
+  /** Cursor for incremental sync (optional) */
+  cursor?: string | number;
+}
+
+/**
+ * Structured logging metadata
+ *
+ * Additional context data for log entries.
+ */
+export type LogMetadata = Record<string, string | number | boolean | null>;
+
+/**
  * Plugin compatibility range
  */
 export interface PluginCompatibility {
@@ -45,7 +101,7 @@ export interface PluginSettingsField {
   /** Whether field is required */
   required?: boolean;
   /** Default value */
-  default?: unknown;
+  default?: PluginSettingValue;
   /** Help text */
   help?: string;
   /** Minimum value (for number fields) */

@@ -12,6 +12,7 @@
  */
 
 import { eq, and, desc, asc, count, sql } from 'drizzle-orm';
+import type { PluginConfigValues } from '../plugin-system/types.js';
 import { withTenantContext } from '../db/connection.js';
 import * as schema from '../db/schema/index.js';
 
@@ -121,7 +122,7 @@ export async function createPluginRun(
         status: 'pending',
         eventsProcessed: 0,
         errorMessage: null,
-        metadata: metadata ? (metadata as unknown as Record<string, unknown>) : null,
+        metadata: metadata ? (metadata as unknown as PluginConfigValues) : null,
       })
       .returning({ runId: schema.pluginRuns.runId });
 
@@ -203,7 +204,7 @@ export async function completePluginRun(
         completedAt: new Date(),
         eventsProcessed: result.eventsProcessed,
         errorMessage: result.errorMessage ?? null,
-        metadata: result.metadata ? (result.metadata as unknown as Record<string, unknown>) : null,
+        metadata: result.metadata ? (result.metadata as unknown as PluginConfigValues) : null,
       })
       .where(eq(schema.pluginRuns.runId, runId));
   });

@@ -23,6 +23,7 @@ import {
   encryptPluginConfig,
   createSecretExistsMarkers,
 } from '../plugin-system/config-encryption.js';
+import type { PluginConfigValues } from '../plugin-system/types.js';
 
 /**
  * Plugin information returned by service functions
@@ -41,7 +42,7 @@ export interface PluginInfo {
   enabled: boolean;
 
   /** Plugin configuration (may contain encrypted secret fields) */
-  config: Record<string, unknown> | null;
+  config: PluginConfigValues | null;
 
   /** Creation timestamp (ISO 8601) */
   createdAt: string;
@@ -89,7 +90,7 @@ export async function findPluginById(
       key: row.key,
       name: row.name,
       enabled: row.enabled,
-      config: row.config as Record<string, unknown> | null,
+      config: row.config as PluginConfigValues | null,
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
     };
@@ -135,7 +136,7 @@ export async function findPluginByKey(
       key: row.key,
       name: row.name,
       enabled: row.enabled,
-      config: row.config as Record<string, unknown> | null,
+      config: row.config as PluginConfigValues | null,
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
     };
@@ -209,7 +210,7 @@ export async function updatePluginConfig(
   tenantId: string,
   pluginId: string,
   configSchema: PluginConfigSchema,
-  config: Record<string, unknown>
+  config: PluginConfigValues
 ): Promise<PluginInfo> {
   return await withTenantContext(tenantId, async (tx) => {
     // Get existing plugin to retrieve current encrypted config
@@ -230,7 +231,7 @@ export async function updatePluginConfig(
       throw new Error(`Plugin not found: ${pluginId}`);
     }
 
-    const existingConfig = existingRow.config as Record<string, unknown> | null;
+    const existingConfig = existingRow.config as PluginConfigValues | null;
 
     // Encrypt secret fields (preserves existing values for secret exists markers)
     const encryptedConfig = await encryptPluginConfig(
@@ -263,7 +264,7 @@ export async function updatePluginConfig(
     // Return updated plugin info with secret exists markers
     const configWithMarkers = createSecretExistsMarkers(
       configSchema,
-      updatedRow.config as Record<string, unknown> || {}
+      updatedRow.config as PluginConfigValues || {}
     );
 
     return {
@@ -321,7 +322,7 @@ export async function disablePlugin(
       key: updatedRow.key,
       name: updatedRow.name,
       enabled: updatedRow.enabled,
-      config: updatedRow.config as Record<string, unknown> | null,
+      config: updatedRow.config as PluginConfigValues | null,
       createdAt: updatedRow.createdAt.toISOString(),
       updatedAt: updatedRow.updatedAt.toISOString(),
     };

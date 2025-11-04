@@ -3,6 +3,8 @@
  * Based on plugin.json spec from .tmp/plugin.md
  */
 
+import type { PluginSettingValue, FilterValue } from '../../plugin-system/types.js';
+
 /**
  * Plugin basic information
  */
@@ -68,7 +70,7 @@ export interface PluginSettingSchema {
   /** Required flag */
   required?: boolean;
   /** Default value */
-  default?: unknown;
+  default?: PluginSettingValue;
   /** Hint text */
   hint?: string;
   /** Validation regex pattern */
@@ -132,13 +134,13 @@ export interface PluginWidgetDataSource {
   aggregation?: {
     op: 'count' | 'sum' | 'avg' | 'min' | 'max';
     field?: string;
-    filter?: Record<string, unknown>;
+    filter?: Record<string, FilterValue>;
     bucket?: 'hour' | 'day' | 'week' | 'month';
   };
   /** Columns to select (for table/list widgets) */
   columns?: string[];
   /** Filter conditions (MUST include "source" to identify plugin data) */
-  filter?: Record<string, unknown>;
+  filter?: Record<string, FilterValue>;
   /** Sort specification */
   sort?: {
     key: string;

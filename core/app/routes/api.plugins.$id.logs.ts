@@ -202,12 +202,16 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
         startedAt: run.startedAt.toISOString(),
         finishedAt: run.completedAt ? run.completedAt.toISOString() : null,
         duration,
-        result: sanitizedResult,
       };
 
       // Only add error field if it exists
       if (error !== undefined) {
         logEntry.error = error;
+      }
+
+      // Only add result field if it exists
+      if (sanitizedResult !== undefined) {
+        logEntry.result = sanitizedResult;
       }
 
       return logEntry;

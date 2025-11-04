@@ -5,6 +5,7 @@
  */
 
 import { withTenantContext } from '../db/connection.js';
+import type { PluginConfigValues } from '../plugin-system/types.js';
 import * as schema from '../db/schema/index.js';
 import { eq, and } from 'drizzle-orm';
 import type { Shortlink } from './shortlink.schemas.js';
@@ -29,7 +30,7 @@ function buildShortlinkResult(row: typeof schema.shortlinks.$inferSelect): Short
     shortUrl,
     campaignId: row.campaignId,
     resourceId: row.resourceId,
-    attributes: row.attributes ? (row.attributes as Record<string, unknown>) : null,
+    attributes: row.attributes ? (row.attributes as PluginConfigValues) : null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };

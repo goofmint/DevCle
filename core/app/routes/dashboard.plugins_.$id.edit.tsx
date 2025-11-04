@@ -19,6 +19,7 @@ import { getPluginConfig } from '../../services/plugin/plugin-config.service.js'
 import { findPluginByKey, updatePluginConfig } from '../../services/plugin.service.js';
 import { PluginConfigForm } from '~/components/plugin/PluginConfigForm.js';
 import type { PluginConfigField, PluginConfigSchema } from '../../plugin-system/config-validator.js';
+import type { PluginConfigValues, PluginSettingValue } from '../../plugin-system/types.js';
 import { validatePluginConfig } from '../../plugin-system/config-validator.js';
 import { createSecretExistsMarkers } from '../../plugin-system/config-encryption.js';
 
@@ -88,7 +89,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     };
 
     // 4. Prepare config with secret exists markers
-    const config = plugin.config as Record<string, unknown> | null;
+    const config = plugin.config as PluginConfigValues | null;
     const configWithMarkers = config
       ? createSecretExistsMarkers(schema, config)
       : {};
@@ -155,7 +156,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
 
   // 2. Parse form data
   const formData = await request.formData();
-  const configData: Record<string, unknown> = {};
+  const configData: PluginConfigValues = {};
 
   // Convert FormData to config object
   for (const [key, value] of formData.entries()) {
@@ -186,7 +187,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
     }
 
     // Handle string fields
-    configData[key] = value;
+    configData[key] = value as PluginSettingValue;
   }
 
   // 3. Get plugin information and schema

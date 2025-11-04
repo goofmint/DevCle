@@ -23,6 +23,7 @@ import { getScheduler } from './scheduler.js';
 import type { JobScheduler } from './scheduler.js';
 import * as schema from '../db/schema/index.js';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
+import type { LogMetadata } from './types.js';
 
 /**
  * Plugin execution context
@@ -63,7 +64,7 @@ export interface PluginLogger {
    * @param message - Log message
    * @param meta - Additional metadata (optional)
    */
-  info: (message: string, meta?: unknown) => void;
+  info: (message: string, meta?: LogMetadata) => void;
 
   /**
    * Log error message
@@ -72,7 +73,7 @@ export interface PluginLogger {
    * @param error - Error object (optional)
    * @param meta - Additional metadata (optional)
    */
-  error: (message: string, error?: Error, meta?: unknown) => void;
+  error: (message: string, error?: Error, meta?: LogMetadata) => void;
 
   /**
    * Log warning message
@@ -80,7 +81,7 @@ export interface PluginLogger {
    * @param message - Warning message
    * @param meta - Additional metadata (optional)
    */
-  warn: (message: string, meta?: unknown) => void;
+  warn: (message: string, meta?: LogMetadata) => void;
 
   /**
    * Log debug message
@@ -88,7 +89,7 @@ export interface PluginLogger {
    * @param message - Debug message
    * @param meta - Additional metadata (optional)
    */
-  debug: (message: string, meta?: unknown) => void;
+  debug: (message: string, meta?: LogMetadata) => void;
 }
 
 /**
@@ -147,7 +148,7 @@ function createLogger(pluginId: string, tenantId: string): PluginLogger {
   };
 
   return {
-    info: (message: string, meta?: unknown) => {
+    info: (message: string, meta?: LogMetadata) => {
       console.log(
         JSON.stringify({
           ...baseContext,
@@ -159,7 +160,7 @@ function createLogger(pluginId: string, tenantId: string): PluginLogger {
       );
     },
 
-    error: (message: string, error?: Error, meta?: unknown) => {
+    error: (message: string, error?: Error, meta?: LogMetadata) => {
       console.error(
         JSON.stringify({
           ...baseContext,
@@ -178,7 +179,7 @@ function createLogger(pluginId: string, tenantId: string): PluginLogger {
       );
     },
 
-    warn: (message: string, meta?: unknown) => {
+    warn: (message: string, meta?: LogMetadata) => {
       console.warn(
         JSON.stringify({
           ...baseContext,
@@ -190,7 +191,7 @@ function createLogger(pluginId: string, tenantId: string): PluginLogger {
       );
     },
 
-    debug: (message: string, meta?: unknown) => {
+    debug: (message: string, meta?: LogMetadata) => {
       // Only log debug messages in development
       if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') {
         console.debug(

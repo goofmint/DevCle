@@ -13,6 +13,7 @@
 
 import { encrypt, decrypt } from '../utils/encryption.js';
 import type { PluginConfigSchema, PluginConfigField } from './config-validator.js';
+import type { PluginConfigValues, PluginSettingValue } from './types.js';
 
 /**
  * Marker object used to indicate that a secret field exists
@@ -221,9 +222,9 @@ export async function decryptPluginConfig(
  */
 export function createSecretExistsMarkers(
   schema: PluginConfigSchema,
-  config: Record<string, unknown>
-): Record<string, unknown> {
-  const marked: Record<string, unknown> = { ...config };
+  config: PluginConfigValues
+): PluginConfigValues {
+  const marked: Record<string, PluginSettingValue | { _exists: boolean }> = { ...config };
 
   // Process each field in schema
   for (const field of schema.fields) {
@@ -240,5 +241,5 @@ export function createSecretExistsMarkers(
     }
   }
 
-  return marked;
+  return marked as PluginConfigValues;
 }

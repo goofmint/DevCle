@@ -28,6 +28,7 @@ import { getPluginByKey } from '../../services/plugin.service.js';
 import { redactConfig, updatePluginEnabled } from '~/services/plugins.service.js';
 import { getLastRunsPerJobName } from '~/services/pluginLogs.service.js';
 import { listHooks } from '../../plugin-system/hooks.js';
+import type { PluginConfigValues } from '../../plugin-system/types.js';
 import type {
   PluginDetailResponse,
   PluginInfo,
@@ -239,7 +240,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
       name: updatedPlugin.name,
       version: '1.0.0',
       enabled: updatedPlugin.enabled,
-      config: redactConfig(updatedPlugin.config),
+      config: redactConfig(updatedPlugin.config as PluginConfigValues | null),
       installedAt: updatedPlugin.createdAt.toISOString(),
       updatedAt: updatedPlugin.updatedAt.toISOString(),
     };
