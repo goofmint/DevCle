@@ -53,10 +53,12 @@ test.describe('Plugin Config Page', () => {
       const card = pluginCards[i];
       if (!card) continue;
 
-      // Get plugin name (now inside a link)
-      const nameLink = card!.locator('a').filter({ has: page.locator('text=/./') }).first();
-      const pluginName = (await nameLink.textContent())?.trim() || 'Unknown Plugin';
-      const settingsLink = card!.locator('a[href*="/edit"]').first();
+      // Explicitly assert card is defined for TypeScript
+      if (card) {
+        // Get plugin name (now inside a link)
+        const nameLink = card.locator('a').filter({ has: page.locator('text=/./') }).first();
+        const pluginName = (await nameLink.textContent())?.trim() || 'Unknown Plugin';
+        const settingsLink = card.locator('a[href*="/edit"]').first();
 
       if (!(await settingsLink.count())) {
         console.log(`Skipping plugin without settings link: ${pluginName}`);
@@ -89,6 +91,7 @@ test.describe('Plugin Config Page', () => {
       if (i < pluginCards.length - 1) {
         await page.goto(`${BASE_URL}/dashboard/plugins`);
         await page.waitForLoadState('networkidle');
+      }
       }
     }
   });

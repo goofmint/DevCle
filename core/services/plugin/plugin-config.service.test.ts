@@ -148,7 +148,7 @@ async function cleanupTestPlugins(): Promise<void> {
 describe('plugin-config.service', () => {
   beforeAll(async () => {
     // Configure service to use test plugins directory
-    process.env.PLUGINS_DIR = TEST_PLUGINS_DIR;
+    process.env['PLUGINS_DIR'] = TEST_PLUGINS_DIR;
 
     // Create test plugins
     await createTestPlugin(
@@ -163,7 +163,7 @@ describe('plugin-config.service', () => {
     await cleanupTestPlugins();
 
     // Restore environment
-    delete process.env.PLUGINS_DIR;
+    delete process.env['PLUGINS_DIR'];
   });
 
   describe('pluginExists', () => {

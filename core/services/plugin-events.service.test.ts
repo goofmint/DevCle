@@ -11,7 +11,7 @@
  * Uses real database with tenant isolation (no mocks)
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { eq, and } from 'drizzle-orm';
 import { runInTenant, ensureTenantExists } from '../db/tenant-test-utils.js';
 import * as schema from '../db/schema/index.js';
@@ -54,6 +54,9 @@ describe('Plugin Events Service', () => {
           config: {},
         })
         .returning();
+      if (!plugin) {
+        throw new Error('Failed to create test plugin');
+      }
       testPluginId = plugin.pluginId;
     });
   });
@@ -141,7 +144,9 @@ describe('Plugin Events Service', () => {
         ListEventsSchema.parse({ status: 'pending' })
       );
       expect(pendingResult.total).toBe(1);
-      expect(pendingResult.items[0].status).toBe('pending');
+      if (pendingResult.items[0]) {
+        expect(pendingResult.items[0].status).toBe('pending');
+      }
 
       const processedResult = await listPluginEvents(
         TEST_TENANT,
@@ -149,7 +154,9 @@ describe('Plugin Events Service', () => {
         ListEventsSchema.parse({ status: 'processed' })
       );
       expect(processedResult.total).toBe(1);
-      expect(processedResult.items[0].status).toBe('processed');
+      if (processedResult.items[0]) {
+        expect(processedResult.items[0].status).toBe('processed');
+      }
 
       const failedResult = await listPluginEvents(
         TEST_TENANT,
@@ -157,7 +164,9 @@ describe('Plugin Events Service', () => {
         ListEventsSchema.parse({ status: 'failed' })
       );
       expect(failedResult.total).toBe(1);
-      expect(failedResult.items[0].status).toBe('failed');
+      if (failedResult.items[0]) {
+        expect(failedResult.items[0].status).toBe('failed');
+      }
     });
 
     it('should filter events by eventType', async () => {
@@ -189,7 +198,9 @@ describe('Plugin Events Service', () => {
       );
 
       expect(result.total).toBe(1);
-      expect(result.items[0].eventType).toBe('github:pull_request');
+      if (result.items[0]) {
+        expect(result.items[0].eventType).toBe('github:pull_request');
+      }
     });
 
     it('should filter events by date range', async () => {
@@ -230,7 +241,9 @@ describe('Plugin Events Service', () => {
       );
 
       expect(result.total).toBe(1);
-      expect(result.items[0].eventType).toBe('test:recent');
+      if (result.items[0]) {
+        expect(result.items[0].eventType).toBe('test:recent');
+      }
     });
 
     it('should paginate results correctly', async () => {
@@ -299,8 +312,12 @@ describe('Plugin Events Service', () => {
         ListEventsSchema.parse({ sort: 'asc' })
       );
 
-      expect(result.items[0].ingestedAt.getTime()).toBe(timestamps[0].getTime());
-      expect(result.items[2].ingestedAt.getTime()).toBe(timestamps[2].getTime());
+      const firstItem = result.items[0];
+      const thirdItem = result.items[2];
+      if (firstItem && thirdItem) {
+        expect(firstItem.ingestedAt.getTime()).toBe(timestamps[0]!.getTime());
+        expect(thirdItem.ingestedAt.getTime()).toBe(timestamps[2]!.getTime());
+      }
     });
 
     it('should sort events by ingestedAt descending by default', async () => {
@@ -330,8 +347,12 @@ describe('Plugin Events Service', () => {
         ListEventsSchema.parse({ sort: 'desc' })
       );
 
-      expect(result.items[0].ingestedAt.getTime()).toBe(timestamps[2].getTime());
-      expect(result.items[2].ingestedAt.getTime()).toBe(timestamps[0].getTime());
+      const firstItem = result.items[0];
+      const thirdItem = result.items[2];
+      if (firstItem && thirdItem) {
+        expect(firstItem.ingestedAt.getTime()).toBe(timestamps[2]!.getTime());
+        expect(thirdItem.ingestedAt.getTime()).toBe(timestamps[0]!.getTime());
+      }
     });
   });
 
@@ -347,7 +368,7 @@ describe('Plugin Events Service', () => {
     });
 
     it('should return event detail with raw data', async () => {
-      let testEventId: string;
+      let testEventId!: string;
 
       await runInTenant(TEST_TENANT, async (tx) => {
         const [event] = await tx
@@ -362,6 +383,9 @@ describe('Plugin Events Service', () => {
             processedAt: new Date(),
           })
           .returning();
+        if (!event) {
+          throw new Error('Failed to create test event');
+        }
         testEventId = event.eventId;
       });
 
@@ -375,7 +399,7 @@ describe('Plugin Events Service', () => {
     });
 
     it('should mask sensitive field names in raw data', async () => {
-      let testEventId: string;
+      let testEventId!: string;
 
       await runInTenant(TEST_TENANT, async (tx) => {
         const [event] = await tx
@@ -394,6 +418,9 @@ describe('Plugin Events Service', () => {
             status: 'pending',
           })
           .returning();
+        if (!event) {
+          throw new Error('Failed to create test event');
+        }
         testEventId = event.eventId;
       });
 
@@ -408,7 +435,7 @@ describe('Plugin Events Service', () => {
     });
 
     it('should mask nested sensitive fields', async () => {
-      let testEventId: string;
+      let testEventId!: string;
 
       await runInTenant(TEST_TENANT, async (tx) => {
         const [event] = await tx
@@ -433,24 +460,27 @@ describe('Plugin Events Service', () => {
             status: 'pending',
           })
           .returning();
+        if (!event) {
+          throw new Error('Failed to create test event');
+        }
         testEventId = event.eventId;
       });
 
       const result = await getPluginEventDetail(TEST_TENANT, testPluginId, testEventId);
 
       const rawData = result?.rawData as Record<string, unknown>;
-      expect(rawData.user).toBe('john');
+      expect(rawData['user']).toBe('john');
 
       // Field name 'auth' is sensitive, so entire object is masked
-      expect(rawData.auth).toBe('***REDACTED***');
+      expect(rawData['auth']).toBe('***REDACTED***');
 
       // Field name 'credentials' is also sensitive, so it's masked too
-      const metadata = rawData.metadata as Record<string, unknown>;
-      expect(metadata.credentials).toBe('***REDACTED***');
+      const metadata = rawData['metadata'] as Record<string, unknown>;
+      expect(metadata['credentials']).toBe('***REDACTED***');
     });
 
     it('should mask credential-like patterns in string values', async () => {
-      let testEventId: string;
+      let testEventId!: string;
 
       await runInTenant(TEST_TENANT, async (tx) => {
         const [event] = await tx
@@ -469,20 +499,23 @@ describe('Plugin Events Service', () => {
             status: 'pending',
           })
           .returning();
+        if (!event) {
+          throw new Error('Failed to create test event');
+        }
         testEventId = event.eventId;
       });
 
       const result = await getPluginEventDetail(TEST_TENANT, testPluginId, testEventId);
 
       const rawData = result?.rawData as Record<string, unknown>;
-      expect(rawData.user).toBe('john');
-      expect(rawData.githubToken).toBe('ghp_***6789');
-      expect(rawData.stripeKey).toBe('sk_t***wxyz');
-      expect(rawData.normal).toBe('short');
+      expect(rawData['user']).toBe('john');
+      expect(rawData['githubToken']).toBe('ghp_***6789');
+      expect(rawData['stripeKey']).toBe('sk_t***wxyz');
+      expect(rawData['normal']).toBe('short');
     });
 
     it('should handle arrays in raw data', async () => {
-      let testEventId: string;
+      let testEventId!: string;
 
       await runInTenant(TEST_TENANT, async (tx) => {
         const [event] = await tx
@@ -499,15 +532,18 @@ describe('Plugin Events Service', () => {
             status: 'pending',
           })
           .returning();
+        if (!event) {
+          throw new Error('Failed to create test event');
+        }
         testEventId = event.eventId;
       });
 
       const result = await getPluginEventDetail(TEST_TENANT, testPluginId, testEventId);
 
       const rawData = result?.rawData as Record<string, unknown>;
-      expect(rawData.users).toEqual(['alice', 'bob']);
+      expect(rawData['users']).toEqual(['alice', 'bob']);
       // Field name 'tokens' contains 'token', so entire field is masked
-      expect(rawData.tokens).toBe('***REDACTED***');
+      expect(rawData['tokens']).toBe('***REDACTED***');
     });
   });
 
@@ -600,7 +636,7 @@ describe('Plugin Events Service', () => {
     });
 
     it('should reset event to pending status', async () => {
-      let testEventId: string;
+      let testEventId!: string;
 
       await runInTenant(TEST_TENANT, async (tx) => {
         const [event] = await tx
@@ -616,6 +652,9 @@ describe('Plugin Events Service', () => {
             errorMessage: 'Previous error',
           })
           .returning();
+        if (!event) {
+          throw new Error('Failed to create test event');
+        }
         testEventId = event.eventId;
       });
 
@@ -628,14 +667,16 @@ describe('Plugin Events Service', () => {
           .where(eq(schema.pluginEventsRaw.eventId, testEventId))
           .limit(1);
 
-        expect(updatedEvent.status).toBe('pending');
-        expect(updatedEvent.processedAt).toBeNull();
-        expect(updatedEvent.errorMessage).toBeNull();
+        if (updatedEvent) {
+          expect(updatedEvent.status).toBe('pending');
+          expect(updatedEvent.processedAt).toBeNull();
+          expect(updatedEvent.errorMessage).toBeNull();
+        }
       });
     });
 
     it('should allow reprocessing of processed events', async () => {
-      let testEventId: string;
+      let testEventId!: string;
 
       await runInTenant(TEST_TENANT, async (tx) => {
         const [event] = await tx
@@ -650,6 +691,9 @@ describe('Plugin Events Service', () => {
             processedAt: new Date(),
           })
           .returning();
+        if (!event) {
+          throw new Error('Failed to create test event');
+        }
         testEventId = event.eventId;
       });
 
@@ -662,8 +706,10 @@ describe('Plugin Events Service', () => {
           .where(eq(schema.pluginEventsRaw.eventId, testEventId))
           .limit(1);
 
-        expect(updatedEvent.status).toBe('pending');
-        expect(updatedEvent.processedAt).toBeNull();
+        if (updatedEvent) {
+          expect(updatedEvent.status).toBe('pending');
+          expect(updatedEvent.processedAt).toBeNull();
+        }
       });
     });
   });

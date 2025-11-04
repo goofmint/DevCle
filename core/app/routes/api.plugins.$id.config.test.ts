@@ -3,13 +3,13 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { runInTenant } from '~/db/tenant-test-utils.js';
+import { runInTenant } from '../../db/tenant-test-utils.js';
 import { loader } from './api.plugins.$id.config.js';
 import { getSession, commitSession } from '../sessions.server.js';
-import { getDb } from '~/db/connection.js';
-import * as schema from '~/db/schema/index.js';
+import { getDb } from '../../db/connection.js';
+import * as schema from '../../db/schema/index.js';
 import { eq } from 'drizzle-orm';
-import type { PluginConfigInfo } from '~/services/plugin/plugin-config.types.js';
+import type { PluginConfigInfo } from '../../services/plugin/plugin-config.types.js';
 
 // Test plugin UUID (from seed data)
 const TEST_PLUGIN_ID = '20000000-0000-4000-8000-000000000001'; // drowl-plugin-test
@@ -85,18 +85,25 @@ describe('GET /api/plugins/:id/config', () => {
       });
 
       // Parse JSON response
-      const data = await response.json() as PluginConfigInfo;
+      const data: unknown = await response.json();
 
       // Assertions
       expect(response.status).toBe(200);
       expect(data).toBeDefined();
-      expect(data.basicInfo).toBeDefined();
-      expect(data.basicInfo.id).toBe('drowl-plugin-test');
-      expect(data.basicInfo.name).toBe('drowl-plugin-test');
-      expect(data.basicInfo.version).toBeDefined();
-      expect(data.capabilities).toBeDefined();
-      expect(data.settingsSchema).toBeDefined();
-      expect(data.routes).toBeDefined();
+
+      // Type guard for success response
+      if (!data || typeof data !== 'object' || 'error' in data) {
+        throw new Error('Expected PluginConfigInfo response');
+      }
+
+      const config = data as PluginConfigInfo;
+      expect(config.basicInfo).toBeDefined();
+      expect(config.basicInfo.id).toBe('drowl-plugin-test');
+      expect(config.basicInfo.name).toBe('drowl-plugin-test');
+      expect(config.basicInfo.version).toBeDefined();
+      expect(config.capabilities).toBeDefined();
+      expect(config.settingsSchema).toBeDefined();
+      expect(config.routes).toBeDefined();
     });
   });
 
@@ -193,7 +200,14 @@ describe('GET /api/plugins/:id/config', () => {
       });
 
       // Parse JSON response
-      const config = await response.json() as PluginConfigInfo;
+      const data: unknown = await response.json();
+
+      // Type guard for success response
+      if (!data || typeof data !== 'object' || 'error' in data) {
+        throw new Error('Expected PluginConfigInfo response');
+      }
+
+      const config = data as PluginConfigInfo;
 
       // Verify response structure
       expect(config).toHaveProperty('basicInfo');

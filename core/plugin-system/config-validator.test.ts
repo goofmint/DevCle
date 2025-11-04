@@ -93,10 +93,11 @@ describe('validatePluginConfig - field.key fix', () => {
     const errors = validatePluginConfig(testSchema, config);
 
     expect(errors).toHaveLength(1);
-    const error = errors[0]!;
-    expect(error).toBeDefined();
-    expect(error.field).toBe('webhookUrl');
-    expect(error.message).toContain('valid URL');
+    if (errors[0]) {
+      expect(errors[0]).toBeDefined();
+      expect(errors[0].field).toBe('webhookUrl');
+      expect(errors[0].message).toContain('valid URL');
+    }
   });
 
   it('should validate number field range using key', () => {
@@ -108,10 +109,11 @@ describe('validatePluginConfig - field.key fix', () => {
     const errors = validatePluginConfig(testSchema, config);
 
     expect(errors).toHaveLength(1);
-    const error = errors[0]!;
-    expect(error).toBeDefined();
-    expect(error.field).toBe('maxRetries');
-    expect(error.message).toContain('at most 10');
+    if (errors[0]) {
+      expect(errors[0]).toBeDefined();
+      expect(errors[0].field).toBe('maxRetries');
+      expect(errors[0].message).toContain('at most 10');
+    }
   });
 
   it('should handle empty string as missing for required field', () => {

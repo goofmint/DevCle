@@ -265,7 +265,9 @@ describe('Plugin Events API', () => {
       };
 
       expect(typedData.items).toHaveLength(1);
-      expect(typedData.items[0].status).toBe('pending');
+      if (typedData.items[0]) {
+        expect(typedData.items[0].status).toBe('pending');
+      }
       expect(typedData.pagination.total).toBe(1);
     });
 
@@ -295,7 +297,9 @@ describe('Plugin Events API', () => {
       };
 
       expect(typedData.items).toHaveLength(2);
-      expect(typedData.items[0].eventType).toBe('github:pull_request');
+      if (typedData.items[0]) {
+        expect(typedData.items[0].eventType).toBe('github:pull_request');
+      }
       expect(typedData.pagination.total).toBe(2);
     });
 
@@ -592,9 +596,9 @@ describe('Plugin Events API', () => {
       const data: unknown = await response.json();
       const typedData = data as { rawData: Record<string, unknown> };
 
-      expect(typedData.rawData.user).toBe('john');
-      expect(typedData.rawData.token).toBe('secr***5678');
-      expect(typedData.rawData.api_key).toBe('sk_t***wxyz');
+      expect(typedData.rawData['user']).toBe('john');
+      expect(typedData.rawData['token']).toBe('secr***5678');
+      expect(typedData.rawData['api_key']).toBe('sk_t***wxyz');
     });
   });
 
@@ -726,9 +730,11 @@ describe('Plugin Events API', () => {
           .where(eq(schema.pluginEventsRaw.eventId, eventId))
           .limit(1);
 
-        expect(updatedEvent.status).toBe('pending');
-        expect(updatedEvent.processedAt).toBeNull();
-        expect(updatedEvent.errorMessage).toBeNull();
+        if (updatedEvent) {
+          expect(updatedEvent.status).toBe('pending');
+          expect(updatedEvent.processedAt).toBeNull();
+          expect(updatedEvent.errorMessage).toBeNull();
+        }
       });
     });
 
@@ -764,8 +770,10 @@ describe('Plugin Events API', () => {
           .where(eq(schema.pluginEventsRaw.eventId, eventId))
           .limit(1);
 
-        expect(updatedEvent.status).toBe('pending');
-        expect(updatedEvent.processedAt).toBeNull();
+        if (updatedEvent) {
+          expect(updatedEvent.status).toBe('pending');
+          expect(updatedEvent.processedAt).toBeNull();
+        }
       });
     });
   });

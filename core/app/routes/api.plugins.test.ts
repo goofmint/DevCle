@@ -198,7 +198,10 @@ describe('Plugin Management API - List and Enable/Disable', () => {
       if (!filesystemPlugin) {
         throw new Error('Expected at least one plugin from filesystem');
       }
-      expect(filesystemPlugin.enabled).toBe(false);
+      // Check enabled status
+      if (filesystemPlugin) {
+        expect(filesystemPlugin.enabled).toBe(false);
+      }
     });
 
     it('should return list of plugins with merged filesystem and DB data', async () => {

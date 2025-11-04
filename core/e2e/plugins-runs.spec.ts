@@ -35,12 +35,13 @@ test.describe('Plugin Runs Page', () => {
 
     // Note: This test assumes a plugin with runs exists
     // In a real scenario, you'd seed the database with test data
-    const pluginLink = page.locator('a[href*="/dashboard/plugins_/"]').first();
+    const pluginLink = page.locator('a[href*="/dashboard/plugins/"]').first();
     await pluginLink.click();
 
     // Navigate to runs page
+    await page.waitForSelector('text=Execution History', { state: 'visible' });
     await page.click('text=Execution History');
-    await page.waitForURL(/\/dashboard\/plugins_\/.*\/runs/);
+    await page.waitForURL(/\/dashboard\/plugins\/.*\/runs/);
 
     // Check page structure
     await expect(page.locator('h1')).toContainText('Execution History');
