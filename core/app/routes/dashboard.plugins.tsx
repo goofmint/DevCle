@@ -61,7 +61,7 @@ export default function PluginsPage() {
   /**
    * Toggle plugin enabled status
    */
-  async function togglePlugin(pluginId: string, currentEnabled: boolean) {
+  async function togglePlugin(pluginKey: string, currentEnabled: boolean) {
     // Show confirmation dialog when disabling (settings will be deleted)
     if (currentEnabled) {
       const confirmed = window.confirm(
@@ -77,7 +77,7 @@ export default function PluginsPage() {
 
     try {
       const method = currentEnabled ? 'DELETE' : 'PUT';
-      const response = await fetch(`/api/plugins/${pluginId}`, {
+      const response = await fetch(`/api/plugins/${pluginKey}`, {
         method,
         headers: { 'Content-Type': 'application/json' },
       });
@@ -90,7 +90,7 @@ export default function PluginsPage() {
       if (data.success) {
         // Update plugin in list
         setPlugins((prev) =>
-          prev.map((p) => (p.pluginId === pluginId ? data.plugin : p))
+          prev.map((p) => (p.key === pluginKey ? data.plugin : p))
         );
 
         showToast(
@@ -174,7 +174,7 @@ export default function PluginsPage() {
             {/* Settings icon (top right, enabled plugins with settings only) */}
             {plugin.enabled && plugin.hasSettings && (
               <Link
-                to={`/dashboard/plugins/${plugin.pluginId}/edit`}
+                to={`/dashboard/plugins/${plugin.key}/edit`}
                 className="absolute top-4 right-4 p-2 text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
                 title="Configure plugin"
               >
@@ -186,7 +186,7 @@ export default function PluginsPage() {
             <div className="flex items-start justify-between mb-4 pr-10">
               <div className="flex-1">
                 <Link
-                  to={`/dashboard/plugins/${plugin.pluginId}`}
+                  to={`/dashboard/plugins/${plugin.key}`}
                   className="text-lg font-semibold text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
                 >
                   {plugin.name}
@@ -219,7 +219,7 @@ export default function PluginsPage() {
             {/* Quick links */}
             <div className="flex gap-2 mb-4">
               <Link
-                to={`/dashboard/plugins/${plugin.pluginId}/schedule`}
+                to={`/dashboard/plugins/${plugin.key}/schedule`}
                 className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition-colors"
                 title="Job Schedule"
               >
@@ -227,7 +227,7 @@ export default function PluginsPage() {
                 <span>Schedule</span>
               </Link>
               <Link
-                to={`/dashboard/plugins/${plugin.pluginId}/runs`}
+                to={`/dashboard/plugins/${plugin.key}/runs`}
                 className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition-colors"
                 title="Execution History"
               >
@@ -239,7 +239,7 @@ export default function PluginsPage() {
             {/* Action button */}
             <button
               type="button"
-              onClick={() => togglePlugin(plugin.pluginId, plugin.enabled)}
+              onClick={() => togglePlugin(plugin.key, plugin.enabled)}
               className={`w-full px-4 py-2 rounded-lg font-medium transition-colors ${
                 plugin.enabled
                   ? 'bg-red-600 hover:bg-red-700 text-white'

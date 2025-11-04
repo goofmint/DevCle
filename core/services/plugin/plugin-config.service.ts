@@ -24,8 +24,8 @@ const __dirname = path.dirname(__filename);
  * @returns Absolute path to plugins directory
  */
 function getPluginsBaseDir(): string {
-  return process.env.PLUGINS_DIR
-    ? path.resolve(process.env.PLUGINS_DIR)
+  return process.env['PLUGINS_DIR']
+    ? path.resolve(process.env['PLUGINS_DIR'])
     : path.resolve(__dirname, '..', '..', '..', 'plugins');
 }
 
@@ -160,9 +160,9 @@ function manifestToConfigInfo(manifest: PluginManifest): PluginConfigInfo {
     version: manifest.version,
     description: manifest.description || '',
     vendor: manifest.vendor || 'Unknown',
-    homepage: manifest.homepage !== undefined ? manifest.homepage : undefined,
+    ...(manifest.homepage !== undefined ? { homepage: manifest.homepage } : {}),
     license: manifest.license || 'UNLICENSED',
-    compatibility: manifest.compatibility !== undefined ? manifest.compatibility : undefined,
+    ...(manifest.compatibility !== undefined ? { compatibility: manifest.compatibility } : {}),
   };
 
   const config: PluginConfigInfo = {
@@ -174,11 +174,11 @@ function manifestToConfigInfo(manifest: PluginManifest): PluginConfigInfo {
     },
     settingsSchema: manifest.settingsSchema || [],
     routes: manifest.routes || [],
-    menus: manifest.menus !== undefined ? manifest.menus : undefined,
-    widgets: manifest.widgets !== undefined ? manifest.widgets : undefined,
-    jobs: manifest.jobs !== undefined ? manifest.jobs : undefined,
-    rateLimits: manifest.rateLimits !== undefined ? manifest.rateLimits : undefined,
-    i18n: manifest.i18n !== undefined ? manifest.i18n : undefined,
+    ...(manifest.menus !== undefined ? { menus: manifest.menus } : {}),
+    ...(manifest.widgets !== undefined ? { widgets: manifest.widgets } : {}),
+    ...(manifest.jobs !== undefined ? { jobs: manifest.jobs } : {}),
+    ...(manifest.rateLimits !== undefined ? { rateLimits: manifest.rateLimits } : {}),
+    ...(manifest.i18n !== undefined ? { i18n: manifest.i18n } : {}),
   };
 
   return config;

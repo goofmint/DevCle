@@ -12,6 +12,8 @@
  * - GET /api/plugins/:id/logs - Get execution logs
  */
 
+import type { PluginConfigValues, PluginRunResult } from '../../plugin-system/types.js';
+
 /**
  * Plugin summary (list view)
  *
@@ -67,8 +69,8 @@ export interface PluginInfo {
   /** Whether plugin is enabled */
   enabled: boolean;
 
-  /** Plugin configuration (JSON, may contain sensitive data) */
-  config: unknown;
+  /** Plugin configuration (may contain sensitive data) */
+  config: PluginConfigValues | null;
 
   /** Installation timestamp (ISO 8601) */
   installedAt: string;
@@ -98,7 +100,7 @@ export interface PluginListResponse {
  */
 export interface EnablePluginRequest {
   /** Optional plugin configuration to update */
-  config?: unknown;
+  config?: PluginConfigValues;
 }
 
 /**
@@ -190,8 +192,8 @@ export interface PluginLogEntry {
   /** Error message (if failed, extracted from result JSON) */
   error?: string;
 
-  /** Result data (JSON, if available) */
-  result?: unknown;
+  /** Result data (if available) */
+  result?: PluginRunResult;
 }
 
 /**

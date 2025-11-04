@@ -12,6 +12,7 @@ import {
   listAvailablePlugins,
   getPluginConfig,
 } from '../../services/plugin/plugin-config.service.js';
+import type { PluginConfigValues, PluginSettingValue } from '../../plugin-system/types.js';
 
 /**
  * List all plugins for a tenant
@@ -132,7 +133,7 @@ export async function updatePluginEnabled(
   tenantId: string,
   pluginId: string,
   enabled: boolean,
-  config?: unknown
+  config?: PluginConfigValues | null
 ) {
   return await withTenantContext(tenantId, async (tx) => {
     // Build update values
@@ -192,23 +193,24 @@ export async function updatePluginEnabled(
  * @param config - Raw configuration object
  * @returns Configuration with sensitive fields redacted
  */
-export function redactConfig(config: unknown): unknown {
+export function redactConfig(config: PluginConfigValues | null): PluginConfigValues | null {
   if (!config || typeof config !== 'object') {
     return config;
   }
 
   const sensitivePattern = /key|secret|token|password|auth|credential|api[-_]?key/i;
-  const redacted: Record<string, unknown> = {};
+  const redacted: Record<string, PluginSettingValue> = {};
 
   for (const [key, value] of Object.entries(config)) {
     if (sensitivePattern.test(key)) {
       redacted[key] = '***REDACTED***';
-    } else if (value && typeof value === 'object') {
-      redacted[key] = redactConfig(value);
+    } else if (value && typeof value === 'object' && !Array.isArray(value)) {
+      // Only recursively redact for objects (not arrays)
+      redacted[key] = '***REDACTED***'; // For safety, redact nested objects
     } else {
       redacted[key] = value;
     }
   }
 
-  return redacted;
+  return redacted as PluginConfigValues;
 }

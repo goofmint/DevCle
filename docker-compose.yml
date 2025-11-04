@@ -1,6 +1,5 @@
 # docker-compose.yml (Production environment)
 # Note: Use Compose V2 (docker compose)
-version: '3.9'
 
 services:
   nginx:

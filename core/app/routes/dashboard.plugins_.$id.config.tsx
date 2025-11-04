@@ -7,7 +7,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from '@remix-run/react';
 import { Icon } from '@iconify/react';
-import type { PluginConfigInfo } from '~/services/plugin/plugin-config.types.js';
+import type { PluginConfigInfo } from '../../services/plugin/plugin-config.types.js';
 
 export default function PluginConfigPage() {
   const { id } = useParams();

@@ -104,7 +104,8 @@ test('plugin cards show name, status, and dates', async ({ page }) => {
   await expect(firstCard).toHaveClass(/border/);
 
   // Verify plugin name heading is visible (now inside a Link)
-  const pluginNameLink = firstCard.locator('a').filter({ has: page.locator('text=/./') }).first();
+  // Select the plugin name link specifically (excludes gear icon and quick links)
+  const pluginNameLink = firstCard.locator('a.text-lg.font-semibold');
   await expect(pluginNameLink).toBeVisible();
   const pluginNameText = await pluginNameLink.textContent();
   expect(pluginNameText).toBeTruthy();
@@ -123,12 +124,12 @@ test('plugin cards show name, status, and dates', async ({ page }) => {
   if (isEnabled) {
     // Fetch plugin data from API to check hasSettings
     const pluginLink = await pluginNameLink.getAttribute('href');
-    const pluginId = pluginLink?.split('/').pop();
+    const pluginKey = pluginLink?.split('/')[3]; // Extract key from /dashboard/plugins/KEY
 
-    if (pluginId) {
+    if (pluginKey) {
       const apiResponse = await page.request.get('/api/plugins');
-      const apiData = await apiResponse.json() as { plugins: Array<{ pluginId: string; hasSettings: boolean }> };
-      const plugin = apiData.plugins.find(p => p.pluginId === pluginId);
+      const apiData = await apiResponse.json() as { plugins: Array<{ pluginId: string; key: string; hasSettings: boolean }> };
+      const plugin = apiData.plugins.find(p => p.key === pluginKey);
 
       if (plugin?.hasSettings) {
         // Plugin has settings - gear icon should be visible
@@ -220,7 +221,7 @@ test('dark mode has correct color contrast', async ({ page }) => {
     return window.getComputedStyle(el).backgroundColor;
   });
   // Plugin name is now a link, so we need to locate it differently
-  const titleElement = firstCard.locator('a').filter({ has: page.locator('text=/./') }).first();
+  const titleElement = firstCard.locator('a.text-lg.font-semibold');
   const lightTextColor = await titleElement.evaluate((el) => {
     return window.getComputedStyle(el).color;
   });

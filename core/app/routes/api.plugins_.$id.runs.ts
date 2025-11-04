@@ -21,7 +21,7 @@
 import type { LoaderFunctionArgs } from '@remix-run/node';
 import { json } from '@remix-run/node';
 import { requireAuth } from '~/auth.middleware.js';
-import { getPluginById } from '../../services/plugin.service.js';
+import { getPluginByKey } from '../../services/plugin.service.js';
 import { listPluginRuns, getRunSummary } from '../../services/plugin-run.service.js';
 
 /**
@@ -34,15 +34,15 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
     // Authenticate user
     const user = await requireAuth(request);
 
-    // Get plugin ID from params
-    const { id: pluginId } = params;
+    // Get plugin key from params
+    const { id: key } = params;
 
-    if (!pluginId) {
-      return json({ error: 'Plugin ID is required' }, { status: 400 });
+    if (!key) {
+      return json({ error: 'Plugin key is required' }, { status: 400 });
     }
 
-    // Verify plugin exists
-    const plugin = await getPluginById(user.tenantId, pluginId);
+    // Verify plugin exists and get pluginId
+    const plugin = await getPluginByKey(user.tenantId, key);
 
     if (!plugin) {
       return json({ error: 'Plugin not found' }, { status: 404 });
@@ -64,16 +64,16 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
     const offset = Math.max(Number(url.searchParams.get('offset')) || 0, 0);
     const sort = (url.searchParams.get('sort') as 'asc' | 'desc') || 'desc';
 
-    // Get runs and summary in parallel
+    // Get runs and summary in parallel (using plugin.pluginId from DB)
     const [{ runs, total }, summary] = await Promise.all([
-      listPluginRuns(user.tenantId, pluginId, {
-        status: status ?? undefined,
-        jobName: jobName ?? undefined,
+      listPluginRuns(user.tenantId, plugin.pluginId, {
+        ...(status ? { status } : {}),
+        ...(jobName ? { jobName } : {}),
         limit,
         offset,
         sort,
       }),
-      getRunSummary(user.tenantId, pluginId),
+      getRunSummary(user.tenantId, plugin.pluginId),
     ]);
 
     return json({
@@ -82,6 +82,16 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
       summary,
     });
   } catch (error) {
+    // Re-throw Response objects (e.g., redirects from requireAuth)
+    if (error instanceof Response) {
+      throw error;
+    }
+
+    // Handle plugin not found errors
+    if (error instanceof Error && error.message.includes('Plugin not found')) {
+      return json({ error: 'Plugin not found' }, { status: 404 });
+    }
+
     console.error('Failed to list plugin runs:', error);
     return json({ error: 'Failed to list plugin runs' }, { status: 500 });
   }

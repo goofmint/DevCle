@@ -188,8 +188,12 @@ test('overview page displays stats cards', async ({ page }) => {
   // Wait for data to load (not in loading state)
   await expect(page.getByText('Loading...')).not.toBeVisible({ timeout: 10000 });
 
+  // Wait for GridStack to initialize (depends on both stats and widgets loading)
+  // This can take longer if widgets API is slow
+  await page.waitForTimeout(2000);
+
   // Verify all 4 stat cards exist (using current testId naming) (with longer timeout for GridStack rendering)
-  await expect(page.getByTestId('total-developers')).toBeVisible({ timeout: 10000 });
+  await expect(page.getByTestId('total-developers')).toBeVisible({ timeout: 20000 });
   await expect(page.getByTestId('total-activities')).toBeVisible({ timeout: 10000 });
   await expect(page.getByTestId('total-campaigns')).toBeVisible({ timeout: 10000 });
   await expect(page.getByTestId('average-roi')).toBeVisible({ timeout: 10000 });

@@ -16,10 +16,11 @@ import type { LoaderFunctionArgs, ActionFunctionArgs } from '@remix-run/node';
 import { json } from '@remix-run/node';
 import { requireAuth } from '~/auth.middleware.js';
 import { getPluginConfig } from '../../services/plugin/plugin-config.service.js';
-import { updatePluginConfig, getPluginById } from '../../services/plugin.service.js';
+import type { PluginConfigInfo } from '../../services/plugin/plugin-config.types.js';
+import { updatePluginConfig, getPluginByKey } from '../../services/plugin.service.js';
 import { validatePluginConfig } from '../../plugin-system/config-validator.js';
 import type { PluginConfigSchema } from '../../plugin-system/config-validator.js';
-import { isValidUUID } from '~/utils/validation.js';
+import type { PluginConfigValues } from '../../plugin-system/types.js';
 
 /**
  * GET /api/plugins/:id/config
@@ -40,19 +41,19 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
   // Get plugin ID from params
   const { id: pluginId } = params;
 
-  // Validate plugin ID
+  // Validate plugin key
   if (!pluginId) {
-    return json({ error: 'Plugin ID is required' }, { status: 400 });
+    return json({ error: 'Plugin key is required' }, { status: 400 });
   }
 
   // Prevent path traversal
   if (pluginId.includes('..') || pluginId.includes('/') || pluginId.includes('\\')) {
-    return json({ error: 'Invalid plugin ID' }, { status: 400 });
+    return json({ error: 'Invalid plugin key' }, { status: 400 });
   }
 
   try {
-    // Get plugin from database to get the key
-    const plugin = await getPluginById(user.tenantId, pluginId);
+    // Get plugin from database by key
+    const plugin = await getPluginByKey(user.tenantId, pluginId);
 
     if (!plugin) {
       return json({ error: 'Plugin not found' }, { status: 404 });
@@ -140,13 +141,13 @@ export async function action({ request, params }: ActionFunctionArgs) {
 
     const tenantId = user.tenantId;
 
-    // 2. Validate plugin ID format
+    // 2. Get plugin key from params
     const pluginId = params['id'];
-    if (!isValidUUID(pluginId)) {
+    if (!pluginId) {
       return json(
         {
           status: 400,
-          error: 'Invalid plugin ID format (must be UUID)',
+          error: 'Plugin key is required',
         },
         { status: 400 }
       );
@@ -177,12 +178,12 @@ export async function action({ request, params }: ActionFunctionArgs) {
       );
     }
 
-    const config = requestBody.config as Record<string, unknown>;
+    const config = requestBody.config as PluginConfigValues;
 
-    // 4. Get plugin from database to get the key, then load schema
+    // 4. Get plugin from database by key, then load schema
     let plugin;
     try {
-      plugin = await getPluginById(tenantId, pluginId);
+      plugin = await getPluginByKey(tenantId, pluginId);
     } catch (error) {
       console.error('[PUT /api/plugins/:id/config] Failed to get plugin:', error);
 
@@ -208,7 +209,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
     }
 
     // 5. Get plugin configuration schema from plugin.json (use plugin.key, not pluginId)
-    let pluginConfig: { settingsSchema?: { fields?: unknown[] } };
+    let pluginConfig: PluginConfigInfo;
     try {
       pluginConfig = await getPluginConfig(plugin.key, tenantId);
     } catch (error) {

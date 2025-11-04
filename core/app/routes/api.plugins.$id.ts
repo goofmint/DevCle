@@ -24,10 +24,11 @@ import {
   type ActionFunctionArgs,
 } from '@remix-run/node';
 import { requireAuth } from '~/auth.middleware.js';
-import { isValidUUID } from '~/utils/validation.js';
-import { redactConfig, getPluginById, updatePluginEnabled } from '~/services/plugins.service.js';
+import { getPluginByKey } from '../../services/plugin.service.js';
+import { redactConfig, updatePluginEnabled } from '~/services/plugins.service.js';
 import { getLastRunsPerJobName } from '~/services/pluginLogs.service.js';
 import { listHooks } from '../../plugin-system/hooks.js';
+import type { PluginConfigValues } from '../../plugin-system/types.js';
 import type {
   PluginDetailResponse,
   PluginInfo,
@@ -73,19 +74,19 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     const user = await requireAuth(request);
     const tenantId = user.tenantId;
 
-    // 2. Validate plugin ID format
-    const pluginId = params['id'];
-    if (!isValidUUID(pluginId)) {
+    // 2. Get plugin key from params
+    const key = params['id'];
+    if (!key) {
       const errorResponse: ApiErrorResponse = {
         status: 400,
-        message: 'Invalid plugin ID format (must be UUID)',
-        code: 'INVALID_UUID',
+        message: 'Plugin key is required',
+        code: 'MISSING_PLUGIN_KEY',
       };
       return json(errorResponse, { status: 400 });
     }
 
-    // 3. Query plugin from database via service layer
-    const pluginData = await getPluginById(tenantId, pluginId);
+    // 3. Query plugin from database via service layer (by key)
+    const pluginData = await getPluginByKey(tenantId, key);
 
     // 4. Check if plugin exists
     if (!pluginData) {
@@ -97,6 +98,9 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       return json(errorResponse, { status: 404 });
     }
 
+    // Extract pluginId for use in queries
+    const pluginId = pluginData.pluginId;
+
     // 5. Transform plugin data to API format (redact sensitive config)
     const plugin: PluginInfo = {
       pluginId: pluginData.pluginId,
@@ -105,8 +109,8 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       version: '1.0.0',
       enabled: pluginData.enabled,
       config: redactConfig(pluginData.config),
-      installedAt: pluginData.createdAt.toISOString(),
-      updatedAt: pluginData.updatedAt.toISOString(),
+      installedAt: pluginData.createdAt,
+      updatedAt: pluginData.updatedAt,
     };
 
     // 6. Get registered hooks for this plugin (from hook registry)
@@ -184,15 +188,26 @@ export async function action({ request, params }: ActionFunctionArgs) {
     const user = await requireAuth(request);
     const tenantId = user.tenantId;
 
-    // 2. Validate plugin ID format
-    const pluginId = params['id'];
-    if (!isValidUUID(pluginId)) {
+    // 2. Get plugin key from params and resolve to pluginId
+    const key = params['id'];
+    if (!key) {
       const errorResponse: ApiErrorResponse = {
         status: 400,
-        message: 'Invalid plugin ID format (must be UUID)',
-        code: 'INVALID_UUID',
+        message: 'Plugin key is required',
+        code: 'MISSING_PLUGIN_KEY',
       };
       return json(errorResponse, { status: 400 });
+    }
+
+    // Get plugin to resolve pluginId
+    const existingPlugin = await getPluginByKey(tenantId, key);
+    if (!existingPlugin) {
+      const errorResponse: ApiErrorResponse = {
+        status: 404,
+        message: 'Plugin not found',
+        code: 'PLUGIN_NOT_FOUND',
+      };
+      return json(errorResponse, { status: 404 });
     }
 
     // 3. Determine new enabled status based on HTTP method
@@ -203,7 +218,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
     // When disabling (DELETE), clear config to delete all settings
     const updatedPlugin = await updatePluginEnabled(
       tenantId,
-      pluginId,
+      existingPlugin.pluginId,
       newEnabled,
       newEnabled ? undefined : null // Clear config when disabling
     );
@@ -225,7 +240,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
       name: updatedPlugin.name,
       version: '1.0.0',
       enabled: updatedPlugin.enabled,
-      config: redactConfig(updatedPlugin.config),
+      config: redactConfig(updatedPlugin.config as PluginConfigValues | null),
       installedAt: updatedPlugin.createdAt.toISOString(),
       updatedAt: updatedPlugin.updatedAt.toISOString(),
     };

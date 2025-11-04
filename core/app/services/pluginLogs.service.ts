@@ -8,6 +8,7 @@
 import { withTenantContext } from '../../db/connection.js';
 import * as schema from '../../db/schema/index.js';
 import { eq, and, desc, count, max } from 'drizzle-orm';
+import type { PluginRunResult } from '../../plugin-system/types.js';
 
 /**
  * Ensure plugin exists and belongs to tenant
@@ -117,7 +118,7 @@ export async function getPluginLogsCount(
  * @param result - Raw execution result
  * @returns Sanitized result
  */
-export function sanitizeResult(result: unknown): unknown {
+export function sanitizeResult(result: PluginRunResult): PluginRunResult {
   if (!result || typeof result !== 'object') {
     return result;
   }

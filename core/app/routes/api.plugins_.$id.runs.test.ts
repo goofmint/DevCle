@@ -1,19 +1,18 @@
 /**
- * Integration tests for plugin configuration API
+ * Integration tests for plugin runs API
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
 import { runInTenant } from '../../db/tenant-test-utils.js';
-import { loader } from './api.plugins.$id.config.js';
+import { loader } from './api.plugins_.$id.runs.js';
 import { getSession, commitSession } from '../sessions.server.js';
 import { getDb } from '../../db/connection.js';
 import * as schema from '../../db/schema/index.js';
 import { eq } from 'drizzle-orm';
-import type { PluginConfigInfo } from '../../services/plugin/plugin-config.types.js';
 
-// Test plugin UUID (from seed data)
-const TEST_PLUGIN_KEY = 'drowl-plugin-test'; // Plugin key from seed data
-const FAKE_PLUGIN_KEY = 'non-existent-plugin'; // Non-existent plugin key
+// Test plugin key (from seed data)
+const TEST_PLUGIN_KEY = 'drowl-plugin-test'; // Plugin key
+const FAKE_PLUGIN_KEY = 'non-existent-plugin'; // Non-existent plugin
 
 let testUserId: string | null = null;
 
@@ -69,12 +68,12 @@ function createUnauthenticatedRequest(url: string): Request {
   });
 }
 
-describe('GET /api/plugins/:id/config', () => {
-  it('should return plugin configuration for authenticated user', async () => {
+describe('GET /api/plugins/:id/runs', () => {
+  it('should return plugin runs list for authenticated user', async () => {
     await runInTenant('default', async () => {
       // Create authenticated request
       const request = await createAuthenticatedRequest(
-        `http://localhost/api/plugins/${TEST_PLUGIN_KEY}/config`
+        `http://localhost/api/plugins/${TEST_PLUGIN_KEY}/runs`
       );
 
       // Call loader
@@ -93,17 +92,15 @@ describe('GET /api/plugins/:id/config', () => {
 
       // Type guard for success response
       if (!data || typeof data !== 'object' || 'error' in data) {
-        throw new Error('Expected PluginConfigInfo response');
+        throw new Error('Expected runs response');
       }
 
-      const config = data as PluginConfigInfo;
-      expect(config.basicInfo).toBeDefined();
-      expect(config.basicInfo.id).toBe('drowl-plugin-test');
-      expect(config.basicInfo.name).toBe('drowl-plugin-test');
-      expect(config.basicInfo.version).toBeDefined();
-      expect(config.capabilities).toBeDefined();
-      expect(config.settingsSchema).toBeDefined();
-      expect(config.routes).toBeDefined();
+      const runsData = data as { runs: unknown[]; total: number; summary: unknown };
+      expect(runsData.runs).toBeDefined();
+      expect(Array.isArray(runsData.runs)).toBe(true);
+      expect(runsData.total).toBeDefined();
+      expect(typeof runsData.total).toBe('number');
+      expect(runsData.summary).toBeDefined();
     });
   });
 
@@ -111,7 +108,7 @@ describe('GET /api/plugins/:id/config', () => {
     await runInTenant('default', async () => {
       // Create unauthenticated request
       const request = createUnauthenticatedRequest(
-        `http://localhost/api/plugins/${TEST_PLUGIN_KEY}/config`
+        `http://localhost/api/plugins/${TEST_PLUGIN_KEY}/runs`
       );
 
       // Call loader - expect it to throw (redirect to login)
@@ -127,9 +124,9 @@ describe('GET /api/plugins/:id/config', () => {
 
   it('should return 404 for non-existing plugin', async () => {
     await runInTenant('default', async () => {
-      // Create authenticated request with non-existing plugin ID
+      // Create authenticated request with non-existing plugin key
       const request = await createAuthenticatedRequest(
-        `http://localhost/api/plugins/${FAKE_PLUGIN_KEY}/config`
+        `http://localhost/api/plugins/${FAKE_PLUGIN_KEY}/runs`
       );
 
       // Call loader
@@ -159,7 +156,7 @@ describe('GET /api/plugins/:id/config', () => {
     await runInTenant('default', async () => {
       // Create authenticated request without plugin ID
       const request = await createAuthenticatedRequest(
-        'http://localhost/api/plugins//config'
+        'http://localhost/api/plugins//runs'
       );
 
       // Call loader with undefined plugin ID
@@ -181,15 +178,80 @@ describe('GET /api/plugins/:id/config', () => {
       }
 
       const errorData = data as { error: string };
-      expect(errorData.error).toBe('Plugin ID is required');
+      expect(errorData.error).toBe('Plugin key is required');
     });
   });
 
-  it('should include all expected fields in response', async () => {
+  it('should support pagination with limit and offset', async () => {
+    await runInTenant('default', async () => {
+      // Create authenticated request with pagination params
+      const request = await createAuthenticatedRequest(
+        `http://localhost/api/plugins/${TEST_PLUGIN_KEY}/runs?limit=5&offset=0`
+      );
+
+      // Call loader
+      const response = await loader({
+        request,
+        params: { id: TEST_PLUGIN_KEY },
+        context: {},
+      });
+
+      // Parse JSON response
+      const data: unknown = await response.json();
+
+      // Assertions
+      expect(response.status).toBe(200);
+
+      if (!data || typeof data !== 'object' || 'error' in data) {
+        throw new Error('Expected runs response');
+      }
+
+      const runsData = data as { runs: unknown[]; total: number };
+      expect(Array.isArray(runsData.runs)).toBe(true);
+      // Should respect limit
+      expect(runsData.runs.length).toBeLessThanOrEqual(5);
+    });
+  });
+
+  it('should filter by status parameter', async () => {
+    await runInTenant('default', async () => {
+      // Create authenticated request with status filter
+      const request = await createAuthenticatedRequest(
+        `http://localhost/api/plugins/${TEST_PLUGIN_KEY}/runs?status=success`
+      );
+
+      // Call loader
+      const response = await loader({
+        request,
+        params: { id: TEST_PLUGIN_KEY },
+        context: {},
+      });
+
+      // Parse JSON response
+      const data: unknown = await response.json();
+
+      // Assertions
+      expect(response.status).toBe(200);
+
+      if (!data || typeof data !== 'object' || 'error' in data) {
+        throw new Error('Expected runs response');
+      }
+
+      const runsData = data as { runs: Array<{ status: string }>; total: number };
+      expect(Array.isArray(runsData.runs)).toBe(true);
+
+      // All returned runs should have 'success' status
+      runsData.runs.forEach((run) => {
+        expect(run.status).toBe('success');
+      });
+    });
+  });
+
+  it('should include summary statistics in response', async () => {
     await runInTenant('default', async () => {
       // Create authenticated request
       const request = await createAuthenticatedRequest(
-        `http://localhost/api/plugins/${TEST_PLUGIN_KEY}/config`
+        `http://localhost/api/plugins/${TEST_PLUGIN_KEY}/runs`
       );
 
       // Call loader
@@ -204,36 +266,41 @@ describe('GET /api/plugins/:id/config', () => {
 
       // Type guard for success response
       if (!data || typeof data !== 'object' || 'error' in data) {
-        throw new Error('Expected PluginConfigInfo response');
+        throw new Error('Expected runs response');
       }
 
-      const config = data as PluginConfigInfo;
+      const runsData = data as {
+        runs: unknown[];
+        total: number;
+        summary: {
+          total: number;
+          success: number;
+          failed: number;
+          running: number;
+          pending: number;
+          avgEventsProcessed: number;
+          avgDuration: number;
+        };
+      };
 
-      // Verify response structure
-      expect(config).toHaveProperty('basicInfo');
-      expect(config).toHaveProperty('capabilities');
-      expect(config).toHaveProperty('settingsSchema');
-      expect(config).toHaveProperty('routes');
+      // Verify summary structure
+      expect(runsData.summary).toBeDefined();
+      expect(runsData.summary).toHaveProperty('total');
+      expect(runsData.summary).toHaveProperty('success');
+      expect(runsData.summary).toHaveProperty('failed');
+      expect(runsData.summary).toHaveProperty('running');
+      expect(runsData.summary).toHaveProperty('pending');
+      expect(runsData.summary).toHaveProperty('avgEventsProcessed');
+      expect(runsData.summary).toHaveProperty('avgDuration');
 
-      // Verify basicInfo structure
-      expect(config.basicInfo).toHaveProperty('id');
-      expect(config.basicInfo).toHaveProperty('name');
-      expect(config.basicInfo).toHaveProperty('version');
-      expect(config.basicInfo).toHaveProperty('description');
-      expect(config.basicInfo).toHaveProperty('vendor');
-      expect(config.basicInfo).toHaveProperty('license');
-
-      // Verify capabilities structure
-      expect(config.capabilities).toHaveProperty('scopes');
-      expect(config.capabilities).toHaveProperty('network');
-      expect(config.capabilities).toHaveProperty('secrets');
-      expect(Array.isArray(config.capabilities.scopes)).toBe(true);
-      expect(Array.isArray(config.capabilities.network)).toBe(true);
-      expect(Array.isArray(config.capabilities.secrets)).toBe(true);
-
-      // Verify arrays
-      expect(Array.isArray(config.settingsSchema)).toBe(true);
-      expect(Array.isArray(config.routes)).toBe(true);
+      // Verify all are numbers
+      expect(typeof runsData.summary.total).toBe('number');
+      expect(typeof runsData.summary.success).toBe('number');
+      expect(typeof runsData.summary.failed).toBe('number');
+      expect(typeof runsData.summary.running).toBe('number');
+      expect(typeof runsData.summary.pending).toBe('number');
+      expect(typeof runsData.summary.avgEventsProcessed).toBe('number');
+      expect(typeof runsData.summary.avgDuration).toBe('number');
     });
   });
 });

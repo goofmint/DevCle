@@ -438,7 +438,7 @@ describe('getPluginMenuItems (integration)', () => {
 
     // Find the drowl-plugin-test menus
     const testPluginMenus = menuItems.filter((item) => item.pluginKey === 'drowl-plugin-test');
-    expect(testPluginMenus).toHaveLength(3);
+    expect(testPluginMenus).toHaveLength(4);
 
     // Verify pluginName is set correctly (from plugin.json name field)
     expect(testPluginMenus[0]!.pluginName).toBe('drowl-plugin-test');

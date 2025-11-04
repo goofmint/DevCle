@@ -270,7 +270,7 @@ describe('Plugin Management API - Detail and Logs', () => {
       const request = new Request(`http://localhost/api/plugins/${pluginId}`);
       request.headers.set('cookie', cookie);
 
-      const response = await pluginDetailLoader({ request, params: { id: pluginId }, context: {} });
+      const response = await pluginDetailLoader({ request, params: { id: 'slack' }, context: {} });
       expect(response.status).toBe(200);
 
       const data: unknown = await response.json();
@@ -292,19 +292,19 @@ describe('Plugin Management API - Detail and Logs', () => {
       expect(syncJob?.lastRun).toBe('2025-01-01T00:00:00.000Z');
     });
 
-    it('should return 400 for invalid UUID', async () => {
+    it('should return 404 for non-existent plugin key', async () => {
       const { userId, cookie } = await createAuthSession();
       createdUsers.push(userId);
 
-      const request = new Request('http://localhost/api/plugins/invalid-uuid');
+      const request = new Request('http://localhost/api/plugins/non-existent-key');
       request.headers.set('cookie', cookie);
 
-      const response = await pluginDetailLoader({ request, params: { id: 'invalid-uuid' }, context: {} });
-      expect(response.status).toBe(400);
+      const response = await pluginDetailLoader({ request, params: { id: 'non-existent-key' }, context: {} });
+      expect(response.status).toBe(404);
 
       const data: unknown = await response.json();
       assertErrorResponse(data);
-      expect(data.message).toContain('Invalid plugin ID format');
+      expect(data.message).toContain('not found');
     });
 
     it('should return 404 for non-existent plugin', async () => {
@@ -347,7 +347,7 @@ describe('Plugin Management API - Detail and Logs', () => {
       const request = new Request(`http://localhost/api/plugins/${pluginId}/logs?limit=2&offset=0`);
       request.headers.set('cookie', cookie);
 
-      const response = await pluginLogsLoader({ request, params: { id: pluginId }, context: {} });
+      const response = await pluginLogsLoader({ request, params: { id: 'slack' }, context: {} });
       expect(response.status).toBe(200);
 
       const data: unknown = await response.json();
@@ -387,7 +387,7 @@ describe('Plugin Management API - Detail and Logs', () => {
       const request = new Request(`http://localhost/api/plugins/${pluginId}/logs?status=failed`);
       request.headers.set('cookie', cookie);
 
-      const response = await pluginLogsLoader({ request, params: { id: pluginId }, context: {} });
+      const response = await pluginLogsLoader({ request, params: { id: 'slack' }, context: {} });
       expect(response.status).toBe(200);
 
       const data: unknown = await response.json();
@@ -417,7 +417,7 @@ describe('Plugin Management API - Detail and Logs', () => {
       const request = new Request(`http://localhost/api/plugins/${pluginId}/logs`);
       request.headers.set('cookie', cookie);
 
-      const response = await pluginLogsLoader({ request, params: { id: pluginId }, context: {} });
+      const response = await pluginLogsLoader({ request, params: { id: 'slack' }, context: {} });
       expect(response.status).toBe(200);
 
       const data: unknown = await response.json();
@@ -437,7 +437,7 @@ describe('Plugin Management API - Detail and Logs', () => {
       const request = new Request(`http://localhost/api/plugins/${pluginId}/logs?status=invalid`);
       request.headers.set('cookie', cookie);
 
-      const response = await pluginLogsLoader({ request, params: { id: pluginId }, context: {} });
+      const response = await pluginLogsLoader({ request, params: { id: 'slack' }, context: {} });
       expect(response.status).toBe(400);
 
       const data: unknown = await response.json();

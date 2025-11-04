@@ -7,6 +7,7 @@
 import { withTenantContext } from '../db/connection.js';
 import * as schema from '../db/schema/index.js';
 import { generateShortlinkKey } from '../utils/nanoid.js';
+import type { PluginConfigValues } from '../plugin-system/types.js';
 import {
   CreateShortlinkSchema,
   type CreateShortlink,
@@ -115,7 +116,7 @@ export async function createShortlink(
         campaignId: result.campaignId,
         resourceId: result.resourceId,
         attributes: result.attributes
-          ? (result.attributes as Record<string, unknown>)
+          ? (result.attributes as PluginConfigValues)
           : null,
         createdAt: result.createdAt,
         updatedAt: result.updatedAt,

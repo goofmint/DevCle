@@ -23,6 +23,7 @@ import {
   encryptPluginConfig,
   createSecretExistsMarkers,
 } from '../plugin-system/config-encryption.js';
+import type { PluginConfigValues } from '../plugin-system/types.js';
 
 /**
  * Plugin information returned by service functions
@@ -41,7 +42,7 @@ export interface PluginInfo {
   enabled: boolean;
 
   /** Plugin configuration (may contain encrypted secret fields) */
-  config: Record<string, unknown> | null;
+  config: PluginConfigValues | null;
 
   /** Creation timestamp (ISO 8601) */
   createdAt: string;
@@ -89,7 +90,53 @@ export async function findPluginById(
       key: row.key,
       name: row.name,
       enabled: row.enabled,
-      config: row.config as Record<string, unknown> | null,
+      config: row.config as PluginConfigValues | null,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
+    };
+  });
+}
+
+/**
+ * Find plugin by key (string identifier)
+ *
+ * Retrieves plugin information by key with tenant isolation (RLS).
+ * Returns null when plugin is not found.
+ *
+ * @param tenantId - Tenant ID for RLS
+ * @param key - Plugin key (e.g., "drowl-plugin-test")
+ * @returns Plugin information or null if not found
+ */
+export async function findPluginByKey(
+  tenantId: string,
+  key: string
+): Promise<PluginInfo | null> {
+  return await withTenantContext(tenantId, async (tx) => {
+    // Query plugins table with RLS by key
+    const rows = await tx
+      .select()
+      .from(schema.plugins)
+      .where(
+        and(
+          eq(schema.plugins.tenantId, tenantId),
+          eq(schema.plugins.key, key)
+        )
+      )
+      .limit(1);
+
+    const row = rows[0];
+
+    if (!row) {
+      return null;
+    }
+
+    // Convert to PluginInfo format
+    return {
+      pluginId: row.pluginId,
+      key: row.key,
+      name: row.name,
+      enabled: row.enabled,
+      config: row.config as PluginConfigValues | null,
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
     };
@@ -121,6 +168,30 @@ export async function getPluginById(
 }
 
 /**
+ * Get plugin by key (throws if not found)
+ *
+ * Retrieves plugin information by key with tenant isolation (RLS).
+ * Throws an error when plugin is not found.
+ *
+ * @param tenantId - Tenant ID for RLS
+ * @param key - Plugin key (e.g., "drowl-plugin-test")
+ * @returns Plugin information
+ * @throws Error if plugin not found
+ */
+export async function getPluginByKey(
+  tenantId: string,
+  key: string
+): Promise<PluginInfo> {
+  const plugin = await findPluginByKey(tenantId, key);
+
+  if (!plugin) {
+    throw new Error(`Plugin not found: ${key}`);
+  }
+
+  return plugin;
+}
+
+/**
  * Update plugin configuration
  *
  * Updates plugin configuration with automatic encryption of secret fields.
@@ -139,7 +210,7 @@ export async function updatePluginConfig(
   tenantId: string,
   pluginId: string,
   configSchema: PluginConfigSchema,
-  config: Record<string, unknown>
+  config: PluginConfigValues
 ): Promise<PluginInfo> {
   return await withTenantContext(tenantId, async (tx) => {
     // Get existing plugin to retrieve current encrypted config
@@ -160,7 +231,7 @@ export async function updatePluginConfig(
       throw new Error(`Plugin not found: ${pluginId}`);
     }
 
-    const existingConfig = existingRow.config as Record<string, unknown> | null;
+    const existingConfig = existingRow.config as PluginConfigValues | null;
 
     // Encrypt secret fields (preserves existing values for secret exists markers)
     const encryptedConfig = await encryptPluginConfig(
@@ -193,7 +264,7 @@ export async function updatePluginConfig(
     // Return updated plugin info with secret exists markers
     const configWithMarkers = createSecretExistsMarkers(
       configSchema,
-      updatedRow.config as Record<string, unknown> || {}
+      updatedRow.config as PluginConfigValues || {}
     );
 
     return {
@@ -251,7 +322,7 @@ export async function disablePlugin(
       key: updatedRow.key,
       name: updatedRow.name,
       enabled: updatedRow.enabled,
-      config: updatedRow.config as Record<string, unknown> | null,
+      config: updatedRow.config as PluginConfigValues | null,
       createdAt: updatedRow.createdAt.toISOString(),
       updatedAt: updatedRow.updatedAt.toISOString(),
     };
