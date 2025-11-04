@@ -123,11 +123,11 @@ test('plugin cards show name, status, and dates', async ({ page }) => {
   if (isEnabled) {
     // Fetch plugin data from API to check hasSettings
     const pluginLink = await pluginNameLink.getAttribute('href');
-    const pluginId = pluginLink?.split('/').pop();
+    const pluginId = pluginLink?.split('/')[3]; // Extract ID from /dashboard/plugins/ID
 
     if (pluginId) {
       const apiResponse = await page.request.get('/api/plugins');
-      const apiData = await apiResponse.json() as { plugins: Array<{ pluginId: string; hasSettings: boolean }> };
+      const apiData = await apiResponse.json() as { plugins: Array<{ pluginId: string; key: string; hasSettings: boolean }> };
       const plugin = apiData.plugins.find(p => p.pluginId === pluginId);
 
       if (plugin?.hasSettings) {
