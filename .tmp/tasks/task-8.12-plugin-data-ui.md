@@ -42,6 +42,8 @@ Task 8.11で実装したAPI（`GET /api/plugins/:id/events`、`GET /api/plugins/
 ```
 core/
 ├── app/
+│   ├── types/
+│   │   └── plugin-events.ts                         # 共有型定義
 │   ├── routes/
 │   │   └── dashboard.plugins_.$id.data.tsx         # メインページ（SPA）
 │   └── components/
@@ -52,6 +54,110 @@ core/
 │           └── EventDetailModal.tsx                 # イベント詳細モーダル
 └── e2e/
     └── plugin-data-display.spec.ts                  # E2Eテスト
+```
+
+---
+
+## 共有型定義
+
+### `app/types/plugin-events.ts`
+
+すべてのコンポーネントで使用される型を一元管理する。
+
+```typescript
+/**
+ * Shared Type Definitions for Plugin Events
+ *
+ * This file serves as the single source of truth for all plugin event
+ * related types used across components.
+ */
+
+/**
+ * Plugin Event
+ *
+ * Represents a single event collected by a plugin from an external source.
+ * Stored in plugin_events_raw table.
+ */
+export interface PluginEvent {
+  pluginEventId: string;
+  eventType: string;
+  status: 'processed' | 'failed' | 'pending';
+  rawData: Record<string, any>;
+  errorMessage: string | null;
+  ingestedAt: string;       // ISO timestamp
+  processedAt: string | null; // ISO timestamp
+}
+
+/**
+ * Events Filter
+ *
+ * Filter criteria for event list queries.
+ */
+export interface EventsFilter {
+  status?: string[];        // ["processed", "failed", "pending"]
+  eventType?: string;       // Free text search (partial match)
+  startDate?: string;       // ISO date string
+  endDate?: string;         // ISO date string
+}
+
+/**
+ * Events Statistics
+ *
+ * Aggregated statistics for plugin events.
+ */
+export interface EventsStats {
+  total: number;
+  processed: number;
+  failed: number;
+  pending: number;
+  latestIngestedAt: string | null;   // ISO timestamp
+  oldestIngestedAt: string | null;   // ISO timestamp
+}
+
+/**
+ * Pagination Info
+ *
+ * Pagination metadata for event list.
+ */
+export interface PaginationInfo {
+  page: number;
+  perPage: number;
+  total: number;
+  totalPages: number;
+}
+
+/**
+ * API Response Types
+ */
+
+export interface ListEventsResponse {
+  events: PluginEvent[];
+  pagination: PaginationInfo;
+}
+
+export interface EventsStatsResponse extends EventsStats {}
+
+export interface EventDetailResponse {
+  event: PluginEvent;
+}
+
+export interface ReprocessResponse {
+  success: boolean;
+  message: string;
+}
+
+/**
+ * API Error Response
+ *
+ * Standard error response format from API.
+ */
+export interface ApiErrorResponse {
+  error: {
+    code: string;
+    message: string;
+    details?: Record<string, any>;
+  };
+}
 ```
 
 ---
@@ -84,16 +190,18 @@ core/
 
 import { useState, useEffect } from 'react';
 import { useParams } from '@remix-run/react';
-
-interface EventsPageProps {
-  // Page state and handlers
-}
+import type {
+  PluginEvent,
+  EventsFilter,
+  EventsStats,
+  PaginationInfo,
+} from '~/types/plugin-events';
 
 export default function PluginDataPage() {
   // State management:
   // - events: PluginEvent[]
   // - filters: EventsFilter (status, eventType, startDate, endDate)
-  // - pagination: { page, perPage, total }
+  // - pagination: PaginationInfo
   // - stats: EventsStats
   // - selectedEvent: PluginEvent | null (for modal)
   // - loading: boolean
@@ -160,10 +268,12 @@ export default function PluginDataPage() {
  *
  * Props:
  * - events: PluginEvent[]
- * - pagination: { page, perPage, total }
+ * - pagination: PaginationInfo
  * - onPageChange: (page: number) => void
  * - onEventClick: (event: PluginEvent) => void
  */
+
+import type { PluginEvent, PaginationInfo } from '~/types/plugin-events';
 
 interface EventsTableProps {
   events: PluginEvent[];
@@ -221,16 +331,11 @@ export function EventsTable(props: EventsTableProps) {
  * - onChange: (filters: EventsFilter) => void
  */
 
+import type { EventsFilter } from '~/types/plugin-events';
+
 interface EventsFilterProps {
   filters: EventsFilter;
   onChange: (filters: EventsFilter) => void;
-}
-
-interface EventsFilter {
-  status?: string[];        // ["processed", "failed", "pending"]
-  eventType?: string;       // Free text search
-  startDate?: string;       // ISO date string
-  endDate?: string;         // ISO date string
 }
 
 export function EventsFilter(props: EventsFilterProps) {
@@ -284,17 +389,10 @@ export function EventsFilter(props: EventsFilterProps) {
  * - stats: EventsStats | null
  */
 
+import type { EventsStats } from '~/types/plugin-events';
+
 interface EventsStatsProps {
   stats: EventsStats | null;
-}
-
-interface EventsStats {
-  total: number;
-  processed: number;
-  failed: number;
-  pending: number;
-  latestIngestedAt: string | null;   // ISO timestamp
-  oldestIngestedAt: string | null;   // ISO timestamp
 }
 
 export function EventsStats(props: EventsStatsProps) {
@@ -343,20 +441,12 @@ export function EventsStats(props: EventsStatsProps) {
  * - onReprocess: (eventId: string) => void
  */
 
+import type { PluginEvent } from '~/types/plugin-events';
+
 interface EventDetailModalProps {
   event: PluginEvent;
   onClose: () => void;
   onReprocess: (eventId: string) => void;
-}
-
-interface PluginEvent {
-  pluginEventId: string;
-  eventType: string;
-  status: 'processed' | 'failed' | 'pending';
-  rawData: Record<string, any>;
-  errorMessage: string | null;
-  ingestedAt: string;       // ISO timestamp
-  processedAt: string | null; // ISO timestamp
 }
 
 export function EventDetailModal(props: EventDetailModalProps) {
@@ -399,6 +489,8 @@ export function EventDetailModal(props: EventDetailModalProps) {
 
 ### 使用するエンドポイント（Task 8.11で実装）
 
+すべてのレスポンス型は `~/types/plugin-events.ts` で定義済み。
+
 #### 1. `GET /api/plugins/:id/events`
 
 イベント一覧を取得。
@@ -416,57 +508,25 @@ interface ListEventsQuery {
 }
 ```
 
-**レスポンス**:
-```typescript
-interface ListEventsResponse {
-  events: PluginEvent[];
-  pagination: {
-    page: number;
-    perPage: number;
-    total: number;
-    totalPages: number;
-  };
-}
-```
+**レスポンス**: `ListEventsResponse` (see `~/types/plugin-events.ts`)
 
 #### 2. `GET /api/plugins/:id/events/stats`
 
 統計情報を取得。
 
-**レスポンス**:
-```typescript
-interface EventsStatsResponse {
-  total: number;
-  processed: number;
-  failed: number;
-  pending: number;
-  latestIngestedAt: string | null;
-  oldestIngestedAt: string | null;
-}
-```
+**レスポンス**: `EventsStatsResponse` (see `~/types/plugin-events.ts`)
 
 #### 3. `GET /api/plugins/:id/events/:eventId`
 
 イベント詳細を取得。
 
-**レスポンス**:
-```typescript
-interface EventDetailResponse {
-  event: PluginEvent;
-}
-```
+**レスポンス**: `EventDetailResponse` (see `~/types/plugin-events.ts`)
 
 #### 4. `POST /api/plugins/:id/events/:eventId/reprocess`
 
 イベントを再処理キューに追加。
 
-**レスポンス**:
-```typescript
-interface ReprocessResponse {
-  success: boolean;
-  message: string;
-}
-```
+**レスポンス**: `ReprocessResponse` (see `~/types/plugin-events.ts`)
 
 **レート制限**: 10リクエスト/分/ユーザー（429 Too Many Requestsでエラー）
 
@@ -635,6 +695,464 @@ Task 8.11の`sanitizeRawData()`関数により、APIレスポンスで機密情�
 
 ---
 
+## エラーハンドリング & UX
+
+このセクションでは、各種エラー状況に対する具体的なUI応答と動作を定義する。
+
+### 対応するAPIエラーコード
+
+| エラーコード | 説明 | UI応答 |
+|-------------|------|--------|
+| **400** | Bad Request（不正なリクエスト） | インラインアラート |
+| **401** | Unauthorized（認証失敗） | リダイレクト → `/login` |
+| **403** | Forbidden（権限不足） | トースト通知 |
+| **404** | Not Found（リソース未発見） | インラインアラート |
+| **429** | Too Many Requests（レート制限） | トースト + ボタン無効化 |
+| **500** | Internal Server Error（サーバーエラー） | トースト通知 |
+| **503** | Service Unavailable（サービス停止） | トースト通知 |
+| **Network Timeout** | リクエストタイムアウト | トースト + リトライボタン |
+| **Network Failure** | ネットワーク接続失敗 | トースト + リトライボタン |
+
+### エラー表示の詳細
+
+#### 1. インラインアラート（400, 404）
+
+**表示場所**: コンテンツエリア上部（テーブル・フィルタの直上）
+
+**UI要素**:
+```html
+<div class="alert alert-error">
+  <Icon name="alert-circle" />
+  <span>Failed to load events: Invalid filter parameters</span>
+  <button class="btn-close" aria-label="Close alert">×</button>
+</div>
+```
+
+**スタイル**:
+- 背景色: `bg-red-50 dark:bg-red-900/20`
+- ボーダー: `border-l-4 border-red-500`
+- テキスト: `text-red-800 dark:text-red-200`
+- 閉じるボタン: ユーザーが手動で閉じる
+
+**メッセージ例**:
+- 400: `"Failed to load events: Invalid filter parameters"`
+- 404: `"Plugin not found or event does not exist"`
+
+---
+
+#### 2. トースト通知（403, 429, 500, 503, Network Timeout, Network Failure）
+
+**表示場所**: 画面右上（fixed position、z-index: 9999）
+
+**UI要素**:
+```html
+<div class="toast toast-error">
+  <Icon name="alert-triangle" />
+  <div>
+    <h4>Request Failed</h4>
+    <p>Server error occurred. Please try again later.</p>
+  </div>
+  <button class="btn-close" aria-label="Dismiss">×</button>
+</div>
+```
+
+**スタイル**:
+- 背景色: `bg-white dark:bg-gray-800`
+- ボーダー: `border-l-4 border-red-500`
+- シャドウ: `shadow-lg`
+- アニメーション: スライドイン（右から）、5秒後に自動消去
+
+**メッセージ例**:
+- 403: `"Access denied. You do not have permission to reprocess events."`
+- 429: `"Rate limit exceeded. Please wait {N} seconds before retrying."`
+- 500: `"Server error occurred. Please try again later."`
+- 503: `"Service temporarily unavailable. Please try again in a few minutes."`
+- Network Timeout: `"Request timed out. Check your connection and try again."`
+- Network Failure: `"Network error. Please check your internet connection."`
+
+---
+
+#### 3. 401 Unauthorized（リダイレクト）
+
+**動作**:
+1. エラー検知時、即座に `/login` へリダイレクト
+2. リダイレクト前にセッションストレージに現在のURLを保存
+3. ログイン成功後、元のURLに戻る
+
+**実装**:
+```typescript
+if (response.status === 401) {
+  sessionStorage.setItem('redirectAfterLogin', window.location.pathname);
+  window.location.href = '/login';
+}
+```
+
+---
+
+### クライアントサイドリトライ・バックオフ戦略
+
+#### リトライ対象エラー
+
+- 500 Internal Server Error
+- 503 Service Unavailable
+- Network Timeout
+- Network Failure
+
+#### リトライ戦略
+
+**アルゴリズム**: 指数バックオフ + ジッター（Exponential Backoff with Jitter）
+
+**パラメータ**:
+- 最大リトライ回数: `3`
+- 初期待機時間: `1秒`
+- バックオフ係数: `2`（指数関数的に増加）
+- 最大待機時間: `10秒`
+- ジッター: `±20%`（ランダム性を追加して同時リトライを回避）
+
+**計算式**:
+```typescript
+const baseDelay = 1000; // 1 second
+const maxDelay = 10000; // 10 seconds
+const jitterFactor = 0.2; // ±20%
+
+function calculateDelay(attempt: number): number {
+  const exponentialDelay = Math.min(
+    baseDelay * Math.pow(2, attempt),
+    maxDelay
+  );
+  const jitter = exponentialDelay * jitterFactor * (Math.random() * 2 - 1);
+  return Math.floor(exponentialDelay + jitter);
+}
+
+// Retry delays:
+// - Attempt 1: ~1秒 (800ms - 1200ms)
+// - Attempt 2: ~2秒 (1600ms - 2400ms)
+// - Attempt 3: ~4秒 (3200ms - 4800ms)
+```
+
+**実装例**:
+```typescript
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit,
+  maxRetries = 3
+): Promise<Response> {
+  let lastError: Error;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch(url, options);
+
+      // リトライ対象エラーチェック
+      if ([500, 503].includes(response.status)) {
+        throw new Error(`Server error: ${response.status}`);
+      }
+
+      return response;
+    } catch (error) {
+      lastError = error as Error;
+
+      // 最後のリトライなら諦める
+      if (attempt === maxRetries) {
+        break;
+      }
+
+      // 待機時間計算
+      const delay = calculateDelay(attempt);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+
+  throw lastError;
+}
+```
+
+#### リトライUI
+
+**ローディング状態**:
+- スピナー表示
+- リトライ回数表示: `"Retrying... (Attempt 2 of 3)"`
+
+**リトライ失敗時**:
+- トースト通知: `"Failed to load events after 3 attempts. Please try again."`
+- 「Retry」ボタン表示（手動リトライ）
+
+---
+
+### レート制限フィードバック（429 Too Many Requests）
+
+#### レート制限パラメータ
+
+- **制限**: 10リクエスト/分/ユーザー
+- **対象API**: `POST /api/plugins/:id/events/:eventId/reprocess`
+- **クライアントサイド保護**: 3回連続クリックで一時無効化
+
+#### UI動作
+
+**1. 初回レート制限エラー（429）**
+
+- トースト通知を表示:
+  ```
+  Title: "Rate Limit Exceeded"
+  Message: "You can reprocess up to 10 events per minute. Please wait {N} seconds."
+  ```
+- `Retry-After`ヘッダーから待機時間を取得
+- 再処理ボタンを無効化
+- ボタンに待機時間カウントダウンを表示
+
+**2. ボタン無効化状態**
+
+**UI要素**:
+```html
+<button disabled class="btn btn-disabled">
+  Reprocess (Wait 45s)
+</button>
+```
+
+**スタイル**:
+- 背景色: `bg-gray-300 dark:bg-gray-700`
+- カーソル: `cursor-not-allowed`
+- テキスト: `text-gray-500`
+
+**カウントダウン**:
+- 1秒ごとに更新: `"Reprocess (Wait 44s)"` → `"Reprocess (Wait 43s)"` → ...
+- 0秒になったら再有効化: `"Reprocess"`
+
+**実装例**:
+```typescript
+const [rateLimitRemaining, setRateLimitRemaining] = useState<number | null>(null);
+
+useEffect(() => {
+  if (rateLimitRemaining === null || rateLimitRemaining <= 0) return;
+
+  const timer = setInterval(() => {
+    setRateLimitRemaining((prev) => {
+      if (prev === null || prev <= 1) {
+        clearInterval(timer);
+        return null;
+      }
+      return prev - 1;
+    });
+  }, 1000);
+
+  return () => clearInterval(timer);
+}, [rateLimitRemaining]);
+
+// API error handling
+if (response.status === 429) {
+  const retryAfter = parseInt(response.headers.get('Retry-After') || '60');
+  setRateLimitRemaining(retryAfter);
+  showToast('error', `Rate limit exceeded. Please wait ${retryAfter} seconds.`);
+}
+```
+
+**3. ツールチップ説明**
+
+ボタンにカーソルホバー時、ツールチップを表示:
+```
+"You have reached the rate limit (10 requests per minute).
+Please wait before retrying."
+```
+
+**4. クライアントサイド保護（3回連続クリック）**
+
+- 同じイベントに対して3回連続で再処理ボタンをクリックした場合、ローカルで一時無効化
+- 無効化時間: 30秒
+- トースト通知: `"Please wait before retrying again."`
+
+**実装**:
+```typescript
+const reprocessAttempts = useRef<Map<string, number>>(new Map());
+
+function handleReprocess(eventId: string) {
+  const attempts = reprocessAttempts.current.get(eventId) || 0;
+
+  if (attempts >= 3) {
+    showToast('warning', 'Please wait before retrying again.');
+    return;
+  }
+
+  reprocessAttempts.current.set(eventId, attempts + 1);
+
+  // 30秒後にカウントをリセット
+  setTimeout(() => {
+    reprocessAttempts.current.delete(eventId);
+  }, 30000);
+
+  // API呼び出し
+  reprocessEvent(eventId);
+}
+```
+
+---
+
+### ネットワークタイムアウトハンドリング
+
+#### タイムアウト設定
+
+| API | タイムアウト時間 | 理由 |
+|-----|-----------------|------|
+| `GET /api/plugins/:id/events` | 15秒 | 大量データフェッチ |
+| `GET /api/plugins/:id/events/stats` | 10秒 | 集計クエリ |
+| `GET /api/plugins/:id/events/:eventId` | 10秒 | 単一レコード取得 |
+| `POST /api/plugins/:id/events/:eventId/reprocess` | 10秒 | キュー追加のみ |
+
+#### タイムアウト時のUI動作
+
+**1. スピナー表示**
+
+- API呼び出し開始時、ローディングスピナーを表示
+- スピナー表示時間: 最大15秒（最長APIに合わせる）
+
+**2. タイムアウト検知**
+
+- タイムアウト時間を超えたら、スピナーを非表示にしてエラートースト表示
+
+**3. エラーメッセージ**
+
+```
+Title: "Request Timed Out"
+Message: "The request took too long. Please check your connection and try again."
+```
+
+**4. リトライボタン**
+
+トースト内に「Retry」ボタンを表示:
+```html
+<div class="toast toast-error">
+  <Icon name="clock" />
+  <div>
+    <h4>Request Timed Out</h4>
+    <p>The request took too long. Please check your connection and try again.</p>
+  </div>
+  <button class="btn btn-sm" onclick="retryRequest()">Retry</button>
+</div>
+```
+
+**実装例**:
+```typescript
+async function fetchEventsWithTimeout(url: string, timeoutMs: number = 15000) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(url, {
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    return response;
+  } catch (error) {
+    clearTimeout(timeoutId);
+
+    if (error.name === 'AbortError') {
+      throw new Error('Request timed out');
+    }
+    throw error;
+  }
+}
+```
+
+---
+
+### エラーメッセージの国際化対応
+
+すべてのエラーメッセージは英語で実装する（日本語は使用しない）。
+
+**エラーメッセージ定数**:
+```typescript
+export const ERROR_MESSAGES = {
+  400: 'Invalid request parameters. Please check your filters.',
+  401: 'Authentication required. Redirecting to login...',
+  403: 'Access denied. You do not have permission for this action.',
+  404: 'Resource not found. The event may have been deleted.',
+  429: 'Rate limit exceeded. Please wait before retrying.',
+  500: 'Server error occurred. Please try again later.',
+  503: 'Service temporarily unavailable. Please try again in a few minutes.',
+  TIMEOUT: 'Request timed out. Check your connection and try again.',
+  NETWORK: 'Network error. Please check your internet connection.',
+  UNKNOWN: 'An unexpected error occurred. Please try again.',
+} as const;
+```
+
+---
+
+### E2Eテストでの検証項目
+
+すべてのエラーシナリオに対してE2Eテストを実装する必要がある。
+
+**テストケース**:
+
+1. **400 Bad Request**
+   - 不正なフィルタパラメータでAPI呼び出し
+   - インラインアラートが表示されることを確認
+   - メッセージテキストを検証
+
+2. **401 Unauthorized**
+   - 未認証状態でページアクセス
+   - `/login`へリダイレクトされることを確認
+
+3. **403 Forbidden**
+   - 権限不足のユーザーで再処理を試行
+   - トースト通知が表示されることを確認
+
+4. **404 Not Found**
+   - 存在しないイベントIDでAPI呼び出し
+   - インラインアラートが表示されることを確認
+
+5. **429 Rate Limit**
+   - 連続して11回再処理APIを呼び出し
+   - トースト通知が表示されることを確認
+   - ボタンが無効化され、カウントダウンが表示されることを確認
+   - ツールチップが表示されることを確認
+
+6. **500 Internal Server Error**
+   - モックAPIで500エラーを返す
+   - トースト通知が表示されることを確認
+   - 3回自動リトライされることを確認
+
+7. **Network Timeout**
+   - モックAPIでタイムアウトをシミュレート
+   - 15秒後にトースト + リトライボタンが表示されることを確認
+
+8. **Network Failure**
+   - ネットワーク接続を切断
+   - トースト通知が表示されることを確認
+
+**テスト実装例**:
+```typescript
+test('should display rate limit error and disable button', async ({ page }) => {
+  // Navigate to plugin data page
+  await page.goto('/dashboard/plugins/test-plugin/data');
+
+  // Click reprocess button 11 times (exceeds 10 req/min limit)
+  for (let i = 0; i < 11; i++) {
+    await page.click('[data-testid="reprocess-button-0"]');
+    await page.waitForTimeout(100);
+  }
+
+  // Verify toast notification
+  await expect(page.locator('[data-testid="toast"]')).toContainText(
+    'Rate limit exceeded'
+  );
+
+  // Verify button is disabled
+  await expect(page.locator('[data-testid="reprocess-button-0"]')).toBeDisabled();
+
+  // Verify countdown is displayed
+  await expect(page.locator('[data-testid="reprocess-button-0"]')).toContainText(
+    /Wait \d+s/
+  );
+
+  // Verify tooltip
+  await page.hover('[data-testid="reprocess-button-0"]');
+  await expect(page.locator('[data-testid="tooltip"]')).toContainText(
+    'rate limit'
+  );
+});
+```
+
+---
+
 ## パフォーマンス最適化
 
 ### クライアントサイドキャッシュ
@@ -679,18 +1197,56 @@ Task 8.11の`sanitizeRawData()`関数により、APIレスポンスで機密情�
 
 ## 完了チェックリスト
 
+### 型定義・ファイル構成
+- [ ] `app/types/plugin-events.ts`作成（共有型定義）
+- [ ] すべてのコンポーネントが共有型を参照
+
+### コンポーネント実装
 - [ ] `dashboard.plugins_.$id.data.tsx`作成（SPA実装）
 - [ ] `EventsTable.tsx`作成（ページネーション付きテーブル）
 - [ ] `EventsFilter.tsx`作成（ステータス、種別、日付フィルタ）
 - [ ] `EventsStats.tsx`作成（統計サマリー）
 - [ ] `EventDetailModal.tsx`作成（JSON ビューア付き）
+
+### 機能実装
 - [ ] 再処理機能実装（楽観的UI更新）
-- [ ] E2Eテスト実装（15テスト以上）
-- [ ] すべてのE2Eテストがパス
+- [ ] フィルタリング機能実装
+- [ ] ページネーション実装
+- [ ] 統計サマリー実装
+
+### エラーハンドリング
+- [ ] すべてのAPIエラーコード（400/401/403/404/429/500/503）に対応
+- [ ] インラインアラート実装（400, 404）
+- [ ] トースト通知実装（403, 429, 500, 503, Timeout, Network）
+- [ ] 401リダイレクト実装（セッションストレージ保存）
+- [ ] 指数バックオフリトライ実装（3回、ジッター付き）
+- [ ] レート制限フィードバック実装（カウントダウン、ツールチップ）
+- [ ] ネットワークタイムアウトハンドリング実装（15秒）
+- [ ] エラーメッセージ定数定義（英語）
+
+### E2Eテスト
+- [ ] ページ読み込み・データ表示テスト
+- [ ] フィルタリングテスト
+- [ ] ページネーションテスト
+- [ ] 詳細モーダルテスト
+- [ ] 再処理機能テスト
+- [ ] エラーハンドリングテスト（8シナリオ）
+  - [ ] 400 Bad Request
+  - [ ] 401 Unauthorized
+  - [ ] 403 Forbidden
+  - [ ] 404 Not Found
+  - [ ] 429 Rate Limit（カウントダウン、ツールチップ）
+  - [ ] 500 Internal Server Error（自動リトライ）
+  - [ ] Network Timeout
+  - [ ] Network Failure
+- [ ] すべてのE2Eテストがパス（20テスト以上）
+
+### 品質チェック
 - [ ] TypeScriptエラーなし（`pnpm typecheck`）
 - [ ] ダークモード対応
 - [ ] レスポンシブデザイン対応（モバイル、タブレット）
 - [ ] アクセシビリティチェック（キーボードナビゲーション、スクリーンリーダー）
+- [ ] パフォーマンス最適化（キャッシング、遅延ローディング）
 
 ---
 
