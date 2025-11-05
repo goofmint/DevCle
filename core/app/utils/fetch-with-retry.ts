@@ -124,10 +124,11 @@ export async function fetchWithTimeout(
  * Fetch with retry and timeout
  *
  * Combines retry logic with timeout handling.
+ * Each retry attempt is individually bounded by the timeout.
  *
  * @param url - Request URL
  * @param options - Fetch options
- * @param timeoutMs - Timeout in milliseconds
+ * @param timeoutMs - Timeout in milliseconds (applies to each attempt)
  * @param maxRetries - Maximum number of retries
  * @param onRetry - Callback when retrying
  * @returns Response
@@ -139,7 +140,39 @@ export async function fetchWithRetryAndTimeout(
   maxRetries: number = MAX_RETRIES,
   onRetry?: (attempt: number) => void
 ): Promise<Response> {
-  // First apply retry logic, then timeout check
-  await fetchWithRetry(url, options, maxRetries, onRetry);
-  return fetchWithTimeout(url, options, timeoutMs);
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      // Apply timeout to each individual attempt
+      const response = await fetchWithTimeout(url, options, timeoutMs);
+
+      // Check if error is retriable
+      if (isRetriableError(response.status)) {
+        throw new Error(`Server error: ${response.status}`);
+      }
+
+      // Success or non-retriable error
+      return response;
+    } catch (error) {
+      lastError = error as Error;
+
+      // Last attempt - give up
+      if (attempt === maxRetries) {
+        break;
+      }
+
+      // Notify caller about retry
+      if (onRetry) {
+        onRetry(attempt + 1);
+      }
+
+      // Wait before retrying
+      const delay = calculateDelay(attempt);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+
+  // All retries exhausted
+  throw lastError || new Error('Request failed after retries');
 }

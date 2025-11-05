@@ -69,7 +69,7 @@ test.describe('Plugin Data Display Page', () => {
     const statCards = statsContainer.locator('> div');
     await expect(statCards).toHaveCount(6);
 
-    // Verify specific stats (based on seed data: 25 total, 10 processed, 8 failed, 7 pending)
+    // Verify specific stats (based on seed data: 25 total, 10 processed, 2 failed, 13 pending)
     await expect(statsContainer.locator('text=Total Events')).toBeVisible();
     await expect(statsContainer.locator('text=Processed')).toBeVisible();
     await expect(statsContainer.locator('text=Failed')).toBeVisible();

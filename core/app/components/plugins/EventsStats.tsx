@@ -12,10 +12,10 @@
  */
 
 import { Icon } from '@iconify/react';
-import type { EventsStats } from '~/types/plugin-events';
+import type { EventsStats as EventsStatsType } from '~/types/plugin-events';
 
 interface EventsStatsProps {
-  stats: EventsStats | null;
+  stats: EventsStatsType | null;
   loading?: boolean;
 }
 
