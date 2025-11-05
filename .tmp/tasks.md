@@ -925,22 +925,82 @@
 
 ---
 
-### Task 8.13: プラグインのルーティング追加と呼び出しテスト
+### Task 8.13: プラグインのReactコンポーネント表示実装
 
-- [ ] プラグインのカスタムルート定義機能（plugin.json に`routes`フィールド）
-- [ ] 動的ルート登録機能実装（Remix の Resource Routes 使用）
-- [ ] プラグインのサンドボックス化実装（isolated-vm 使用）
-  - isolated-vm インストール
+- [ ] プラグインページ定義機能（plugin.json に`pages`フィールド）
+- [ ] Component Registry 実装（`core/plugin-system/component-registry.ts`）
+  - プラグインコンポーネントの動的インポート
+  - コンポーネントの登録・取得
+- [ ] 動的ルート実装（`core/app/routes/dashboard.plugins_.$id.$.tsx`）
+  - Component Registry からコンポーネント取得
+  - プラグインページのレンダリング
+- [ ] プラグインローダー拡張（`core/plugin-system/loader.ts`）
+  - plugin.json の pages フィールド読み込み
+  - 起動時の自動コンポーネント登録
+- [ ] テストプラグイン作成（`plugins/test-plugin/`）
+  - plugin.json 定義（pages, menus）
+  - Reactコンポーネント実装（OverviewPage.tsx）
+- [ ] E2E テスト作成（`core/e2e/plugin-pages.spec.ts`）
+  - プラグインページ表示確認
+  - コンポーネントの動的読み込み確認
+- **完了条件**: プラグインが提供するReactコンポーネントがダッシュボードに表示される
+- **依存**: Task 8.4, Task 8.6
+- **推定時間**: 4 時間
+- **ドキュメント**: [.tmp/tasks/task-8.13-plugin-react-components.md](.tmp/tasks/task-8.13-plugin-react-components.md)
+- **注意**:
+  - プラグインコンポーネントはブラウザで実行される（isolated-vm不要）
+  - TypeScript型チェックが効く
+  - セキュリティ: XSS対策、CSP設定が必要
+
+### Task 8.14: プラグインのWebhook受信実装（isolated-vm）
+
+- [ ] Webhook定義機能（plugin.json に`webhooks`フィールド）
+- [ ] Webhook署名検証実装（`core/plugin-system/auth/webhook-verifier.ts`）
+  - GitHub Webhook署名検証
+  - Slack Webhook署名検証
+- [ ] isolated-vm Runner 実装（`core/plugin-system/sandbox/isolated-vm-runner.ts`）
   - サンドボックス化されたコンテキストでプラグインコード実行
-  - セキュリティ制限（ファイルシステムアクセス、ネットワークアクセス）
-- [ ] プラグインルートの認証・認可チェック
-- [ ] テストプラグイン作成（カスタムルートを持つサンプル）
-- [ ] E2E テスト作成（プラグインルートの呼び出し確認）
-- **完了条件**: プラグインがカスタムルートを追加でき、isolated-vm でサンドボックス化されて実行される
+  - メモリ・CPU制限
+  - タイムアウト制御
+- [ ] Internal HTTP Client 実装（`core/plugin-system/sandbox/internal-http-client.ts`）
+  - プラグインからコアAPIへの呼び出し専用
+  - 外部URLアクセス禁止
+  - 内部認証トークン付与
+- [ ] Webhook Executor 実装（`core/plugin-system/webhook-executor.ts`）
+  - Webhook署名検証
+  - isolated-vmでハンドラー実行
+  - 戻り値チェック（boolean）
+- [ ] Webhook受信API実装（`core/app/routes/api.plugins_.$id.webhooks.$.ts`）
+  - POST リクエスト受信
+  - Webhook Executor呼び出し
+  - HTTPステータス返却（true: 200, false/Error: 4xx/5xx）
+- [ ] 内部認証実装（`core/services/auth.service.ts`）
+  - requirePluginAuth()実装
+  - HMAC署名によるトークン検証
+- [ ] プラグインイベント登録API実装（`core/app/routes/api.plugin-events.ts`）
+  - POST /api/plugin-events
+  - plugin_events_rawテーブルへの保存
+  - 内部認証トークン検証
+- [ ] テストプラグイン作成（Webhookハンドラー）
+  - plugin.json定義（webhooks）
+  - Webhookハンドラー実装（github.ts）
+- [ ] 単体テスト作成（Vitest）
+  - isolated-vm-runner.test.ts
+  - webhook-verifier.test.ts
+  - internal-http-client.test.ts
+- [ ] E2E テスト作成（Playwright）
+  - Webhook受信確認
+  - 署名検証確認
+  - データ保存確認
+- **完了条件**: プラグインがWebhookを受信し、コアAPIを呼び出してデータを保存できる
 - **依存**: Task 8.4
-- **推定時間**: 6 時間
-- **ドキュメント**: [.tmp/tasks/task-8.13-plugin-routing.md](.tmp/tasks/task-8.13-plugin-routing.md)
-- **注意**: isolated-vm を使用してプラグインの実行を隔離し、セキュリティを確保する
+- **推定時間**: 8 時間
+- **ドキュメント**: [.tmp/tasks/task-8.14-plugin-webhooks.md](.tmp/tasks/task-8.14-plugin-webhooks.md)
+- **注意**:
+  - isolated-vmでサンドボックス実行（ネットワーク・ファイルシステム制限）
+  - プラグインはDB直接操作不可、コアAPI経由のみ
+  - 戻り値は必ずboolean（true: 成功, false/Error: 失敗）
+  - すべてのAPI呼び出しに内部認証トークン必須
 
 ---
 
