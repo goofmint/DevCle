@@ -1,56 +1,53 @@
 /**
- * Shared Type Definitions for Plugin Events
+ * Plugin Events Types
  *
- * This file serves as the single source of truth for all plugin event
- * related types used across components.
+ * Type definitions for plugin event data display UI.
  */
 
 /**
- * Plugin Event
- *
- * Represents a single event collected by a plugin from an external source.
- * Stored in plugin_events_raw table.
+ * Plugin event status
+ */
+export type PluginEventStatus = 'pending' | 'processed' | 'failed';
+
+/**
+ * Plugin event from plugin_events_raw table
  */
 export interface PluginEvent {
-  pluginEventId: string;
+  eventId: string;
+  pluginId: string;
   eventType: string;
-  status: 'processed' | 'failed' | 'pending';
+  status: PluginEventStatus;
   rawData: Record<string, unknown>;
+  processedData: Record<string, unknown> | null;
   errorMessage: string | null;
-  ingestedAt: string; // ISO timestamp
-  processedAt: string | null; // ISO timestamp
+  ingestedAt: string;
+  processedAt: string | null;
 }
 
 /**
- * Events Filter
- *
- * Filter criteria for event list queries.
- */
-export interface EventsFilter {
-  status?: string[]; // ["processed", "failed", "pending"]
-  eventType?: string; // Free text search (partial match)
-  startDate?: string; // ISO date string
-  endDate?: string; // ISO date string
-}
-
-/**
- * Events Statistics
- *
- * Aggregated statistics for plugin events.
+ * Events statistics
  */
 export interface EventsStats {
   total: number;
   processed: number;
   failed: number;
   pending: number;
-  latestIngestedAt: string | null; // ISO timestamp
-  oldestIngestedAt: string | null; // ISO timestamp
+  processingRate: number;
+  errorRate: number;
 }
 
 /**
- * Pagination Info
- *
- * Pagination metadata for event list.
+ * Events filter parameters
+ */
+export interface EventsFilter {
+  status?: PluginEventStatus[];
+  eventType?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+/**
+ * Pagination info
  */
 export interface PaginationInfo {
   page: number;
@@ -60,34 +57,21 @@ export interface PaginationInfo {
 }
 
 /**
- * API Response Types
+ * List events API response
  */
-
 export interface ListEventsResponse {
-  events: PluginEvent[];
+  items: PluginEvent[];
   pagination: PaginationInfo;
 }
 
-export interface EventsStatsResponse extends EventsStats {}
-
-export interface EventDetailResponse {
-  event: PluginEvent;
-}
-
-export interface ReprocessResponse {
-  success: boolean;
-  message: string;
-}
-
 /**
- * API Error Response
- *
- * Standard error response format from API.
+ * Events stats API response
  */
-export interface ApiErrorResponse {
-  error: {
-    code: string;
-    message: string;
-    details?: Record<string, unknown>;
-  };
+export interface EventsStatsResponse {
+  total: number;
+  processed: number;
+  failed: number;
+  pending: number;
+  latestIngestedAt: string | null;
+  oldestIngestedAt: string | null;
 }

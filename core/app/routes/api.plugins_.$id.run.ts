@@ -22,7 +22,7 @@
 import type { ActionFunctionArgs } from '@remix-run/node';
 import { json } from '@remix-run/node';
 import { requireAuth } from '~/auth.middleware.js';
-import { getPluginById } from '../../services/plugin.service.js';
+import { getPluginByKey } from '../../services/plugin.service.js';
 import { executePluginJob } from '../../plugin-system/executor.js';
 import { z } from 'zod';
 
@@ -80,8 +80,8 @@ export async function action({ params, request }: ActionFunctionArgs) {
 
     const { jobName } = parseResult.data;
 
-    // Step 5: Get plugin from database
-    const plugin = await getPluginById(user.tenantId, pluginId);
+    // Step 5: Get plugin from database (using key instead of UUID)
+    const plugin = await getPluginByKey(user.tenantId, pluginId);
 
     if (!plugin) {
       return json({ error: 'Plugin not found' }, { status: 404 });
@@ -115,7 +115,7 @@ export async function action({ params, request }: ActionFunctionArgs) {
     // - Job queue visibility and monitoring
     const result = await executePluginJob(
       user.tenantId,
-      pluginId,
+      plugin.pluginId,
       plugin.key,
       jobName
     );
