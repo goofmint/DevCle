@@ -145,6 +145,7 @@ function PaginationControls({ pagination, onPageChange }: {
               onClick={() => onPageChange(page - 1)}
               disabled={page === 1}
               className="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 dark:ring-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 focus:z-20 focus:outline-offset-0 disabled:opacity-50 disabled:cursor-not-allowed"
+              aria-label="Previous page"
             >
               <Icon icon="mdi:chevron-left" className="h-5 w-5" aria-hidden="true" />
             </button>
@@ -174,6 +175,7 @@ function PaginationControls({ pagination, onPageChange }: {
               onClick={() => onPageChange(page + 1)}
               disabled={page === totalPages}
               className="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 dark:ring-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 focus:z-20 focus:outline-offset-0 disabled:opacity-50 disabled:cursor-not-allowed"
+              aria-label="Next page"
             >
               <Icon icon="mdi:chevron-right" className="h-5 w-5" aria-hidden="true" />
             </button>
@@ -206,7 +208,7 @@ export function EventsTable({
     );
   }
 
-  if (events.length === 0) {
+  if (!events || events.length === 0) {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-8 text-center">
         <Icon
@@ -239,9 +241,9 @@ export function EventsTable({
           </thead>
           <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
             {events.map((event) => (
-              <tr key={event.pluginEventId} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+              <tr key={event.eventId} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900 dark:text-gray-100">
-                  {truncate(event.pluginEventId, 8)}
+                  {truncate(event.eventId, 8)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                   {event.eventType}
@@ -262,7 +264,7 @@ export function EventsTable({
                   <button
                     onClick={() => onEventClick(event)}
                     className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300"
-                    data-testid={`view-detail-${event.pluginEventId}`}
+                    data-testid={`view-detail-${event.eventId}`}
                   >
                     View Detail
                   </button>

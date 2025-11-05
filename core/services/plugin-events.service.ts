@@ -17,7 +17,7 @@
  */
 
 import { z } from 'zod';
-import { and, eq, gte, lte, count, asc, desc, max, min, sql } from 'drizzle-orm';
+import { and, eq, gte, lte, count, asc, desc, max, min, sql, like, inArray } from 'drizzle-orm';
 import * as schema from '../db/schema/index.js';
 import { withTenantContext } from '../db/connection.js';
 
@@ -32,7 +32,9 @@ import { withTenantContext } from '../db/connection.js';
 export const ListEventsSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   perPage: z.coerce.number().int().min(1).max(100).default(20),
-  status: z.enum(['pending', 'processed', 'failed']).optional(),
+  status: z
+    .array(z.enum(['pending', 'processed', 'failed']))
+    .optional(),
   eventType: z.string().optional(),
   startDate: z.coerce.date().optional(),
   endDate: z.coerce.date().optional(),
@@ -231,12 +233,12 @@ export async function listPluginEvents(
     // Build filter conditions
     const conditions = [baseConditions];
 
-    if (input.status) {
-      conditions.push(eq(schema.pluginEventsRaw.status, input.status));
+    if (input.status && input.status.length > 0) {
+      conditions.push(inArray(schema.pluginEventsRaw.status, input.status));
     }
 
     if (input.eventType) {
-      conditions.push(eq(schema.pluginEventsRaw.eventType, input.eventType));
+      conditions.push(like(schema.pluginEventsRaw.eventType, `%${input.eventType}%`));
     }
 
     if (input.startDate) {

@@ -15,7 +15,7 @@
 import { json, type LoaderFunctionArgs } from '@remix-run/node';
 import { requireAuth } from '../auth.middleware.js';
 import { getPluginEventsStats } from '../../services/plugin-events.service.js';
-import { getPluginByKey } from '../services/plugins.service.js';
+import { getPluginByKey } from '../../services/plugin.service.js';
 
 /**
  * GET /api/plugins/:id/events/stats - Get event statistics

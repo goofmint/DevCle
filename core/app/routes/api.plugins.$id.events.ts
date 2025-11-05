@@ -5,7 +5,7 @@
  * Returns event metadata without raw data for performance.
  *
  * Endpoint:
- * - GET /api/plugins/:id/events?page=1&perPage=20&status=pending&eventType=github:pull_request&sort=desc
+ * - GET /api/plugins/:id/events?page=1&perPage=20&status=pending,processed&eventType=github:pull_request&sort=desc
  *
  * Security:
  * - Authentication required (requireAuth)
@@ -28,7 +28,7 @@ import { getPluginByKey } from '../services/plugins.service.js';
  * Query Parameters:
  * - page: Page number (>= 1, default: 1)
  * - perPage: Items per page (1-100, default: 20)
- * - status: Filter by status ('pending' | 'processed' | 'failed', optional)
+ * - status: Filter by status (comma-separated: 'pending,processed,failed', optional)
  * - eventType: Filter by event type (e.g., 'github:pull_request', optional)
  * - startDate: Filter by start date (ISO 8601, optional)
  * - endDate: Filter by end date (ISO 8601, optional)
@@ -100,24 +100,27 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
     // 3. Parse and validate query parameters
     const url = new URL(request.url);
-    const queryParams: Record<string, string> = {};
+    const queryParams: Record<string, string | string[]> = {};
 
     // Only include parameters that have values (filter out nulls)
     const page = url.searchParams.get('page');
     const perPage = url.searchParams.get('perPage');
-    const status = url.searchParams.get('status');
+    const statusParam = url.searchParams.get('status');
     const eventType = url.searchParams.get('eventType');
     const startDate = url.searchParams.get('startDate');
     const endDate = url.searchParams.get('endDate');
     const sort = url.searchParams.get('sort');
 
-    if (page) queryParams.page = page;
-    if (perPage) queryParams.perPage = perPage;
-    if (status) queryParams.status = status;
-    if (eventType) queryParams.eventType = eventType;
-    if (startDate) queryParams.startDate = startDate;
-    if (endDate) queryParams.endDate = endDate;
-    if (sort) queryParams.sort = sort;
+    if (page) queryParams['page'] = page;
+    if (perPage) queryParams['perPage'] = perPage;
+    if (statusParam) {
+      // Split comma-separated status values into array
+      queryParams['status'] = statusParam.split(',');
+    }
+    if (eventType) queryParams['eventType'] = eventType;
+    if (startDate) queryParams['startDate'] = startDate;
+    if (endDate) queryParams['endDate'] = endDate;
+    if (sort) queryParams['sort'] = sort;
 
     // Validate with Zod schema
     const validatedQuery = ListEventsSchema.parse(queryParams);

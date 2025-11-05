@@ -29,7 +29,7 @@ interface EventDetailModalProps {
  * Simple JSON viewer with syntax highlighting and collapsible structure.
  */
 function JSONViewer({ data }: { data: Record<string, unknown> }) {
-  const jsonString = JSON.stringify(data, null, 2);
+  const jsonString = JSON.stringify(data, null, 2) || '{}';
 
   return (
     <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 overflow-auto max-h-96">
@@ -215,7 +215,7 @@ export function EventDetailModal({
                   Event ID
                 </label>
                 <p className="text-sm font-mono text-gray-900 dark:text-gray-100 break-all">
-                  {event.pluginEventId}
+                  {event.eventId}
                 </p>
               </div>
 
@@ -278,7 +278,7 @@ export function EventDetailModal({
 
             {event.status === 'failed' && (
               <button
-                onClick={() => onReprocess(event.pluginEventId)}
+                onClick={() => onReprocess(event.eventId)}
                 disabled={reprocessing}
                 className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
                 data-testid="reprocess-button"

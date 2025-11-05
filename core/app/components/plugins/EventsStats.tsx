@@ -2,7 +2,7 @@
  * Events Statistics Component
  *
  * Displays summary statistics for plugin events in a grid of cards.
- * Shows total, processed, failed, pending counts, and latest/oldest timestamps.
+ * Shows total, processed, failed, pending counts, processing rate, and error rate.
  *
  * Features:
  * - Responsive grid layout (1 col mobile, 3 col tablet, 6 col desktop)
@@ -19,30 +19,6 @@ interface EventsStatsProps {
   loading?: boolean;
 }
 
-/**
- * Format timestamp for display
- *
- * @param isoTimestamp - ISO timestamp string
- * @returns Formatted date string (YYYY-MM-DD HH:mm:ss) or "—"
- */
-function formatTimestamp(isoTimestamp: string | null): string {
-  if (!isoTimestamp) return '—';
-
-  try {
-    const date = new Date(isoTimestamp);
-    return new Intl.DateTimeFormat('en-US', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false,
-    }).format(date).replace(/(\d+)\/(\d+)\/(\d+),/, '$3-$1-$2');
-  } catch {
-    return '—';
-  }
-}
 
 /**
  * Stat Card Component
@@ -133,18 +109,18 @@ export function EventsStats({ stats, loading = false }: EventsStatsProps) {
       />
 
       <StatCard
-        icon="mdi:arrow-up"
-        label="Latest"
-        value={formatTimestamp(stats?.latestIngestedAt ?? null)}
+        icon="mdi:chart-line"
+        label="Processing Rate (%)"
+        value={`${stats?.processingRate?.toFixed(1) ?? '0.0'}%`}
         colorClass="text-purple-600 dark:text-purple-400"
         loading={isLoading}
       />
 
       <StatCard
-        icon="mdi:arrow-down"
-        label="Oldest"
-        value={formatTimestamp(stats?.oldestIngestedAt ?? null)}
-        colorClass="text-gray-600 dark:text-gray-400"
+        icon="mdi:alert-octagon"
+        label="Error Rate (%)"
+        value={`${stats?.errorRate?.toFixed(1) ?? '0.0'}%`}
+        colorClass="text-orange-600 dark:text-orange-400"
         loading={isLoading}
       />
     </div>
