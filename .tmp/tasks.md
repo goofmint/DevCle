@@ -939,6 +939,7 @@
 - **完了条件**: プラグインがカスタムルートを追加でき、isolated-vm でサンドボックス化されて実行される
 - **依存**: Task 8.4
 - **推定時間**: 6 時間
+- **ドキュメント**: [.tmp/tasks/task-8.13-plugin-routing.md](.tmp/tasks/task-8.13-plugin-routing.md)
 - **注意**: isolated-vm を使用してプラグインの実行を隔離し、セキュリティを確保する
 
 ---
