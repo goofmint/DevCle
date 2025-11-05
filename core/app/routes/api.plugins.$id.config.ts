@@ -43,7 +43,7 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
 
   // Validate plugin key
   if (!pluginId) {
-    return json({ error: 'Plugin key is required' }, { status: 400 });
+    return json({ error: 'Plugin ID is required' }, { status: 400 });
   }
 
   // Prevent path traversal

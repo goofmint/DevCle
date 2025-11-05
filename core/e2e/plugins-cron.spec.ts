@@ -117,8 +117,10 @@ test('status filtering works correctly', async ({ page }) => {
   await page.goto(`${BASE_URL}/dashboard/plugins/${TEST_PLUGIN_KEY}/runs`);
   await page.waitForLoadState('networkidle');
 
-  // Click "Success" filter
-  await page.click('button:has-text("Success")');
+  // Click "Success" filter (using evaluate due to React synthetic event issues)
+  await page.locator('button:has-text("Success")').first().evaluate(button => {
+    (button as HTMLButtonElement).click();
+  });
 
   // Wait for URL to update (setSearchParams doesn't cause full navigation)
   await page.waitForURL('**/runs?*status=success*');
@@ -126,13 +128,17 @@ test('status filtering works correctly', async ({ page }) => {
   // Verify URL contains status parameter
   expect(page.url()).toContain('status=success');
 
+  // Wait for React to re-render and update button styles
+  await page.waitForTimeout(500);
+
   // Verify "Success" button is active (has blue background)
   const successButton = page.locator('button:has-text("Success")').first();
-  const classList = await successButton.getAttribute('class');
-  expect(classList).toContain('bg-blue-600');
+  await expect(successButton).toHaveClass(/bg-blue-600/);
 
   // Click "All" filter to reset
-  await page.click('button:has-text("All")');
+  await page.locator('button:has-text("All")').first().evaluate(button => {
+    (button as HTMLButtonElement).click();
+  });
 
   // Wait for URL to update (status param should be removed)
   await page.waitForFunction(() => !window.location.search.includes('status='));

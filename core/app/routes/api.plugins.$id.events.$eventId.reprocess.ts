@@ -17,6 +17,7 @@ import { json, type ActionFunctionArgs } from '@remix-run/node';
 import { requireAuth } from '../auth.middleware.js';
 import { applyRateLimit, getClientIp } from '../../middleware/rate-limiter.js';
 import { reprocessEvent } from '../../services/plugin-events.service.js';
+import { getPluginByKey } from '../services/plugins.service.js';
 
 /**
  * POST /api/plugins/:id/events/:eventId/reprocess - Reprocess event
@@ -53,11 +54,11 @@ export async function action({ request, params }: ActionFunctionArgs) {
     const clientIp = getClientIp(request);
     await applyRateLimit(user.userId, clientIp);
 
-    // 3. Get plugin ID and event ID from URL params
-    const pluginId = params['id'];
+    // 3. Get plugin key and event ID from URL params
+    const pluginKey = params['id'];
     const eventId = params['eventId'];
 
-    if (!pluginId) {
+    if (!pluginKey) {
       return json(
         {
           success: false,
@@ -87,9 +88,26 @@ export async function action({ request, params }: ActionFunctionArgs) {
       );
     }
 
-    // 4. Queue reprocessing via service layer
+    // Lookup plugin to get UUID
+    const plugin = await getPluginByKey(tenantId, pluginKey);
+    if (!plugin) {
+      return json(
+        {
+          success: false,
+          error: 'Plugin not found',
+        },
+        {
+          status: 404,
+          headers: {
+            'Cache-Control': 'no-store',
+          },
+        }
+      );
+    }
+
+    // 4. Queue reprocessing via service layer (use plugin UUID)
     try {
-      await reprocessEvent(tenantId, pluginId, eventId);
+      await reprocessEvent(tenantId, plugin.pluginId, eventId);
     } catch (error) {
       // Handle event not found
       if (error instanceof Error && error.message === 'Event not found') {

@@ -119,6 +119,33 @@ export async function getPluginById(tenantId: string, pluginId: string) {
 }
 
 /**
+ * Get a plugin by key with tenant isolation
+ *
+ * Resolves plugin key (from URL param) to plugin record.
+ * Used by API routes that receive plugin key instead of UUID.
+ *
+ * @param tenantId - Tenant ID
+ * @param key - Plugin key (e.g., "drowl-plugin-test")
+ * @returns Plugin record or null if not found
+ */
+export async function getPluginByKey(tenantId: string, key: string) {
+  return await withTenantContext(tenantId, async (tx) => {
+    const [plugin] = await tx
+      .select()
+      .from(schema.plugins)
+      .where(
+        and(
+          eq(schema.plugins.key, key),
+          eq(schema.plugins.tenantId, tenantId)
+        )
+      )
+      .limit(1);
+
+    return plugin ?? null;
+  });
+}
+
+/**
  * Update plugin enabled status
  *
  * Merges DB state with filesystem data (plugin.json) for response.
