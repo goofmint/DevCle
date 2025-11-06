@@ -28,15 +28,15 @@ async function loginAndNavigate(page: Page) {
 test('displays plugin overview page with event handling', async ({ page }) => {
   await loginAndNavigate(page);
 
-  await page.goto(`${BASE_URL}/dashboard/plugins_/drowl-plugin-test/overview`);
+  await page.goto(`${BASE_URL}/dashboard/plugins/drowl-plugin-test/overview`);
   await page.waitForLoadState('networkidle');
 
   // Verify page heading
   await expect(page.locator('h1')).toContainText('Overview');
 
-  // Verify plugin and tenant info is displayed
-  await expect(page.locator('text=drowl-plugin-test')).toBeVisible();
-  await expect(page.locator('text=default')).toBeVisible();
+  // Verify plugin and tenant info is displayed (within main content area, not sidebar)
+  await expect(page.locator('main').locator('text=drowl-plugin-test')).toBeVisible();
+  await expect(page.locator('main').locator('text=default')).toBeVisible();
 
   // Test event handling - click button
   const clickButton = page.locator('button:has-text("Click Me")');
@@ -56,14 +56,14 @@ test('displays plugin overview page with event handling', async ({ page }) => {
 test('displays plugin settings page with form', async ({ page }) => {
   await loginAndNavigate(page);
 
-  await page.goto(`${BASE_URL}/dashboard/plugins_/drowl-plugin-test/settings`);
+  await page.goto(`${BASE_URL}/dashboard/plugins/drowl-plugin-test/settings`);
   await page.waitForLoadState('networkidle');
 
   // Verify page heading
   await expect(page.locator('h1')).toContainText('Settings');
 
-  // Verify plugin info
-  await expect(page.locator('text=drowl-plugin-test')).toBeVisible();
+  // Verify plugin info (within main content, not sidebar)
+  await expect(page.locator('main').locator('text=drowl-plugin-test')).toBeVisible();
 
   // Test form input
   const input = page.locator('input[type="text"]');
@@ -85,14 +85,14 @@ test('displays plugin settings page with form', async ({ page }) => {
 test('displays plugin logs page', async ({ page }) => {
   await loginAndNavigate(page);
 
-  await page.goto(`${BASE_URL}/dashboard/plugins_/drowl-plugin-test/logs`);
+  await page.goto(`${BASE_URL}/dashboard/plugins/drowl-plugin-test/logs`);
   await page.waitForLoadState('networkidle');
 
   // Verify page heading
   await expect(page.locator('h1')).toContainText('Activity Logs');
 
-  // Verify plugin info
-  await expect(page.locator('text=drowl-plugin-test')).toBeVisible();
+  // Verify plugin info (within main content, not sidebar)
+  await expect(page.locator('main').locator('text=drowl-plugin-test')).toBeVisible();
 });
 
 /**
