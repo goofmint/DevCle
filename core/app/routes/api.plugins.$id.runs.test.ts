@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeAll } from 'vitest';
 import { runInTenant } from '../../db/tenant-test-utils.js';
-import { loader } from './api.plugins_.$id.runs.js';
+import { loader } from './api.plugins.$id.runs.js';
 import { getSession, commitSession } from '../sessions.server.js';
 import { getDb } from '../../db/connection.js';
 import * as schema from '../../db/schema/index.js';

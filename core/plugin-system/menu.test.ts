@@ -15,8 +15,11 @@ import {
   validateMenuDepth,
   filterMenuItemsByPermission,
   getPluginMenuItems,
+  validateDataField,
+  generatePluginMenus,
   type PluginMenuItem,
 } from './menu.js';
+import type { PluginManifest } from './types.js';
 import { withTenantContext, type TenantTransactionClient } from '../db/connection.js';
 import * as schema from '../db/schema/index.js';
 import { eq } from 'drizzle-orm';
@@ -461,5 +464,426 @@ describe('getPluginMenuItems (integration)', () => {
     expect(logs!.path).toBe('/dashboard/plugins/drowl-plugin-test/logs');
     expect(logs!.icon).toBe('mdi:file-document-outline');
     expect(logs!.pluginName).toBe('drowl-plugin-test');
+  });
+});
+
+describe('validateDataField', () => {
+  it('should pass when data is false and menus contains /data', () => {
+    const manifest: PluginManifest = {
+      id: 'test',
+      name: 'Test Plugin',
+      version: '1.0.0',
+      description: 'Test',
+      vendor: 'Test',
+      homepage: 'https://test.com',
+      license: 'MIT',
+      compatibility: { drowlMin: '0.1.0', drowlMax: '1.0.0' },
+      capabilities: { scopes: [], network: [], secrets: [] },
+      settingsSchema: [],
+      menus: [
+        { key: 'data', label: 'Data', to: '/data', icon: 'mdi:database' },
+      ],
+      widgets: [],
+      routes: [],
+      jobs: [],
+      rateLimits: { perMinute: 60, burst: 30 },
+      i18n: { supported: ['en'] },
+      data: false,
+    };
+
+    expect(() => validateDataField(manifest, 'test')).not.toThrow();
+  });
+
+  it('should pass when data is undefined and menus contains /data', () => {
+    const manifest: PluginManifest = {
+      id: 'test',
+      name: 'Test Plugin',
+      version: '1.0.0',
+      description: 'Test',
+      vendor: 'Test',
+      homepage: 'https://test.com',
+      license: 'MIT',
+      compatibility: { drowlMin: '0.1.0', drowlMax: '1.0.0' },
+      capabilities: { scopes: [], network: [], secrets: [] },
+      settingsSchema: [],
+      menus: [
+        { key: 'data', label: 'Data', to: '/data', icon: 'mdi:database' },
+      ],
+      widgets: [],
+      routes: [],
+      jobs: [],
+      rateLimits: { perMinute: 60, burst: 30 },
+      i18n: { supported: ['en'] },
+      // data field is undefined
+    };
+
+    expect(() => validateDataField(manifest, 'test')).not.toThrow();
+  });
+
+  it('should throw error when data is true and menus contains /data path', () => {
+    const manifest: PluginManifest = {
+      id: 'test',
+      name: 'Test Plugin',
+      version: '1.0.0',
+      description: 'Test',
+      vendor: 'Test',
+      homepage: 'https://test.com',
+      license: 'MIT',
+      compatibility: { drowlMin: '0.1.0', drowlMax: '1.0.0' },
+      capabilities: { scopes: [], network: [], secrets: [] },
+      settingsSchema: [],
+      menus: [
+        { key: 'data', label: 'Data', to: '/data', icon: 'mdi:database' },
+      ],
+      widgets: [],
+      routes: [],
+      jobs: [],
+      rateLimits: { perMinute: 60, burst: 30 },
+      i18n: { supported: ['en'] },
+      data: true,
+    };
+
+    expect(() => validateDataField(manifest, 'test')).toThrow(
+      /Cannot have both 'data: true' and a menu item with path '\/data'/
+    );
+  });
+
+  it('should throw error when data is true and menus contains data path (no slash)', () => {
+    const manifest: PluginManifest = {
+      id: 'test',
+      name: 'Test Plugin',
+      version: '1.0.0',
+      description: 'Test',
+      vendor: 'Test',
+      homepage: 'https://test.com',
+      license: 'MIT',
+      compatibility: { drowlMin: '0.1.0', drowlMax: '1.0.0' },
+      capabilities: { scopes: [], network: [], secrets: [] },
+      settingsSchema: [],
+      menus: [
+        { key: 'data', label: 'Data', to: 'data', icon: 'mdi:database' },
+      ],
+      widgets: [],
+      routes: [],
+      jobs: [],
+      rateLimits: { perMinute: 60, burst: 30 },
+      i18n: { supported: ['en'] },
+      data: true,
+    };
+
+    expect(() => validateDataField(manifest, 'test')).toThrow(
+      /Cannot have both 'data: true' and a menu item with path '\/data'/
+    );
+  });
+
+  it('should throw error when data is true and child menu contains /data', () => {
+    const manifest: PluginManifest = {
+      id: 'test',
+      name: 'Test Plugin',
+      version: '1.0.0',
+      description: 'Test',
+      vendor: 'Test',
+      homepage: 'https://test.com',
+      license: 'MIT',
+      compatibility: { drowlMin: '0.1.0', drowlMax: '1.0.0' },
+      capabilities: { scopes: [], network: [], secrets: [] },
+      settingsSchema: [],
+      menus: [
+        {
+          key: 'parent',
+          label: 'Parent',
+          to: '/parent',
+          icon: 'mdi:folder',
+          children: [
+            { key: 'data', label: 'Data', to: '/data', icon: 'mdi:database' },
+          ],
+        },
+      ],
+      widgets: [],
+      routes: [],
+      jobs: [],
+      rateLimits: { perMinute: 60, burst: 30 },
+      i18n: { supported: ['en'] },
+      data: true,
+    };
+
+    expect(() => validateDataField(manifest, 'test')).toThrow(
+      /Cannot have both 'data: true' and a child menu item with path '\/data'/
+    );
+  });
+
+  it('should pass when data is true and menus does not contain /data', () => {
+    const manifest: PluginManifest = {
+      id: 'test',
+      name: 'Test Plugin',
+      version: '1.0.0',
+      description: 'Test',
+      vendor: 'Test',
+      homepage: 'https://test.com',
+      license: 'MIT',
+      compatibility: { drowlMin: '0.1.0', drowlMax: '1.0.0' },
+      capabilities: { scopes: [], network: [], secrets: [] },
+      settingsSchema: [],
+      menus: [
+        { key: 'overview', label: 'Overview', to: '/overview', icon: 'mdi:chart-line' },
+        { key: 'settings', label: 'Settings', to: '/settings', icon: 'mdi:cog' },
+      ],
+      widgets: [],
+      routes: [],
+      jobs: [],
+      rateLimits: { perMinute: 60, burst: 30 },
+      i18n: { supported: ['en'] },
+      data: true,
+    };
+
+    expect(() => validateDataField(manifest, 'test')).not.toThrow();
+  });
+});
+
+describe('generatePluginMenus', () => {
+  it('should add "Collected Data" menu when data is true', () => {
+    const manifest: PluginManifest = {
+      id: 'test',
+      name: 'Test Plugin',
+      version: '1.0.0',
+      description: 'Test',
+      vendor: 'Test',
+      homepage: 'https://test.com',
+      license: 'MIT',
+      compatibility: { drowlMin: '0.1.0', drowlMax: '1.0.0' },
+      capabilities: { scopes: [], network: [], secrets: [] },
+      settingsSchema: [],
+      menus: [
+        { key: 'overview', label: 'Overview', to: '/overview', icon: 'mdi:chart-line' },
+        { key: 'settings', label: 'Settings', to: '/settings', icon: 'mdi:cog' },
+      ],
+      widgets: [],
+      routes: [],
+      jobs: [],
+      rateLimits: { perMinute: 60, burst: 30 },
+      i18n: { supported: ['en'] },
+      data: true,
+    };
+
+    const menus = generatePluginMenus(manifest, 'test-plugin');
+
+    // Expected order: Overview, Collected Data, Settings, Activity Logs
+    expect(menus).toHaveLength(4);
+    expect(menus[0]!.label).toBe('Overview');
+    expect(menus[1]!.label).toBe('Collected Data');
+    expect(menus[1]!.path).toBe('/dashboard/plugins/test-plugin/data');
+    expect(menus[1]!.icon).toBe('mdi:database');
+    expect(menus[2]!.label).toBe('Settings');
+    expect(menus[3]!.label).toBe('Activity Logs');
+  });
+
+  it('should not add "Collected Data" menu when data is false', () => {
+    const manifest: PluginManifest = {
+      id: 'test',
+      name: 'Test Plugin',
+      version: '1.0.0',
+      description: 'Test',
+      vendor: 'Test',
+      homepage: 'https://test.com',
+      license: 'MIT',
+      compatibility: { drowlMin: '0.1.0', drowlMax: '1.0.0' },
+      capabilities: { scopes: [], network: [], secrets: [] },
+      settingsSchema: [],
+      menus: [
+        { key: 'overview', label: 'Overview', to: '/overview', icon: 'mdi:chart-line' },
+      ],
+      widgets: [],
+      routes: [],
+      jobs: [],
+      rateLimits: { perMinute: 60, burst: 30 },
+      i18n: { supported: ['en'] },
+      data: false,
+    };
+
+    const menus = generatePluginMenus(manifest, 'test-plugin');
+
+    // Expected: Overview, Activity Logs (no Collected Data)
+    expect(menus).toHaveLength(2);
+    expect(menus[0]!.label).toBe('Overview');
+    expect(menus[1]!.label).toBe('Activity Logs');
+
+    // Verify Collected Data is not present
+    const collectedDataMenu = menus.find((m) => m.label === 'Collected Data');
+    expect(collectedDataMenu).toBeUndefined();
+  });
+
+  it('should maintain correct menu order with custom menus', () => {
+    const manifest: PluginManifest = {
+      id: 'test',
+      name: 'Test Plugin',
+      version: '1.0.0',
+      description: 'Test',
+      vendor: 'Test',
+      homepage: 'https://test.com',
+      license: 'MIT',
+      compatibility: { drowlMin: '0.1.0', drowlMax: '1.0.0' },
+      capabilities: { scopes: [], network: [], secrets: [] },
+      settingsSchema: [],
+      menus: [
+        { key: 'overview', label: 'Overview', to: '/overview', icon: 'mdi:chart-line' },
+        { key: 'custom1', label: 'Custom 1', to: '/custom1', icon: 'mdi:puzzle' },
+        { key: 'custom2', label: 'Custom 2', to: '/custom2', icon: 'mdi:star' },
+        { key: 'settings', label: 'Settings', to: '/settings', icon: 'mdi:cog' },
+      ],
+      widgets: [],
+      routes: [],
+      jobs: [],
+      rateLimits: { perMinute: 60, burst: 30 },
+      i18n: { supported: ['en'] },
+      data: true,
+    };
+
+    const menus = generatePluginMenus(manifest, 'test-plugin');
+
+    // Expected order: Overview, Collected Data, Custom 1, Custom 2, Settings, Activity Logs
+    expect(menus).toHaveLength(6);
+    expect(menus[0]!.label).toBe('Overview');
+    expect(menus[1]!.label).toBe('Collected Data');
+    expect(menus[2]!.label).toBe('Custom 1');
+    expect(menus[3]!.label).toBe('Custom 2');
+    expect(menus[4]!.label).toBe('Settings');
+    expect(menus[5]!.label).toBe('Activity Logs');
+  });
+
+  it('should always add "Activity Logs" menu last', () => {
+    const manifest: PluginManifest = {
+      id: 'test',
+      name: 'Test Plugin',
+      version: '1.0.0',
+      description: 'Test',
+      vendor: 'Test',
+      homepage: 'https://test.com',
+      license: 'MIT',
+      compatibility: { drowlMin: '0.1.0', drowlMax: '1.0.0' },
+      capabilities: { scopes: [], network: [], secrets: [] },
+      settingsSchema: [],
+      menus: [],
+      widgets: [],
+      routes: [],
+      jobs: [],
+      rateLimits: { perMinute: 60, burst: 30 },
+      i18n: { supported: ['en'] },
+    };
+
+    const menus = generatePluginMenus(manifest, 'test-plugin');
+
+    // Even with empty menus, Activity Logs should be added
+    expect(menus).toHaveLength(1);
+    expect(menus[0]!.label).toBe('Activity Logs');
+    expect(menus[0]!.path).toBe('/dashboard/plugins/test-plugin/runs');
+    expect(menus[0]!.icon).toBe('mdi:file-document-outline');
+  });
+
+  it('should expand relative paths correctly', () => {
+    const manifest: PluginManifest = {
+      id: 'test',
+      name: 'Test Plugin',
+      version: '1.0.0',
+      description: 'Test',
+      vendor: 'Test',
+      homepage: 'https://test.com',
+      license: 'MIT',
+      compatibility: { drowlMin: '0.1.0', drowlMax: '1.0.0' },
+      capabilities: { scopes: [], network: [], secrets: [] },
+      settingsSchema: [],
+      menus: [
+        { key: 'overview', label: 'Overview', to: '/overview', icon: 'mdi:chart-line' },
+      ],
+      widgets: [],
+      routes: [],
+      jobs: [],
+      rateLimits: { perMinute: 60, burst: 30 },
+      i18n: { supported: ['en'] },
+    };
+
+    const menus = generatePluginMenus(manifest, 'github');
+
+    expect(menus[0]!.path).toBe('/dashboard/plugins/github/overview');
+  });
+
+  it('should preserve menu capabilities and icons', () => {
+    const manifest: PluginManifest = {
+      id: 'test',
+      name: 'Test Plugin',
+      version: '1.0.0',
+      description: 'Test',
+      vendor: 'Test',
+      homepage: 'https://test.com',
+      license: 'MIT',
+      compatibility: { drowlMin: '0.1.0', drowlMax: '1.0.0' },
+      capabilities: { scopes: [], network: [], secrets: [] },
+      settingsSchema: [],
+      menus: [
+        {
+          key: 'admin',
+          label: 'Admin',
+          to: '/admin',
+          icon: 'mdi:shield',
+          capabilities: ['admin:write'],
+        },
+      ],
+      widgets: [],
+      routes: [],
+      jobs: [],
+      rateLimits: { perMinute: 60, burst: 30 },
+      i18n: { supported: ['en'] },
+    };
+
+    const menus = generatePluginMenus(manifest, 'test-plugin');
+
+    expect(menus[0]!.label).toBe('Admin');
+    expect(menus[0]!.icon).toBe('mdi:shield');
+    expect(menus[0]!.capabilities).toEqual(['admin:write']);
+  });
+
+  it('should handle children menus correctly', () => {
+    const manifest: PluginManifest = {
+      id: 'test',
+      name: 'Test Plugin',
+      version: '1.0.0',
+      description: 'Test',
+      vendor: 'Test',
+      homepage: 'https://test.com',
+      license: 'MIT',
+      compatibility: { drowlMin: '0.1.0', drowlMax: '1.0.0' },
+      capabilities: { scopes: [], network: [], secrets: [] },
+      settingsSchema: [],
+      menus: [
+        {
+          key: 'parent',
+          label: 'Parent',
+          to: '/parent',
+          icon: 'mdi:folder',
+          children: [
+            { key: 'child1', label: 'Child 1', to: '/parent/child1', icon: 'mdi:file' },
+            { key: 'child2', label: 'Child 2', to: '/parent/child2', icon: 'mdi:file' },
+          ],
+        },
+      ],
+      widgets: [],
+      routes: [],
+      jobs: [],
+      rateLimits: { perMinute: 60, burst: 30 },
+      i18n: { supported: ['en'] },
+    };
+
+    const menus = generatePluginMenus(manifest, 'test-plugin');
+
+    expect(menus[0]!.label).toBe('Parent');
+    expect(menus[0]!.children).toBeDefined();
+    expect(menus[0]!.children).toHaveLength(2);
+
+    const children = menus[0]!.children;
+    if (!children) throw new Error('Children should be defined');
+
+    expect(children[0]!.label).toBe('Child 1');
+    expect(children[0]!.path).toBe('/dashboard/plugins/test-plugin/parent/child1');
+    expect(children[1]!.label).toBe('Child 2');
+    expect(children[1]!.path).toBe('/dashboard/plugins/test-plugin/parent/child2');
   });
 });

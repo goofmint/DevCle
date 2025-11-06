@@ -115,7 +115,23 @@ export interface PluginSettingsField {
 }
 
 /**
- * Plugin menu item
+ * Plugin menu item child (Level 2)
+ */
+export interface PluginMenuItemChild {
+  /** Menu key (unique within plugin) */
+  key: string;
+  /** Menu label */
+  label: string;
+  /** Icon name (Iconify format, e.g., "mdi:chart-line") */
+  icon?: string;
+  /** Route path (relative to plugin root) */
+  to: string;
+  /** Required capabilities (for permission-based visibility) */
+  capabilities?: string[];
+}
+
+/**
+ * Plugin menu item (Level 1)
  */
 export interface PluginMenuItem {
   /** Menu key (unique within plugin) */
@@ -128,6 +144,10 @@ export interface PluginMenuItem {
   to: string;
   /** Display order (optional) */
   order?: number;
+  /** Required capabilities (for permission-based visibility) */
+  capabilities?: string[];
+  /** Children menu items (Level 2 only, no further nesting) */
+  children?: PluginMenuItemChild[];
 }
 
 /**
@@ -257,6 +277,20 @@ export interface PluginManifest {
   rateLimits: PluginRateLimits;
   /** Internationalization configuration */
   i18n: PluginI18n;
+  /**
+   * Auto-generate /data page for plugin event collection
+   *
+   * When set to true, the core will automatically add a "Collected Data" menu item
+   * and route to display plugin_events_raw data. This page shows:
+   * - List of collected events with status, type, and timestamp
+   * - Filtering by status, event type, and date range
+   * - Pagination and sorting
+   * - Detail modal with JSON viewer and reprocess button
+   *
+   * Note: If data is true, menus MUST NOT contain a menu item with path "/data".
+   * This will cause a validation error.
+   */
+  data?: boolean;
 }
 
 /**

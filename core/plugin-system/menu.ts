@@ -11,6 +11,7 @@
  * - Permission-based filtering
  * - Maximum depth enforcement (2 levels)
  * - XSS protection for labels and icons
+ * - data field validation (prevent /data in menus when data: true)
  *
  * @module plugin-system/menu
  */
@@ -21,6 +22,7 @@ import path from 'node:path';
 import { getDb } from '../db/connection.js';
 import * as schema from '../db/schema/index.js';
 import { eq, and } from 'drizzle-orm';
+import type { PluginManifest } from './types.js';
 
 /**
  * Child menu item (Level 2) - No children allowed
@@ -166,15 +168,18 @@ export async function getPluginMenuItems(
         unknown
       >;
 
-      // Extract plugin name
-      const pluginName = (pluginJson['name'] as string) || plugin.key;
+      // Parse plugin.json as PluginManifest (partial validation)
+      // We need to construct a minimal manifest object for generatePluginMenus
+      const manifest: Partial<PluginManifest> = {
+        name: (pluginJson['name'] as string) || plugin.key,
+        menus: [],
+        data: pluginJson['data'] === true,
+      };
 
       // Extract menus field
       // Support both "menus" array (plugin.md) and nested structure (task-8.6)
-      let rawMenus: RawMenuItem[] = [];
-
       if (Array.isArray(pluginJson['menus'])) {
-        rawMenus = pluginJson['menus'] as RawMenuItem[];
+        manifest.menus = pluginJson['menus'] as PluginManifest['menus'];
       } else if (
         typeof pluginJson['drm'] === 'object' &&
         pluginJson['drm'] !== null
@@ -186,31 +191,19 @@ export async function getPluginMenuItems(
         ) {
           const menuConfig = drmConfig['menu'] as Record<string, unknown>;
           if (Array.isArray(menuConfig['items'])) {
-            rawMenus = menuConfig['items'] as RawMenuItem[];
+            manifest.menus = menuConfig['items'] as PluginManifest['menus'];
           }
         }
       }
 
-      if (rawMenus.length === 0) {
-        // No menus defined, skip
-        continue;
-      }
+      // Use generatePluginMenus to create the final menu structure
+      // This will validate the data field and add auto-generated items
+      const generatedMenus = generatePluginMenus(
+        manifest as PluginManifest,
+        plugin.key
+      );
 
-      // Validate and transform menu items
-      const validatedMenus = validateMenuDepth(rawMenus, plugin.key, 2);
-
-      // Add plugin key and name to all menu items
-      for (const menu of validatedMenus) {
-        menu.pluginKey = plugin.key;
-        menu.pluginName = pluginName;
-        if (menu.children) {
-          for (const child of menu.children) {
-            child.pluginKey = plugin.key;
-          }
-        }
-      }
-
-      allMenuItems.push(...validatedMenus);
+      allMenuItems.push(...generatedMenus);
     } catch (error) {
       // Log error and continue with other plugins
       // Don't throw - one broken plugin shouldn't break the entire menu
@@ -446,4 +439,258 @@ function hasPermission(
 
   // No matching capabilities
   return false;
+}
+
+/**
+ * Validate data field constraint
+ *
+ * Ensures that if data: true is set in plugin.json, the menus array
+ * does not contain a menu item with path "/data".
+ *
+ * This enforces the design principle that /data pages are auto-generated
+ * by the core and should not be manually defined in menus.
+ *
+ * @param manifest - Plugin manifest to validate
+ * @param pluginKey - Plugin key for error messages
+ * @throws Error if data: true and menus contains /data path
+ *
+ * @example
+ * ```typescript
+ * validateDataField(manifest, 'github'); // throws if invalid
+ * ```
+ */
+export function validateDataField(
+  manifest: PluginManifest,
+  pluginKey: string
+): void {
+  // If data is not true, no validation needed
+  if (manifest.data !== true) {
+    return;
+  }
+
+  // Check if menus contains any item with path="/data"
+  for (const menu of manifest.menus) {
+    // Normalize the path - support both "path" and "to" fields
+    const menuPath = (menu as { path?: string; to?: string }).path || (menu as { path?: string; to?: string }).to || '';
+
+    if (menuPath === '/data' || menuPath === 'data') {
+      throw new Error(
+        `Plugin "${pluginKey}" validation error: Cannot have both 'data: true' and a menu item with path '/data'. ` +
+          `Remove the '/data' menu item from 'menus' array.`
+      );
+    }
+
+    // Also check children (if any)
+    const children = (menu as { children?: Array<{ path?: string; to?: string }> }).children;
+    if (Array.isArray(children)) {
+      for (const child of children) {
+        const childPath = child.path || child.to || '';
+        if (childPath === '/data' || childPath === 'data') {
+          throw new Error(
+            `Plugin "${pluginKey}" validation error: Cannot have both 'data: true' and a child menu item with path '/data'. ` +
+              `Remove the '/data' menu item from 'menus' array.`
+          );
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Generate plugin menus with auto-generated items
+ *
+ * This function processes a plugin manifest and generates the final menu structure:
+ * 1. Validates the data field constraint (no /data in menus if data: true)
+ * 2. Adds auto-generated menu items:
+ *    - "Collected Data" menu (if data: true)
+ *    - "Activity Logs" menu (always added)
+ * 3. Enforces proper menu ordering:
+ *    - Overview (if exists)
+ *    - Collected Data (if data: true)
+ *    - Other custom menus
+ *    - Settings (if exists)
+ *    - Activity Logs (always last)
+ *
+ * @param manifest - Plugin manifest containing menus and data field
+ * @param pluginKey - Plugin key for path generation and error messages
+ * @returns Array of menu items with auto-generated items inserted
+ * @throws Error if validation fails (data: true with /data in menus)
+ *
+ * @example
+ * ```typescript
+ * const menus = generatePluginMenus(manifest, 'github');
+ * console.log(`Generated ${menus.length} menu items`);
+ * ```
+ */
+export function generatePluginMenus(
+  manifest: PluginManifest,
+  pluginKey: string
+): PluginMenuItem[] {
+  // Step 1: Validate data field constraint
+  validateDataField(manifest, pluginKey);
+
+  // Step 2: Clone menus array (avoid mutating input)
+  const menus: PluginMenuItem[] = [];
+
+  // Step 3: Find special menu positions
+  let overviewIndex = -1;
+  let settingsIndex = -1;
+
+  for (let i = 0; i < manifest.menus.length; i++) {
+    const menu = manifest.menus[i];
+    const menuKey = (menu as { key?: string }).key || '';
+
+    if (menuKey === 'overview') {
+      overviewIndex = i;
+    } else if (menuKey === 'settings') {
+      settingsIndex = i;
+    }
+  }
+
+  // Step 4: Build ordered menu array
+  // Add overview first (if exists)
+  if (overviewIndex >= 0) {
+    const rawMenu = manifest.menus[overviewIndex];
+    if (rawMenu) {
+      menus.push(convertRawMenuToPluginMenuItem(rawMenu, pluginKey, manifest.name));
+    }
+  }
+
+  // Add "Collected Data" menu (if data: true)
+  if (manifest.data === true) {
+    menus.push({
+      label: 'Collected Data',
+      icon: 'mdi:database',
+      path: `/dashboard/plugins/${pluginKey}/data`,
+      pluginKey,
+      pluginName: manifest.name,
+    });
+  }
+
+  // Add other menus (excluding overview and settings)
+  for (let i = 0; i < manifest.menus.length; i++) {
+    if (i === overviewIndex || i === settingsIndex) {
+      continue; // Skip, will be added in correct position
+    }
+
+    const rawMenu = manifest.menus[i];
+    if (rawMenu) {
+      menus.push(convertRawMenuToPluginMenuItem(rawMenu, pluginKey, manifest.name));
+    }
+  }
+
+  // Add settings (if exists)
+  if (settingsIndex >= 0) {
+    const rawMenu = manifest.menus[settingsIndex];
+    if (rawMenu) {
+      menus.push(convertRawMenuToPluginMenuItem(rawMenu, pluginKey, manifest.name));
+    }
+  }
+
+  // Add "Activity Logs" menu (always last)
+  menus.push({
+    label: 'Activity Logs',
+    icon: 'mdi:file-document-outline',
+    path: `/dashboard/plugins/${pluginKey}/runs`,
+    pluginKey,
+    pluginName: manifest.name,
+  });
+
+  return menus;
+}
+
+/**
+ * Convert raw menu item from plugin.json to PluginMenuItem
+ *
+ * This helper function normalizes the raw menu structure from plugin.json
+ * into the standardized PluginMenuItem format used by the menu system.
+ *
+ * @param rawMenu - Raw menu item from plugin.json
+ * @param pluginKey - Plugin key for path expansion
+ * @param pluginName - Plugin name for display
+ * @returns Normalized PluginMenuItem
+ * @private
+ */
+function convertRawMenuToPluginMenuItem(
+  rawMenu: PluginManifest['menus'][number],
+  pluginKey: string,
+  pluginName: string
+): PluginMenuItem {
+  // Cast to access optional fields
+  const menu = rawMenu as {
+    key?: string;
+    label: string;
+    icon?: string;
+    path?: string;
+    to?: string;
+    capabilities?: string[];
+    children?: Array<{
+      key?: string;
+      label: string;
+      icon?: string;
+      path?: string;
+      to?: string;
+      capabilities?: string[];
+    }>;
+  };
+
+  // Normalize path (support both "path" and "to")
+  let menuPath = menu.path || menu.to || '';
+
+  // Expand relative paths to absolute paths
+  if (!menuPath.startsWith('/dashboard/plugins/') && !menuPath.startsWith('/plugins/')) {
+    menuPath = `/dashboard/plugins/${pluginKey}${menuPath}`;
+  }
+
+  // Create normalized menu item
+  const pluginMenuItem: PluginMenuItem = {
+    label: menu.label,
+    path: menuPath,
+    pluginKey,
+    pluginName,
+  };
+
+  // Add optional fields
+  if (menu.icon) {
+    pluginMenuItem.icon = menu.icon;
+  }
+
+  if (Array.isArray(menu.capabilities)) {
+    pluginMenuItem.capabilities = menu.capabilities;
+  }
+
+  // Process children (if any)
+  if (Array.isArray(menu.children) && menu.children.length > 0) {
+    const children: PluginMenuItemChild[] = [];
+
+    for (const rawChild of menu.children) {
+      // Normalize child path
+      let childPath = rawChild.path || rawChild.to || '';
+
+      // Expand relative paths
+      if (!childPath.startsWith('/dashboard/plugins/') && !childPath.startsWith('/plugins/')) {
+        childPath = `/dashboard/plugins/${pluginKey}${childPath}`;
+      }
+
+      const child: PluginMenuItemChild = {
+        label: rawChild.label,
+        path: childPath,
+        pluginKey,
+      };
+
+      if (rawChild.icon) {
+        child.icon = rawChild.icon;
+      }
+
+      if (Array.isArray(rawChild.capabilities)) {
+        child.capabilities = rawChild.capabilities;
+      }
+
+      children.push(child);
+    }
+
+    pluginMenuItem.children = children;
+  }
+
+  return pluginMenuItem;
 }
