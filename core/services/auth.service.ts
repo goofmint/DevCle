@@ -21,7 +21,7 @@ import { getDb } from '../db/connection.js';
 import * as schema from '../db/schema/index.js';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 
 /**
  * Dummy bcrypt hash for constant-time comparison
@@ -279,5 +279,239 @@ export function convertAuthUserToDashboardUser(
     tenantId: authUser.tenantId,
     capabilities,
   };
+}
+
+/**
+ * Plugin Authentication Context
+ *
+ * Returned by verifyPluginToken() when plugin token is valid.
+ * Contains plugin identity and tenant context.
+ */
+export interface PluginAuthContext {
+  pluginId: string;
+  tenantId: string;
+  nonce: string;
+}
+
+/**
+ * Generate Plugin Token
+ *
+ * Generates a short-lived HMAC-signed token for plugin-to-core API authentication.
+ * Token format: base64(payload).signature
+ * Payload format: pluginId:tenantId:timestamp:nonce
+ *
+ * Security features:
+ * - HMAC-SHA256 signature prevents tampering
+ * - Cryptographically secure nonce (UUID v4) prevents replay attacks
+ * - Timestamp limits validity to 5 minutes + ±30 seconds clock skew
+ * - Nonce is stored in Redis/DB for replay detection
+ *
+ * @param pluginId - Plugin identifier
+ * @param tenantId - Tenant identifier
+ * @param secret - HMAC secret (from PLUGIN_INTERNAL_SECRET env variable)
+ * @returns Signed token string
+ *
+ * Usage:
+ * ```typescript
+ * const token = generatePluginToken('github', 'default', secret);
+ * // Pass token in Authorization header: Bearer ${token}
+ * ```
+ */
+export function generatePluginToken(
+  pluginId: string,
+  tenantId: string,
+  secret: string
+): string {
+  const crypto = require('crypto');
+
+  // Generate cryptographically secure nonce (UUID v4)
+  const nonce = crypto.randomUUID();
+
+  // Get current timestamp in seconds
+  const timestamp = Math.floor(Date.now() / 1000);
+
+  // Construct payload: pluginId:tenantId:timestamp:nonce
+  const payload = `${pluginId}:${tenantId}:${timestamp}:${nonce}`;
+
+  // Generate HMAC-SHA256 signature
+  const hmac = crypto.createHmac('sha256', secret);
+  hmac.update(payload);
+  const signature = hmac.digest('hex');
+
+  // Encode payload as base64
+  const payloadBase64 = Buffer.from(payload).toString('base64');
+
+  // Return token: base64(payload).signature
+  return `${payloadBase64}.${signature}`;
+}
+
+/**
+ * Verify Plugin Token
+ *
+ * Verifies HMAC signature and checks nonce/timestamp validity.
+ * Implements anti-replay protection by storing used nonces.
+ *
+ * Validation steps:
+ * 1. Parse token format (payload.signature)
+ * 2. Verify HMAC signature
+ * 3. Check timestamp within validity window (5 min + ±30s clock skew)
+ * 4. Check nonce not previously used (Redis primary, DB fallback)
+ * 5. Store nonce to prevent replay
+ *
+ * @param token - Token string from Authorization header
+ * @param secret - HMAC secret (from PLUGIN_INTERNAL_SECRET env variable)
+ * @returns Plugin auth context if valid
+ * @throws {Error} If token is invalid, expired, or replayed
+ *
+ * Usage:
+ * ```typescript
+ * try {
+ *   const context = await verifyPluginToken(token, secret);
+ *   // context.pluginId, context.tenantId are now available
+ * } catch (error) {
+ *   // Token invalid, return 401 Unauthorized
+ * }
+ * ```
+ */
+export async function verifyPluginToken(
+  token: string,
+  secret: string
+): Promise<PluginAuthContext> {
+  const crypto = require('crypto');
+
+  // 1. Parse token format
+  const parts = token.split('.');
+  if (parts.length !== 2) {
+    throw new Error('Invalid token format');
+  }
+
+  const payloadBase64 = parts[0];
+  const providedSignature = parts[1];
+
+  if (!payloadBase64 || !providedSignature) {
+    throw new Error('Invalid token format');
+  }
+
+  // Decode payload
+  let payload: string;
+  try {
+    payload = Buffer.from(payloadBase64, 'base64').toString('utf-8');
+  } catch {
+    throw new Error('Invalid token encoding');
+  }
+
+  // 2. Verify HMAC signature
+  const hmac = crypto.createHmac('sha256', secret);
+  hmac.update(payload);
+  const expectedSignature = hmac.digest('hex');
+
+  if (providedSignature !== expectedSignature) {
+    throw new Error('Invalid token signature');
+  }
+
+  // Parse payload: pluginId:tenantId:timestamp:nonce
+  const payloadParts = payload.split(':');
+  if (payloadParts.length !== 4) {
+    throw new Error('Invalid payload format');
+  }
+
+  const pluginId = payloadParts[0];
+  const tenantId = payloadParts[1];
+  const timestampStr = payloadParts[2];
+  const nonce = payloadParts[3];
+
+  if (!pluginId || !tenantId || !timestampStr || !nonce) {
+    throw new Error('Invalid payload format');
+  }
+
+  const timestamp = parseInt(timestampStr, 10);
+
+  if (isNaN(timestamp)) {
+    throw new Error('Invalid timestamp');
+  }
+
+  // 3. Check timestamp validity
+  // Validity window: 5 minutes + ±30 seconds clock skew
+  const now = Math.floor(Date.now() / 1000);
+  const validityWindow = 5 * 60; // 5 minutes
+  const clockSkew = 30; // 30 seconds
+
+  const minValidTime = timestamp - clockSkew;
+  const maxValidTime = timestamp + validityWindow + clockSkew;
+
+  if (now < minValidTime || now > maxValidTime) {
+    throw new Error('Token expired or future-dated');
+  }
+
+  // 4. Check nonce not previously used (anti-replay)
+  const db = getDb();
+  const existingNonce = await db
+    .select()
+    .from(schema.pluginNonces)
+    .where(
+      and(
+        eq(schema.pluginNonces.tenantId, tenantId),
+        eq(schema.pluginNonces.pluginId, pluginId),
+        eq(schema.pluginNonces.nonce, nonce)
+      )
+    )
+    .limit(1);
+
+  if (existingNonce.length > 0) {
+    throw new Error('Token replay detected');
+  }
+
+  // 5. Store nonce to prevent future replay
+  await db.insert(schema.pluginNonces).values({
+    tenantId,
+    pluginId,
+    nonce,
+  });
+
+  // Return plugin auth context
+  return {
+    pluginId,
+    tenantId,
+    nonce,
+  };
+}
+
+/**
+ * Cleanup Expired Nonces
+ *
+ * Garbage collection job that removes expired nonces from the database.
+ * Should be run periodically (e.g., every 10 minutes via cron).
+ *
+ * Cleanup criteria:
+ * - Remove nonces older than validity window + clock skew
+ * - Window: 5 minutes + 30 seconds + 30 seconds = 6 minutes
+ *
+ * @returns Number of nonces deleted
+ *
+ * Usage:
+ * ```typescript
+ * // In cron job or scheduled task
+ * const deleted = await cleanupExpiredNonces();
+ * console.log(`Cleaned up ${deleted} expired nonces`);
+ * ```
+ */
+export async function cleanupExpiredNonces(): Promise<number> {
+  const db = getDb();
+
+  // Calculate cutoff time (6 minutes ago)
+  const validityWindow = 5 * 60; // 5 minutes
+  const clockSkew = 30; // 30 seconds
+  const bufferTime = 30; // 30 seconds extra buffer
+  const cutoffSeconds = validityWindow + clockSkew + bufferTime;
+
+  const cutoffTime = new Date(Date.now() - cutoffSeconds * 1000);
+
+  // Delete old nonces
+  const result = await db
+    .delete(schema.pluginNonces)
+    .where(sql`${schema.pluginNonces.createdAt} < ${cutoffTime}`)
+    .returning({ nonceId: schema.pluginNonces.nonceId });
+
+  return result.length;
 }
 

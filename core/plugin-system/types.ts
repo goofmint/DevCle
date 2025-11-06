@@ -186,6 +186,8 @@ export interface PluginRoute {
   responseSchema?: string;
   /** Route description (optional) */
   description?: string;
+  /** Handler file path (relative to plugin root, for webhook/sync routes) */
+  handler?: string;
 }
 
 /**

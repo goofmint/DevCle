@@ -45,6 +45,7 @@
     "drowl-plugin-test": "file:../plugins/drowl-plugin-test",
     "gridstack": "^12.3.3",
     "ioredis": "^5.4.2",
+    "isolated-vm": "^5.0.3",
     "isbot": "^4",
     "nanoid": "^5.1.6",
     "nodemailer": "^7.0.9",
