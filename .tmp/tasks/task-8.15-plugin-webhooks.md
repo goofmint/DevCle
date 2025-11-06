@@ -14,14 +14,15 @@
 
 1. **Webhook署名検証** - GitHub/Slack等の署名検証ロジック
 2. **isolated-vm実行環境** - プラグインコードをサンドボックス内で実行
-3. **内部HTTP Client** - プラグインからコアAPIへの呼び出し（外部アクセス禁止）
+3. **HTTP Client** - コアAPIへの内部呼び出し + `capabilities.network`で許可された外部ドメインへのアクセス
 4. **認証システム** - 内部APIアクセス用のHMAC署名トークン
 
 **重要な原則:**
 - プラグインは**DB直接操作不可**、コアAPI経由のみ
 - Webhookハンドラーの戻り値は**必ずboolean**（true: 成功, false: 失敗）
-- すべてのAPI呼び出しに**内部認証トークン**必須
-- isolated-vmで**ネットワーク・ファイルシステムアクセス制限**
+- すべてのコアAPI呼び出しに**内部認証トークン**必須
+- isolated-vmで**ファイルシステムアクセス制限**
+- **ネットワークアクセス**: `capabilities.network`で許可されたドメインのみアクセス可
 
 ---
 
@@ -34,6 +35,11 @@
   "id": "github",
   "name": "GitHub",
   "version": "1.0.0",
+  "capabilities": {
+    "scopes": ["write:activities"],
+    "network": ["https://api.github.com"],
+    "secrets": ["github_token", "webhook_secret"]
+  },
   "routes": [
     {
       "method": "POST",
@@ -197,13 +203,14 @@ export interface IsolatedVmContext {
   tenantId: string;
   pluginId: string;
   pluginToken: string; // HMAC token for internal API calls
+  allowedDomains: string[]; // From capabilities.network
   request: {
     method: string;
     path: string;
     headers: Record<string, string>;
     body: unknown;
   };
-  httpClient: InternalHttpClient;
+  httpClient: PluginHttpClient;
 }
 
 /**
@@ -227,36 +234,72 @@ export class IsolatedVmRunner {
 }
 ```
 
-### 4.3 内部HTTP Client（`internal-http-client.ts`）
+### 4.3 HTTP Client（`http-client.ts`）
 
 ```typescript
 /**
- * HTTP client for plugin-to-core API calls (internal use only)
+ * HTTP client for plugin sandbox
+ * Supports:
+ * - Internal API calls (with HMAC token)
+ * - External API calls (only to allowed domains in capabilities.network)
  */
-export class InternalHttpClient {
+export class PluginHttpClient {
   constructor(
-    private baseUrl: string,
-    private pluginToken: string
+    private coreBaseUrl: string,
+    private pluginToken: string,
+    private allowedDomains: string[]
   ) {}
 
   /**
-   * POST request to core API (only /api/plugin-events allowed)
+   * POST request
+   * - Internal: /api/plugin-events (with HMAC token)
+   * - External: Only to domains in capabilities.network
    */
-  async post(path: string, body: unknown): Promise<Response> {
-    // 1. Validate path (only /api/plugin-events allowed)
-    // 2. Add HMAC token to Authorization header
-    // 3. Send request to core API
-    // 4. Return response
+  async post(url: string, body: unknown): Promise<Response> {
+    // 1. Check if internal API call
+    if (url.startsWith('/api/')) {
+      // Validate path (only /api/plugin-events allowed)
+      if (url !== '/api/plugin-events') {
+        throw new Error(`Internal API path not allowed: ${url}`);
+      }
+      // Add HMAC token to Authorization header
+      // Send request to core API
+    } else {
+      // External API call - validate domain
+      const urlObj = new URL(url);
+      const allowed = this.allowedDomains.some(domain =>
+        url.startsWith(domain)
+      );
+      if (!allowed) {
+        throw new Error(`External domain not allowed: ${urlObj.hostname}`);
+      }
+      // Send external request (no HMAC token)
+    }
     throw new Error('Not implemented');
   }
 
   /**
-   * Other HTTP methods are NOT allowed
+   * GET request (only external APIs allowed)
    */
-  async get(): Promise<never> {
-    throw new Error('GET method is not allowed from plugin sandbox');
+  async get(url: string): Promise<Response> {
+    // External API call only
+    if (url.startsWith('/')) {
+      throw new Error('Internal API GET is not allowed');
+    }
+    // Validate domain
+    const urlObj = new URL(url);
+    const allowed = this.allowedDomains.some(domain =>
+      url.startsWith(domain)
+    );
+    if (!allowed) {
+      throw new Error(`External domain not allowed: ${urlObj.hostname}`);
+    }
+    throw new Error('Not implemented');
   }
 
+  /**
+   * PUT/DELETE are NOT allowed
+   */
   async put(): Promise<never> {
     throw new Error('PUT method is not allowed from plugin sandbox');
   }
@@ -414,7 +457,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
 isolated-vmで以下を制限：
 
-- **ネットワークアクセス禁止** - `fetch`, `http`, `https`モジュール不可
+- **ネットワークアクセス制限** - `httpClient`経由のみ、`capabilities.network`で許可されたドメインのみ
 - **ファイルシステムアクセス禁止** - `fs`, `path`モジュール不可
 - **プロセス操作禁止** - `child_process`, `cluster`モジュール不可
 - **タイマー制限** - `setTimeout`, `setInterval`は使用不可
@@ -486,7 +529,7 @@ export async function handleWebhook(context) {
   "version": "1.0.0",
   "capabilities": {
     "scopes": ["write:activities"],
-    "network": [],
+    "network": ["https://api.github.com"],
     "secrets": ["github_token", "webhook_secret"]
   },
   "settingsSchema": [
@@ -536,6 +579,12 @@ export async function handleWebhook(context) {
   }
 
   try {
+    // Example: Fetch additional data from GitHub API (optional)
+    // This is allowed because https://api.github.com is in capabilities.network
+    const repoUrl = `https://api.github.com/repos/${payload.repository.full_name}`;
+    const repoResponse = await context.httpClient.get(repoUrl);
+    const repoData = await repoResponse.json();
+
     // Prepare event data
     const eventData = {
       eventType: 'github.push',
@@ -544,10 +593,11 @@ export async function handleWebhook(context) {
         repository: payload.repository.full_name,
         ref: payload.ref,
         commits: payload.commits.length,
+        stars: repoData.stargazers_count, // Additional data from GitHub API
       },
     };
 
-    // Call core API to store event
+    // Call core API to store event (internal API with HMAC token)
     const response = await context.httpClient.post(
       '/api/plugin-events',
       eventData
@@ -584,11 +634,13 @@ export async function handleWebhook(context) {
   - [ ] Memory/CPU/timeout limits
   - [ ] Error handling
 
-- [ ] **内部HTTP Client** (`core/plugin-system/sandbox/internal-http-client.ts`)
-  - [ ] `InternalHttpClient` class
-  - [ ] POST method (only `/api/plugin-events` allowed)
-  - [ ] HMAC token injection
-  - [ ] Other methods blocked
+- [ ] **HTTP Client** (`core/plugin-system/sandbox/http-client.ts`)
+  - [ ] `PluginHttpClient` class
+  - [ ] POST method (internal: `/api/plugin-events` only, external: allowed domains)
+  - [ ] GET method (external: allowed domains only)
+  - [ ] HMAC token injection (internal API only)
+  - [ ] Domain validation (capabilities.network)
+  - [ ] PUT/DELETE methods blocked
 
 - [ ] **Webhook Executor** (`core/plugin-system/webhook-executor.ts`)
   - [ ] `WebhookExecutor` class
@@ -638,10 +690,15 @@ export async function handleWebhook(context) {
   - [ ] Memory limit handling
   - [ ] Error handling
 
-- [ ] **internal-http-client.test.ts**
-  - [ ] POST to allowed path
-  - [ ] POST to disallowed path (should throw)
-  - [ ] GET/PUT/DELETE blocked
+- [ ] **http-client.test.ts**
+  - [ ] POST to internal API (allowed)
+  - [ ] POST to disallowed internal API path (should throw)
+  - [ ] POST to allowed external domain (allowed)
+  - [ ] POST to disallowed external domain (should throw)
+  - [ ] GET to allowed external domain (allowed)
+  - [ ] GET to disallowed external domain (should throw)
+  - [ ] GET to internal API (should throw)
+  - [ ] PUT/DELETE blocked
 
 - [ ] **auth.service.test.ts**
   - [ ] Token generation
@@ -666,6 +723,7 @@ export async function handleWebhook(context) {
 - **非同期処理制限**: `Promise`は使用可、`async/await`も可
 - **コンテキスト注入**: `context`オブジェクト経由でのみコア機能アクセス
 - **グローバル汚染禁止**: サンドボックス内でグローバル変数変更不可
+- **ネットワークアクセス**: `httpClient`経由のみ、`capabilities.network`で許可されたドメインのみ
 
 ### 10.2 Webhook署名検証
 
@@ -706,6 +764,11 @@ export async function handleWebhook(context) {
 
 **実装方針:**
 - **フェーズ1**: Webhook署名検証 + 内部認証（2h）
-- **フェーズ2**: isolated-vm Runner + Internal HTTP Client（3h）
+- **フェーズ2**: isolated-vm Runner + HTTP Client（ドメイン検証付き）（3h）
 - **フェーズ3**: Webhook Executor + API実装（2h）
 - **フェーズ4**: テストプラグイン + E2Eテスト（1h）
+
+**ネットワークアクセスポリシー:**
+- プラグインは`capabilities.network`で宣言されたドメインのみアクセス可能
+- 内部API（`/api/plugin-events`）は常に許可（HMAC認証必須）
+- 宣言されていないドメインへのアクセスは即座にエラー
