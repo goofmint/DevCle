@@ -952,7 +952,7 @@
   - TypeScript型チェックが効く
   - セキュリティ: XSS対策、CSP設定が必要
 
-### Task 8.14: menusの/dataを止めて、dataキーに変更する対応 🔄
+### Task 8.14: menusの/dataを止めて、dataキーに変更する対応 ✅
 
 **目的:**
 プラグインの `/data` ページは特殊なページ（プラグインデータ管理UI）であり、カスタムコンポーネントではなくコア側で提供する。そのため、`menus` で `/data` を定義するのではなく、`data: true` フィールドで自動生成する仕様に変更する。
@@ -963,7 +963,7 @@
 2. **コンポーネント不要**: `/data` はプラグイン側でReactコンポーネントを提供する必要がない（コア側で自動生成）
 
 **ドキュメント**: [.tmp/tasks/task-8.14-plugin-data-field.md](.tmp/tasks/task-8.14-plugin-data-field.md)
-**開始日**: 2025-11-06
+**完了日**: 2025-11-06
 
 **新しい仕様:**
 
@@ -1075,14 +1075,39 @@
   - `/data`ページが自動生成されることを確認
   - `menus`に`/data`がある場合はエラーになることを確認
 
+- [x] **plugin.jsonのバリデーション更新**
+  - `data`フィールド追加（boolean, optional, default: false）
+  - `menus`から`/data`を削除する検証ルール追加
+
+- [x] **プラグインローダー修正** (`core/plugin-system/loader.ts`)
+  - `data: true`の場合、`/data`ページを自動登録
+
+- [x] **サイドバーメニュー生成ロジック修正** (`core/app/routes/dashboard.tsx`)
+  - `data: true`の場合、"Collected Data"メニューを自動追加
+  - 表示順: Overview → Data → Custom Menus → Settings
+
+- [x] **drowl-plugin-test/plugin.json更新**
+  - `data: true`を追加
+  - `menus`から`/data`エントリを削除
+
+- [x] **ドキュメント更新**
+  - プラグイン開発ガイドに`data`フィールドの説明追加
+  - migration guide作成（既存プラグインの移行手順）
+
+- [x] **E2Eテスト更新**
+  - `/data`ページが自動生成されることを確認
+  - `menus`に`/data`がある場合はエラーになることを確認
+
 **完了条件:**
-- `data: true`があるプラグインで`/data`ページが自動生成される
-- `menus`に`/data`がある場合、バリデーションエラーが出る
-- E2Eテストが全てパスする
+- `data: true`があるプラグインで`/data`ページが自動生成される ✓
+- `menus`に`/data`がある場合、バリデーションエラーが出る ✓
+- E2Eテストが全てパスする ✓
 
 **依存:** Task 8.12（プラグインデータ表示UI実装）
 
 **推定時間:** 3時間
+
+**完了日**: 2025-11-06
 
 **注意:**
 - この変更は既存のdrowl-plugin-testに影響するため、plugin.jsonの更新が必要
@@ -1090,7 +1115,7 @@
 
 ### Task 8.15: プラグインのWebhook受信実装（isolated-vm）
 
-- [ ] Webhook定義機能（plugin.json に`webhooks`フィールド）
+- [ ] Webhook定義機能（plugin.json に`routes`フィールド）
 - [ ] Webhook署名検証実装（`core/plugin-system/auth/webhook-verifier.ts`）
   - GitHub Webhook署名検証
   - Slack Webhook署名検証
@@ -1131,7 +1156,7 @@
 - **完了条件**: プラグインがWebhookを受信し、コアAPIを呼び出してデータを保存できる
 - **依存**: Task 8.4
 - **推定時間**: 8 時間
-- **ドキュメント**: [.tmp/tasks/task-8.14-plugin-webhooks.md](.tmp/tasks/task-8.14-plugin-webhooks.md)
+- **ドキュメント**: [.tmp/tasks/task-8.15-plugin-webhooks.md](.tmp/tasks/task-8.15-plugin-webhooks.md)
 - **注意**:
   - isolated-vmでサンドボックス実行（ネットワーク・ファイルシステム制限）
   - プラグインはDB直接操作不可、コアAPI経由のみ
