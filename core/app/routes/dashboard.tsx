@@ -208,7 +208,7 @@ function convertPluginMenusToNavigationItems(
       const child: NavigationItemChild = {
         key: `plugin-${pluginKey}-${menu.path.replace(/\//g, '-')}`,
         label: menu.label,
-        path: menu.path,
+        path: menu.path, // Path is already fully qualified by validateMenuDepth()
         pluginId: pluginKey,
       };
 

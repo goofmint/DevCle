@@ -172,6 +172,10 @@ Organization ||--o{ Developer : includes
 
 ## 🚨 Testing Rules 🚨
 
+**🚨 CRITICAL: ALWAYS READ TEST_SETUP.md IF CANN'T CONNECT https://devcle.test! 🚨**
+
+If the nginx container is not connected to the bridge network, resolve the issue by executing `/workspace/.devcontainer/setup-e2e-network.sh`.
+
 ### Integration Tests (Vitest) - IN DOCKER
 
 **🚨 CRITICAL: Docker Compose automatically reads `.env` file! 🚨**
@@ -242,6 +246,7 @@ docker compose --env-file .env.test -f docker-compose.yml -f docker-compose-test
 docker compose --env-file .env.test exec core pnpm db:migrate
 
 # Seed database INSIDE Docker (ensures test DB is used, not dev DB)
+# 🚨 CRITICAL: MUST run seed before EVERY E2E test run! Tests depend on seed data.
 docker compose --env-file .env.test exec core pnpm db:seed
 
 # Run E2E tests from host

@@ -28,7 +28,7 @@ async function loginAndNavigate(page: Page) {
 test('displays plugin overview page with event handling', async ({ page }) => {
   await loginAndNavigate(page);
 
-  await page.goto(`${BASE_URL}/dashboard/plugins/drowl-plugin-test/pages/overview`);
+  await page.goto(`${BASE_URL}/dashboard/plugins/drowl-plugin-test/overview`);
   await page.waitForLoadState('networkidle');
 
   // Verify page heading
@@ -56,7 +56,7 @@ test('displays plugin overview page with event handling', async ({ page }) => {
 test('displays plugin settings page with form', async ({ page }) => {
   await loginAndNavigate(page);
 
-  await page.goto(`${BASE_URL}/dashboard/plugins/drowl-plugin-test/pages/settings`);
+  await page.goto(`${BASE_URL}/dashboard/plugins/drowl-plugin-test/settings`);
   await page.waitForLoadState('networkidle');
 
   // Verify page heading
@@ -85,7 +85,7 @@ test('displays plugin settings page with form', async ({ page }) => {
 test('displays plugin logs page', async ({ page }) => {
   await loginAndNavigate(page);
 
-  await page.goto(`${BASE_URL}/dashboard/plugins/drowl-plugin-test/pages/logs`);
+  await page.goto(`${BASE_URL}/dashboard/plugins/drowl-plugin-test/logs`);
   await page.waitForLoadState('networkidle');
 
   // Verify page heading
@@ -102,7 +102,7 @@ test('returns 404 for non-existent plugin page', async ({ page }) => {
   await loginAndNavigate(page);
 
   const response = await page.goto(
-    `${BASE_URL}/dashboard/plugins/drowl-plugin-test/pages/nonexistent`
+    `${BASE_URL}/dashboard/plugins/drowl-plugin-test/nonexistent`
   );
 
   expect(response?.status()).toBe(404);
@@ -115,7 +115,7 @@ test('returns 404 for non-existent plugin page', async ({ page }) => {
 test('supports dark mode', async ({ page }) => {
   await loginAndNavigate(page);
 
-  await page.goto(`${BASE_URL}/dashboard/plugins/drowl-plugin-test/pages/overview`);
+  await page.goto(`${BASE_URL}/dashboard/plugins/drowl-plugin-test/overview`);
   await page.waitForLoadState('networkidle');
 
   // Get main container
