@@ -252,16 +252,13 @@ export class PluginHttpClient {
 
   /**
    * POST request
-   * - Internal: /api/plugin-events (with HMAC token)
+   * - Internal: All /api/* paths (with HMAC token)
    * - External: Only to domains in capabilities.network
    */
   async post(url: string, body: unknown): Promise<Response> {
     // 1. Check if internal API call
     if (url.startsWith('/api/')) {
-      // Validate path (only /api/plugin-events allowed)
-      if (url !== '/api/plugin-events') {
-        throw new Error(`Internal API path not allowed: ${url}`);
-      }
+      // All /api/* paths are allowed for internal calls
       // Add HMAC token to Authorization header
       // Send request to core API
     } else {
@@ -346,47 +343,235 @@ export class WebhookExecutor {
 ### 4.5 内部認証（`auth.service.ts`に追加）
 
 ```typescript
+import crypto from 'crypto';
+import { getRedis } from '../db/redis.js';
+
 /**
  * Generate HMAC token for plugin-to-core API calls
- * Token includes: pluginId, tenantId, timestamp, nonce
+ * Token format: base64(pluginId:tenantId:timestamp:nonce).signature
+ *
+ * @param pluginId - Plugin identifier
+ * @param tenantId - Tenant identifier
+ * @param secret - HMAC secret (from env PLUGIN_INTERNAL_SECRET)
+ * @returns Token string
  */
 export function generatePluginToken(
   pluginId: string,
   tenantId: string,
   secret: string
 ): string {
-  // HMAC-SHA256(secret, pluginId:tenantId:timestamp:nonce)
-  throw new Error('Not implemented');
+  // 1. Generate cryptographically secure nonce (UUIDv4)
+  const nonce = crypto.randomUUID();
+
+  // 2. Get current timestamp (Unix seconds)
+  const timestamp = Math.floor(Date.now() / 1000);
+
+  // 3. Create payload: pluginId:tenantId:timestamp:nonce
+  const payload = `${pluginId}:${tenantId}:${timestamp}:${nonce}`;
+
+  // 4. Generate HMAC-SHA256 signature
+  const hmac = crypto.createHmac('sha256', secret);
+  hmac.update(payload);
+  const signature = hmac.digest('base64');
+
+  // 5. Return token: base64(payload).signature
+  const token = `${Buffer.from(payload).toString('base64')}.${signature}`;
+
+  return token;
 }
 
 /**
  * Verify HMAC token for internal API calls
+ *
+ * Anti-replay measures:
+ * - Nonce storage: Redis (primary), DB table (fallback)
+ * - Nonce TTL: 5min validity window + 30s clock skew
+ * - Clock skew tolerance: ±30s on top of 5min window
+ *
+ * @param token - Token to verify
+ * @param secret - HMAC secret (from env PLUGIN_INTERNAL_SECRET)
+ * @returns Parsed token data or null if invalid
  */
-export function verifyPluginToken(
+export async function verifyPluginToken(
   token: string,
   secret: string
-): { pluginId: string; tenantId: string } | null {
-  // 1. Verify HMAC signature
-  // 2. Check timestamp (5min window)
-  // 3. Return pluginId, tenantId
-  throw new Error('Not implemented');
+): Promise<{ pluginId: string; tenantId: string; nonce: string } | null> {
+  try {
+    // 1. Parse token format: base64(payload).signature
+    const [payloadB64, signature] = token.split('.');
+    if (!payloadB64 || !signature) {
+      return null;
+    }
+
+    // 2. Decode payload
+    const payload = Buffer.from(payloadB64, 'base64').toString('utf-8');
+    const [pluginId, tenantId, timestampStr, nonce] = payload.split(':');
+
+    if (!pluginId || !tenantId || !timestampStr || !nonce) {
+      return null;
+    }
+
+    // 3. Verify HMAC signature
+    const hmac = crypto.createHmac('sha256', secret);
+    hmac.update(payload);
+    const expectedSignature = hmac.digest('base64');
+
+    if (signature !== expectedSignature) {
+      return null; // Invalid signature
+    }
+
+    // 4. Check timestamp with clock skew tolerance
+    const timestamp = parseInt(timestampStr, 10);
+    const now = Math.floor(Date.now() / 1000);
+    const validityWindow = 5 * 60; // 5 minutes
+    const clockSkew = 30; // ±30 seconds
+
+    const minValidTimestamp = now - validityWindow - clockSkew;
+    const maxValidTimestamp = now + validityWindow + clockSkew;
+
+    if (timestamp < minValidTimestamp || timestamp > maxValidTimestamp) {
+      return null; // Token expired or clock skew too large
+    }
+
+    // 5. Check nonce reuse (anti-replay)
+    const nonceKey = `plugin:nonce:${pluginId}:${tenantId}:${nonce}`;
+    const ttl = validityWindow + clockSkew; // Auto-expire after validity window
+
+    const redis = getRedis();
+
+    // Try Redis first (primary store)
+    if (redis) {
+      const exists = await redis.get(nonceKey);
+      if (exists) {
+        return null; // Nonce already used (replay attack)
+      }
+      // Store nonce with TTL
+      await redis.set(nonceKey, '1', 'EX', ttl);
+    } else {
+      // Fallback to DB table (plugin_nonces)
+      const db = getDb();
+      const existingNonce = await db
+        .select()
+        .from(schema.pluginNonces)
+        .where(
+          and(
+            eq(schema.pluginNonces.pluginId, pluginId),
+            eq(schema.pluginNonces.tenantId, tenantId),
+            eq(schema.pluginNonces.nonce, nonce)
+          )
+        )
+        .limit(1);
+
+      if (existingNonce.length > 0) {
+        return null; // Nonce already used (replay attack)
+      }
+
+      // Store nonce in DB
+      await db.insert(schema.pluginNonces).values({
+        nonceId: crypto.randomUUID(),
+        pluginId,
+        tenantId,
+        nonce,
+        createdAt: new Date(),
+      });
+
+      // Note: DB cleanup is handled by periodic GC job (see below)
+    }
+
+    return { pluginId, tenantId, nonce };
+  } catch (error) {
+    console.error('Token verification failed:', error);
+    return null;
+  }
 }
 
 /**
  * Middleware: Require plugin authentication
+ *
+ * @param request - HTTP request
+ * @returns Plugin and tenant identifiers
+ * @throws 401 if authentication fails
  */
 export async function requirePluginAuth(
   request: Request
 ): Promise<{ pluginId: string; tenantId: string }> {
   // 1. Extract Authorization header
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    throw new Response('Unauthorized', { status: 401 });
+  }
+
+  const token = authHeader.substring(7); // Remove "Bearer " prefix
+
   // 2. Verify HMAC token
+  const secret = process.env.PLUGIN_INTERNAL_SECRET;
+  if (!secret) {
+    throw new Error('PLUGIN_INTERNAL_SECRET is not configured');
+  }
+
+  const result = await verifyPluginToken(token, secret);
+
+  if (!result) {
+    throw new Response('Invalid or expired token', { status: 401 });
+  }
+
   // 3. Return pluginId, tenantId
-  // 4. Throw 401 if invalid
-  throw new Error('Not implemented');
+  return { pluginId: result.pluginId, tenantId: result.tenantId };
+}
+
+/**
+ * Periodic GC job for cleaning up expired nonces in DB
+ * (Only needed if Redis is unavailable)
+ *
+ * Schedule: Run every 10 minutes via BullMQ
+ */
+export async function cleanupExpiredNonces(): Promise<void> {
+  const db = getDb();
+  const validityWindow = 5 * 60; // 5 minutes
+  const clockSkew = 30; // 30 seconds
+  const ttl = validityWindow + clockSkew;
+
+  const cutoffDate = new Date(Date.now() - ttl * 1000);
+
+  await db
+    .delete(schema.pluginNonces)
+    .where(lt(schema.pluginNonces.createdAt, cutoffDate));
 }
 ```
 
-### 4.6 プラグインイベント登録API（`api.plugin-events.ts`）
+**Nonce管理戦略:**
+
+1. **Nonce生成**: `crypto.randomUUID()`（暗号学的に安全なUUIDv4）
+2. **プライマリストア**: Redis（`plugin:nonce:{pluginId}:{tenantId}:{nonce}`、TTL: 5min + 30s）
+3. **フォールバック**: DB table `plugin_nonces`（indexed on `created_at`）
+4. **クロックスキュー許容**: ±30s（5分ウィンドウの上下に追加）
+5. **自動クリーンアップ**:
+   - Redis: TTL auto-expire
+   - DB: Periodic GC job (every 10min)
+
+**タイムスタンプ検証ウィンドウ:**
+```
+[timestamp - 5min - 30s, timestamp + 5min + 30s]
+```
+
+**DBスキーマ（`plugin_nonces`テーブル）:**
+```sql
+CREATE TABLE plugin_nonces (
+  nonce_id UUID PRIMARY KEY,
+  plugin_id VARCHAR(255) NOT NULL,
+  tenant_id VARCHAR(255) NOT NULL,
+  nonce VARCHAR(255) NOT NULL,
+  created_at TIMESTAMP NOT NULL,
+  INDEX idx_plugin_nonces_created_at (created_at),
+  UNIQUE INDEX idx_plugin_nonces_composite (plugin_id, tenant_id, nonce)
+);
+```
+
+### 4.6 コアAPI（プラグイン認証ミドルウェア適用）
+
+プラグインからのすべての内部API呼び出しは、`requirePluginAuth()`ミドルウェアで認証されます。
+
+**例: プラグインイベント登録API（`api.plugin-events.ts`）**
 
 ```typescript
 /**
@@ -395,13 +580,42 @@ export async function requirePluginAuth(
  */
 export async function action({ request }: ActionFunctionArgs) {
   // 1. Verify plugin authentication (requirePluginAuth)
+  const { pluginId, tenantId } = await requirePluginAuth(request);
+
   // 2. Parse request body
+  const body = await request.json();
+
   // 3. Validate schema (eventType, rawData, metadata)
+  const validation = PluginEventSchema.safeParse(body);
+  if (!validation.success) {
+    return json({ error: 'Invalid request body' }, { status: 400 });
+  }
+
   // 4. Insert into plugin_events_raw table
+  await withTenantContext(tenantId, async (tx) => {
+    await tx.insert(schema.pluginEventsRaw).values({
+      eventId: crypto.randomUUID(),
+      pluginId,
+      tenantId,
+      eventType: validation.data.eventType,
+      rawData: validation.data.rawData,
+      metadata: validation.data.metadata,
+      ingestedAt: new Date(),
+    });
+  });
+
   // 5. Return 201 Created
-  throw new Error('Not implemented');
+  return json({ success: true }, { status: 201 });
 }
 ```
+
+**他のコアAPIも同様に利用可能:**
+- `POST /api/activities` - Create activity
+- `GET /api/developers` - List developers
+- `POST /api/campaigns` - Create campaign
+- etc.
+
+プラグインは`capabilities.scopes`で宣言されたスコープに基づいてアクセス制御されます。
 
 ---
 
@@ -439,14 +653,18 @@ export async function action({ request }: ActionFunctionArgs) {
    - Call httpClient.post('/api/plugin-events', {...})
    - Return true on success
 
-7. InternalHttpClient
+7. PluginHttpClient
    - POST /api/plugin-events with HMAC token
-   - Core API verifies token
+   - Core API verifies token (requirePluginAuth)
+   - Check nonce reuse (Redis/DB)
    - Insert into plugin_events_raw table
 
 8. WebhookController
    - Return 200 OK (if true)
    - Return 500 Internal Error (if false/error)
+
+**Note:** プラグインは`/api/plugin-events`だけでなく、すべてのコアAPI（`/api/*`）にアクセス可能です。
+アクセス制御は`capabilities.scopes`で管理されます。
 ```
 
 ---
@@ -467,22 +685,37 @@ isolated-vmで以下を制限：
 ### 6.2 内部認証トークン
 
 ```typescript
-// Token format: HMAC-SHA256
+// Token format: base64(payload).signature
 // Payload: pluginId:tenantId:timestamp:nonce
+// Signature: HMAC-SHA256(secret, payload)
 // Secret: PLUGIN_INTERNAL_SECRET (env variable)
 
 const token = generatePluginToken('github', 'default', secret);
-// => "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9..."
+// => "Z2l0aHViOmRlZmF1bHQ6MTczMDg2NTYwMDo1YTJiMzQ1Ni03ODkw...abc123def456"
 
-// Token verification
-const result = verifyPluginToken(token, secret);
-// => { pluginId: 'github', tenantId: 'default' }
+// Token verification (with anti-replay)
+const result = await verifyPluginToken(token, secret);
+// => { pluginId: 'github', tenantId: 'default', nonce: '5a2b3456-7890...' }
 ```
+
+**Anti-replay protection:**
+
+1. **Nonce generation**: `crypto.randomUUID()` (cryptographically secure)
+2. **Nonce storage**:
+   - Primary: Redis (`plugin:nonce:{pluginId}:{tenantId}:{nonce}`, TTL: 5min + 30s)
+   - Fallback: DB table `plugin_nonces` (indexed on `created_at`)
+3. **Timestamp validation**:
+   - Validity window: 5 minutes
+   - Clock skew tolerance: ±30 seconds
+   - Valid range: `[timestamp - 5min - 30s, timestamp + 5min + 30s]`
+4. **Nonce cleanup**:
+   - Redis: Auto-expire via TTL
+   - DB: Periodic GC job (every 10min, deletes entries older than window + skew)
 
 ### 6.3 レート制限
 
 - Webhookエンドポイント: **100 req/min/plugin** (IP-based)
-- 内部API（`/api/plugin-events`）: **1000 req/min/plugin** (token-based)
+- 内部API（`/api/*`）: **1000 req/min/plugin** (token-based)
 
 ---
 
@@ -636,7 +869,7 @@ export async function handleWebhook(context) {
 
 - [ ] **HTTP Client** (`core/plugin-system/sandbox/http-client.ts`)
   - [ ] `PluginHttpClient` class
-  - [ ] POST method (internal: `/api/plugin-events` only, external: allowed domains)
+  - [ ] POST method (internal: all `/api/*` paths, external: allowed domains)
   - [ ] GET method (external: allowed domains only)
   - [ ] HMAC token injection (internal API only)
   - [ ] Domain validation (capabilities.network)
@@ -650,9 +883,15 @@ export async function handleWebhook(context) {
   - [ ] isolated-vm execution
 
 - [ ] **内部認証** (`core/services/auth.service.ts`)
-  - [ ] `generatePluginToken()` function
-  - [ ] `verifyPluginToken()` function
+  - [ ] `generatePluginToken()` function (with nonce generation)
+  - [ ] `verifyPluginToken()` function (with nonce verification + timestamp check)
   - [ ] `requirePluginAuth()` middleware
+  - [ ] `cleanupExpiredNonces()` periodic GC job
+
+- [ ] **Nonce管理** (`core/db/schema/admin.ts`)
+  - [ ] `plugin_nonces` table schema (nonce_id, plugin_id, tenant_id, nonce, created_at)
+  - [ ] Indexes (created_at, composite unique index)
+  - [ ] Migration script
 
 - [ ] **プラグインイベント登録API** (`core/app/routes/api.plugin-events.ts`)
   - [ ] POST handler
@@ -691,8 +930,7 @@ export async function handleWebhook(context) {
   - [ ] Error handling
 
 - [ ] **http-client.test.ts**
-  - [ ] POST to internal API (allowed)
-  - [ ] POST to disallowed internal API path (should throw)
+  - [ ] POST to internal API (all `/api/*` paths allowed)
   - [ ] POST to allowed external domain (allowed)
   - [ ] POST to disallowed external domain (should throw)
   - [ ] GET to allowed external domain (allowed)
@@ -701,8 +939,15 @@ export async function handleWebhook(context) {
   - [ ] PUT/DELETE blocked
 
 - [ ] **auth.service.test.ts**
-  - [ ] Token generation
-  - [ ] Token verification (valid/invalid/expired)
+  - [ ] Token generation (includes nonce)
+  - [ ] Token verification (valid token)
+  - [ ] Token verification (invalid signature)
+  - [ ] Token verification (expired timestamp)
+  - [ ] Token verification (future timestamp beyond skew)
+  - [ ] **Nonce reuse detection** (same nonce rejected)
+  - [ ] **Timestamp expiration** (tokens older than window rejected)
+  - [ ] **Clock skew tolerance** (±30s accepted, outside rejected)
+  - [ ] Nonce cleanup (Redis TTL + DB GC)
 
 ### 9.4 E2Eテスト（Playwright）
 
@@ -733,8 +978,13 @@ export async function handleWebhook(context) {
 ### 10.3 トークンセキュリティ
 
 - **短寿命**: デフォルト5分（タイムスタンプチェック）
-- **ノンス**: リプレイアタック防止
-- **HMAC署名**: 改ざん検知
+- **クロックスキュー許容**: ±30秒（分散環境対応）
+- **ノンス**: `crypto.randomUUID()`で生成、Redis/DBで重複検証
+- **HMAC署名**: HMAC-SHA256で改ざん検知
+- **リプレイアタック対策**:
+  - Nonce storage: Redis (primary, TTL auto-expire) + DB (fallback, GC job)
+  - Nonce reuse detection: Same nonce rejected immediately
+  - Validity window: `[timestamp - 5min - 30s, timestamp + 5min + 30s]`
 
 ### 10.4 エラーログ
 
@@ -770,5 +1020,12 @@ export async function handleWebhook(context) {
 
 **ネットワークアクセスポリシー:**
 - プラグインは`capabilities.network`で宣言されたドメインのみアクセス可能
-- 内部API（`/api/plugin-events`）は常に許可（HMAC認証必須）
+- **内部API（`/api/*`）**: すべてのコアAPIにアクセス可能（HMAC認証必須、スコープ制御あり）
 - 宣言されていないドメインへのアクセスは即座にエラー
+
+**リプレイアタック対策:**
+- Nonce生成: `crypto.randomUUID()`（暗号学的に安全）
+- Nonceストレージ: Redis（プライマリ、TTL自動期限切れ）+ DB（フォールバック、GC job）
+- クロックスキュー: ±30秒許容（5分ウィンドウの上下に追加）
+- タイムスタンプ検証: `[now - 5min - 30s, now + 5min + 30s]`
+- Nonce再利用検出: 同一nonceは即座に拒否
