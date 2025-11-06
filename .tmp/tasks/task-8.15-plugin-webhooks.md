@@ -75,7 +75,7 @@
 
 ### 3.1 アーキテクチャ図
 
-```
+```text
 External Service (GitHub/Slack)
   |
   v
@@ -189,7 +189,7 @@ Core API (core/app/routes/api.*.ts)
 
 ### 5.1 Webhook受信フロー
 
-```
+```text
 1. External service sends webhook
    POST https://devcle.com/api/plugins/github/webhooks/push
    X-Hub-Signature-256: sha256=abc123...
