@@ -200,6 +200,8 @@ const pluginMenus = plugins.map((plugin) => {
 2. `menus` から `data` エントリを削除
 3. `menus` から `logs` エントリを削除（既に自動追加されているため）
 
+**注意:** `/data` ページはコア側で自動生成されるため、プラグイン側にコンポーネントは存在しない。削除作業は不要。
+
 ---
 
 ## 5. テスト計画
@@ -253,7 +255,3 @@ const pluginMenus = plugins.map((plugin) => {
 - `/data` ページのみがコア側で自動生成される
 - その他のページ（`/overview`, `/settings` など）は全てプラグイン側でコンポーネントを提供する必要がある
 - `/runs` （Activity Logs）は既に自動生成されている（Task 8.9で実装済み）
-
-### 7.3 将来の拡張
-
-将来的に他の標準ページ（例: `/dashboard`, `/reports`）を追加する場合も、同様に `dashboard: true`, `reports: true` のようなフィールドで自動生成できる設計とする。
