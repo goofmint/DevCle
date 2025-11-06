@@ -123,8 +123,22 @@ test('supports dark mode', async ({ page }) => {
   await expect(container).toBeVisible();
 
   // Verify light mode has white background
-  const bgColor = await container.evaluate((el) => {
+  let bgColor = await container.evaluate((el) => {
     return window.getComputedStyle(el).backgroundColor;
   });
   expect(bgColor).toMatch(/rgb\(255, 255, 255\)/);
+
+  // Toggle to dark mode
+  const darkModeToggle = page.locator('button[aria-label="Switch to dark mode"]');
+  await expect(darkModeToggle).toBeVisible();
+  await darkModeToggle.click();
+
+  // Wait for transition to complete
+  await page.waitForTimeout(500);
+
+  // Verify dark mode has non-white background
+  bgColor = await container.evaluate((el) => {
+    return window.getComputedStyle(el).backgroundColor;
+  });
+  expect(bgColor).not.toMatch(/rgb\(255, 255, 255\)/);
 });
