@@ -147,23 +147,18 @@ export function ErrorBoundary() {
   );
 }
 
-export default function PluginDynamicPage() {
-  const { pluginId, tenantId, componentName } = useLoaderData<typeof loader>();
-
-  if (!componentName) {
-    return (
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8 border border-gray-200 dark:border-gray-700">
-        <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-gray-100 mb-2">
-          Component Not Found
-        </h1>
-        <p className="text-center text-gray-600 dark:text-gray-400">
-          No component specified for this plugin page.
-        </p>
-      </div>
-    );
-  }
-
-  // Dynamically import component from plugin's index.ts (exported components)
+/**
+ * Dynamic component loader with proper re-rendering on route change
+ */
+function DynamicPluginComponent({
+  pluginId,
+  tenantId,
+  componentName,
+}: {
+  pluginId: string;
+  tenantId: string;
+  componentName: string;
+}) {
   const PluginComponent = lazy<React.ComponentType<PluginPageProps>>(() =>
     import(`../../../plugins/${pluginId}/src/index.ts`).then((module) => ({
       default: module[componentName],
@@ -180,5 +175,32 @@ export default function PluginDynamicPage() {
     >
       <PluginComponent pluginId={pluginId} tenantId={tenantId} />
     </Suspense>
+  );
+}
+
+export default function PluginDynamicPage() {
+  const { pluginId, tenantId, componentName } = useLoaderData<typeof loader>();
+
+  if (!componentName) {
+    return (
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8 border border-gray-200 dark:border-gray-700">
+        <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-gray-100 mb-2">
+          Component Not Found
+        </h1>
+        <p className="text-center text-gray-600 dark:text-gray-400">
+          No component specified for this plugin page.
+        </p>
+      </div>
+    );
+  }
+
+  // Use key prop to force re-mount when componentName changes
+  return (
+    <DynamicPluginComponent
+      key={`${pluginId}-${componentName}`}
+      pluginId={pluginId}
+      tenantId={tenantId}
+      componentName={componentName}
+    />
   );
 }
