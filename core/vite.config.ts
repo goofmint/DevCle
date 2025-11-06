@@ -50,6 +50,7 @@ export default defineConfig(({ mode }): UserConfig => {
         'devcle.com', // Production domain
         'localhost', // Local access
         'core', // Docker service name (for nginx proxy)
+        'host.docker.internal', // DevContainer access to host network
         '172.17.0.3', // Bridge network IP
         '172.18.0.4', // Internal network IP
       ],
