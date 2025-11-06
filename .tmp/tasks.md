@@ -952,7 +952,140 @@
   - TypeScript型チェックが効く
   - セキュリティ: XSS対策、CSP設定が必要
 
-### Task 8.14: プラグインのWebhook受信実装（isolated-vm）
+### Task 8.14: menusの/dataを止めて、dataキーに変更する対応
+
+**目的:**
+プラグインの `/data` ページは特殊なページ（プラグインデータ管理UI）であり、カスタムコンポーネントではなくコア側で提供する。そのため、`menus` で `/data` を定義するのではなく、`data: true` フィールドで自動生成する仕様に変更する。
+
+**背景:**
+現在の実装では、プラグインの `menus` フィールドに `/data` ページを含めているが、以下の問題がある：
+1. **特殊ページの混在**: `/data` はコア側で提供する標準UIであり、プラグインカスタムページ（`/overview`, `/logs`など）とは性質が異なる
+2. **コンポーネント不要**: `/data` はプラグイン側でReactコンポーネントを提供する必要がない（コア側で自動生成）
+
+**新しい仕様:**
+
+#### 1. plugin.jsonスキーマ変更
+
+**変更前:**
+```json
+{
+  "menus": [
+    {
+      "key": "overview",
+      "label": "Overview",
+      "to": "/overview",
+      "icon": "mdi:chart-line"
+    },
+    {
+      "key": "data",
+      "label": "Collected Data",
+      "to": "/data",
+      "icon": "mdi:database"
+    },
+    {
+      "key": "settings",
+      "label": "Settings",
+      "to": "/settings",
+      "icon": "mdi:cog"
+    },
+    {
+      "key": "logs",
+      "label": "Activity Logs",
+      "to": "/logs",
+      "icon": "mdi:file-document-outline"
+    }
+  ]
+}
+```
+
+**変更後:**
+```json
+{
+  "data": true,  // この行を追加すると /data ページが自動生成される
+  "menus": [
+    {
+      "key": "overview",
+      "label": "Overview",
+      "to": "/overview",
+      "icon": "mdi:chart-line"
+    },
+    {
+      "key": "settings",
+      "label": "Settings",
+      "to": "/settings",
+      "icon": "mdi:cog"
+    },
+    {
+      "key": "logs",
+      "label": "Activity Logs",
+      "to": "/logs",
+      "icon": "mdi:file-document-outline"
+    }
+    // `/data` のみ menus から除外（自動生成）
+  ]
+}
+```
+
+#### 2. `/data` ページの扱い
+
+`/data` ページは `data: true` の場合にコア側で自動生成される：
+
+| フィールド | ページ | 条件 | 説明 |
+|-----------|-------|------|------|
+| `data` | `/data` | `data: true` | プラグインデータ管理UI（`plugin_events_raw`の表示、コアが提供） |
+
+#### 3. プラグインが提供するページ
+
+`menus`で宣言した**全てのページ**はプラグイン側でReactコンポーネントを提供：
+
+- `/overview` - OverviewPage.tsx
+- `/settings` - SettingsPage.tsx
+- `/logs` - LogsPage.tsx
+- その他 `menus` で定義した全てのカスタムページ
+
+#### 4. サイドバーメニューの表示
+
+`menus` に記載された順序でそのまま表示される。`data: true` の場合は `/data` ページへのリンクがコア側で追加される（表示位置はコア側で決定）
+
+#### 5. 実装内容
+
+- [ ] **plugin.jsonのバリデーション更新**
+  - `data`フィールド追加（boolean, optional, default: false）
+  - `menus`から`/data`を削除する検証ルール追加
+
+- [ ] **プラグインローダー修正** (`core/plugin-system/loader.ts`)
+  - `data: true`の場合、`/data`ページを自動登録
+
+- [ ] **サイドバーメニュー生成ロジック修正** (`core/app/routes/dashboard.tsx`)
+  - `data: true`の場合、"Collected Data"メニューを自動追加
+  - 表示順: Overview → Data → Custom Menus → Settings
+
+- [ ] **drowl-plugin-test/plugin.json更新**
+  - `data: true`を追加
+  - `menus`から`/data`エントリを削除
+
+- [ ] **ドキュメント更新**
+  - プラグイン開発ガイドに`data`フィールドの説明追加
+  - migration guide作成（既存プラグインの移行手順）
+
+- [ ] **E2Eテスト更新**
+  - `/data`ページが自動生成されることを確認
+  - `menus`に`/data`がある場合はエラーになることを確認
+
+**完了条件:**
+- `data: true`があるプラグインで`/data`ページが自動生成される
+- `menus`に`/data`がある場合、バリデーションエラーが出る
+- E2Eテストが全てパスする
+
+**依存:** Task 8.12（プラグインデータ表示UI実装）
+
+**推定時間:** 3時間
+
+**注意:**
+- この変更は既存のdrowl-plugin-testに影響するため、plugin.jsonの更新が必要
+- `/data` **のみ**特殊扱い。`menus` にあるものは全てプラグイン側でコンポーネント提供が必要（`/settings` も含む）
+
+### Task 8.15: プラグインのWebhook受信実装（isolated-vm）
 
 - [ ] Webhook定義機能（plugin.json に`webhooks`フィールド）
 - [ ] Webhook署名検証実装（`core/plugin-system/auth/webhook-verifier.ts`）
