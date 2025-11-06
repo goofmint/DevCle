@@ -82,89 +82,28 @@
 
 **ファイル**: `core/plugin-system/types.ts`
 
-```typescript
-interface PluginManifest {
-  // 既存フィールド省略
-
-  data?: boolean; // 新規追加
-
-  // 他のフィールド省略
-}
-```
+- `PluginManifest` インターフェースに `data?: boolean` フィールドを追加
 
 ### 3.2 バリデーション実装
 
 **ファイル**: `core/plugin-system/validator.ts`
 
-```typescript
-// Zodスキーマに data フィールドを追加
-data: z.boolean().optional().default(false),
-
-// refine で data: true かつ menus に /data がある場合はエラー
-.refine((data) => {
-  if (data.data === true) {
-    const hasDataMenu = data.menus.some((menu) => menu.to === '/data');
-    if (hasDataMenu) {
-      return false;
-    }
-  }
-  return true;
-}, {
-  message: "Cannot have both 'data: true' and a menu item with path '/data'. Remove the '/data' menu item from 'menus' array.",
-});
-```
+- Zodスキーマに `data` フィールドを追加（`boolean`, optional, default: `false`）
+- `refine` で `data: true` かつ `menus` に `/data` がある場合はエラーを返す
 
 ### 3.3 プラグインローダー修正
 
 **ファイル**: `core/plugin-system/loader.ts`
 
-```typescript
-/**
- * プラグインのメニューを生成する
- * data: true の場合、"/data" メニューを自動追加
- */
-export function generatePluginMenus(manifest: PluginManifest): MenuDefinition[] {
-  const menus = [...manifest.menus];
-
-  // data: true の場合、"/data" メニューを Overview の後に挿入
-  if (manifest.data === true) {
-    const overviewIndex = menus.findIndex((m) => m.key === 'overview');
-    const insertIndex = overviewIndex >= 0 ? overviewIndex + 1 : 0;
-
-    menus.splice(insertIndex, 0, {
-      key: 'data',
-      label: 'Collected Data',
-      to: '/data',
-      icon: 'mdi:database',
-    });
-  }
-
-  // Activity Logs は常に最後に追加（既に実装済み）
-  menus.push({
-    key: 'logs',
-    label: 'Activity Logs',
-    to: '/runs',
-    icon: 'mdi:file-document-outline',
-  });
-
-  return menus;
-}
-```
+- `generatePluginMenus()` 関数を追加
+- `data: true` の場合、Overview の後に "Collected Data" メニューを自動挿入
+- Activity Logs は常に最後に追加
 
 ### 3.4 サイドバーメニュー生成ロジック修正
 
 **ファイル**: `core/app/routes/dashboard.tsx`
 
-```typescript
-// generatePluginMenus() を呼び出してメニューを生成
-const pluginMenus = plugins.map((plugin) => {
-  return {
-    pluginId: plugin.pluginId,
-    name: plugin.name,
-    menus: generatePluginMenus(plugin.manifest),
-  };
-});
-```
+- ローダーで `generatePluginMenus()` を呼び出してメニューを生成
 
 ---
 
