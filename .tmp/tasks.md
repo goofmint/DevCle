@@ -925,21 +925,215 @@
 
 ---
 
-### Task 8.13: プラグインのルーティング追加と呼び出しテスト
+### Task 8.13: プラグインのReactコンポーネント表示実装
 
-- [ ] プラグインのカスタムルート定義機能（plugin.json に`routes`フィールド）
-- [ ] 動的ルート登録機能実装（Remix の Resource Routes 使用）
-- [ ] プラグインのサンドボックス化実装（isolated-vm 使用）
-  - isolated-vm インストール
+- [ ] プラグインページ定義機能（plugin.json に`pages`フィールド）
+- [ ] Component Registry 実装（`core/plugin-system/component-registry.ts`）
+  - プラグインコンポーネントの動的インポート
+  - コンポーネントの登録・取得
+- [ ] 動的ルート実装（`core/app/routes/dashboard.plugins_.$id.$.tsx`）
+  - Component Registry からコンポーネント取得
+  - プラグインページのレンダリング
+- [ ] プラグインローダー拡張（`core/plugin-system/loader.ts`）
+  - plugin.json の pages フィールド読み込み
+  - 起動時の自動コンポーネント登録
+- [ ] テストプラグイン作成（`plugins/test-plugin/`）
+  - plugin.json 定義（pages, menus）
+  - Reactコンポーネント実装（OverviewPage.tsx）
+- [ ] E2E テスト作成（`core/e2e/plugin-pages.spec.ts`）
+  - プラグインページ表示確認
+  - コンポーネントの動的読み込み確認
+- **完了条件**: プラグインが提供するReactコンポーネントがダッシュボードに表示される
+- **依存**: Task 8.4, Task 8.6
+- **推定時間**: 4 時間
+- **ドキュメント**: [.tmp/tasks/task-8.13-plugin-react-components.md](.tmp/tasks/task-8.13-plugin-react-components.md)
+- **注意**:
+  - プラグインコンポーネントはブラウザで実行される（isolated-vm不要）
+  - TypeScript型チェックが効く
+  - セキュリティ: XSS対策、CSP設定が必要
+
+### Task 8.14: menusの/dataを止めて、dataキーに変更する対応
+
+**目的:**
+プラグインの `/data` ページは特殊なページ（プラグインデータ管理UI）であり、カスタムコンポーネントではなくコア側で提供する。そのため、`menus` で `/data` を定義するのではなく、`data: true` フィールドで自動生成する仕様に変更する。
+
+**背景:**
+現在の実装では、プラグインの `menus` フィールドに `/data` ページを含めているが、以下の問題がある：
+1. **特殊ページの混在**: `/data` はコア側で提供する標準UIであり、プラグインカスタムページ（`/overview`, `/logs`など）とは性質が異なる
+2. **コンポーネント不要**: `/data` はプラグイン側でReactコンポーネントを提供する必要がない（コア側で自動生成）
+
+**新しい仕様:**
+
+#### 1. plugin.jsonスキーマ変更
+
+**変更前:**
+```json
+{
+  "menus": [
+    {
+      "key": "overview",
+      "label": "Overview",
+      "to": "/overview",
+      "icon": "mdi:chart-line"
+    },
+    {
+      "key": "data",
+      "label": "Collected Data",
+      "to": "/data",
+      "icon": "mdi:database"
+    },
+    {
+      "key": "settings",
+      "label": "Settings",
+      "to": "/settings",
+      "icon": "mdi:cog"
+    },
+    {
+      "key": "logs",
+      "label": "Activity Logs",
+      "to": "/logs",
+      "icon": "mdi:file-document-outline"
+    }
+  ]
+}
+```
+
+**変更後:**
+```json
+{
+  "data": true,  // この行を追加すると /data ページが自動生成される
+  "menus": [
+    {
+      "key": "overview",
+      "label": "Overview",
+      "to": "/overview",
+      "icon": "mdi:chart-line"
+    },
+    {
+      "key": "settings",
+      "label": "Settings",
+      "to": "/settings",
+      "icon": "mdi:cog"
+    },
+    {
+      "key": "logs",
+      "label": "Activity Logs",
+      "to": "/logs",
+      "icon": "mdi:file-document-outline"
+    }
+    // `/data` のみ menus から除外（自動生成）
+  ]
+}
+```
+
+#### 2. `/data` ページの扱い
+
+`/data` ページは `data: true` の場合にコア側で自動生成される：
+
+| フィールド | ページ | 条件 | 説明 |
+|-----------|-------|------|------|
+| `data` | `/data` | `data: true` | プラグインデータ管理UI（`plugin_events_raw`の表示、コアが提供） |
+
+#### 3. プラグインが提供するページ
+
+`menus`で宣言した**全てのページ**はプラグイン側でReactコンポーネントを提供：
+
+- `/overview` - OverviewPage.tsx
+- `/settings` - SettingsPage.tsx
+- `/logs` - LogsPage.tsx
+- その他 `menus` で定義した全てのカスタムページ
+
+#### 4. サイドバーメニューの表示
+
+`menus` に記載された順序でそのまま表示される。`data: true` の場合は `/data` ページへのリンクがコア側で追加される（表示位置はコア側で決定）
+
+#### 5. 実装内容
+
+- [ ] **plugin.jsonのバリデーション更新**
+  - `data`フィールド追加（boolean, optional, default: false）
+  - `menus`から`/data`を削除する検証ルール追加
+
+- [ ] **プラグインローダー修正** (`core/plugin-system/loader.ts`)
+  - `data: true`の場合、`/data`ページを自動登録
+
+- [ ] **サイドバーメニュー生成ロジック修正** (`core/app/routes/dashboard.tsx`)
+  - `data: true`の場合、"Collected Data"メニューを自動追加
+  - 表示順: Overview → Data → Custom Menus → Settings
+
+- [ ] **drowl-plugin-test/plugin.json更新**
+  - `data: true`を追加
+  - `menus`から`/data`エントリを削除
+
+- [ ] **ドキュメント更新**
+  - プラグイン開発ガイドに`data`フィールドの説明追加
+  - migration guide作成（既存プラグインの移行手順）
+
+- [ ] **E2Eテスト更新**
+  - `/data`ページが自動生成されることを確認
+  - `menus`に`/data`がある場合はエラーになることを確認
+
+**完了条件:**
+- `data: true`があるプラグインで`/data`ページが自動生成される
+- `menus`に`/data`がある場合、バリデーションエラーが出る
+- E2Eテストが全てパスする
+
+**依存:** Task 8.12（プラグインデータ表示UI実装）
+
+**推定時間:** 3時間
+
+**注意:**
+- この変更は既存のdrowl-plugin-testに影響するため、plugin.jsonの更新が必要
+- `/data` **のみ**特殊扱い。`menus` にあるものは全てプラグイン側でコンポーネント提供が必要（`/settings` も含む）
+
+### Task 8.15: プラグインのWebhook受信実装（isolated-vm）
+
+- [ ] Webhook定義機能（plugin.json に`webhooks`フィールド）
+- [ ] Webhook署名検証実装（`core/plugin-system/auth/webhook-verifier.ts`）
+  - GitHub Webhook署名検証
+  - Slack Webhook署名検証
+- [ ] isolated-vm Runner 実装（`core/plugin-system/sandbox/isolated-vm-runner.ts`）
   - サンドボックス化されたコンテキストでプラグインコード実行
-  - セキュリティ制限（ファイルシステムアクセス、ネットワークアクセス）
-- [ ] プラグインルートの認証・認可チェック
-- [ ] テストプラグイン作成（カスタムルートを持つサンプル）
-- [ ] E2E テスト作成（プラグインルートの呼び出し確認）
-- **完了条件**: プラグインがカスタムルートを追加でき、isolated-vm でサンドボックス化されて実行される
+  - メモリ・CPU制限
+  - タイムアウト制御
+- [ ] Internal HTTP Client 実装（`core/plugin-system/sandbox/internal-http-client.ts`）
+  - プラグインからコアAPIへの呼び出し専用
+  - 外部URLアクセス禁止
+  - 内部認証トークン付与
+- [ ] Webhook Executor 実装（`core/plugin-system/webhook-executor.ts`）
+  - Webhook署名検証
+  - isolated-vmでハンドラー実行
+  - 戻り値チェック（boolean）
+- [ ] Webhook受信API実装（`core/app/routes/api.plugins_.$id.webhooks.$.ts`）
+  - POST リクエスト受信
+  - Webhook Executor呼び出し
+  - HTTPステータス返却（true: 200, false/Error: 4xx/5xx）
+- [ ] 内部認証実装（`core/services/auth.service.ts`）
+  - requirePluginAuth()実装
+  - HMAC署名によるトークン検証
+- [ ] プラグインイベント登録API実装（`core/app/routes/api.plugin-events.ts`）
+  - POST /api/plugin-events
+  - plugin_events_rawテーブルへの保存
+  - 内部認証トークン検証
+- [ ] テストプラグイン作成（Webhookハンドラー）
+  - plugin.json定義（webhooks）
+  - Webhookハンドラー実装（github.ts）
+- [ ] 単体テスト作成（Vitest）
+  - isolated-vm-runner.test.ts
+  - webhook-verifier.test.ts
+  - internal-http-client.test.ts
+- [ ] E2E テスト作成（Playwright）
+  - Webhook受信確認
+  - 署名検証確認
+  - データ保存確認
+- **完了条件**: プラグインがWebhookを受信し、コアAPIを呼び出してデータを保存できる
 - **依存**: Task 8.4
-- **推定時間**: 6 時間
-- **注意**: isolated-vm を使用してプラグインの実行を隔離し、セキュリティを確保する
+- **推定時間**: 8 時間
+- **ドキュメント**: [.tmp/tasks/task-8.14-plugin-webhooks.md](.tmp/tasks/task-8.14-plugin-webhooks.md)
+- **注意**:
+  - isolated-vmでサンドボックス実行（ネットワーク・ファイルシステム制限）
+  - プラグインはDB直接操作不可、コアAPI経由のみ
+  - 戻り値は必ずboolean（true: 成功, false/Error: 失敗）
+  - すべてのAPI呼び出しに内部認証トークン必須
 
 ---
 

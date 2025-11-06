@@ -60,6 +60,7 @@ E2E tests run on the host machine and access the application running in Docker c
 docker compose --env-file .env.test -f docker-compose.yml -f docker-compose-test.yml up -d
 
 # Seed database INSIDE Docker (ensures test DB is used)
+# 🚨 CRITICAL: MUST run seed before EVERY E2E test run! Tests depend on seed data.
 docker compose --env-file .env.test exec core pnpm db:seed
 
 # Run E2E tests from host
@@ -69,6 +70,11 @@ cd core && BASE_URL=https://devcle.test pnpm test:e2e --max-failures=1
 **Why BASE_URL is required:**
 - Tests use `https://devcle.test` (resolved via /etc/hosts to nginx container)
 - Without `BASE_URL`, tests will try `http://localhost:3000` and fail
+
+**🚨 CRITICAL: ALWAYS use `BASE_URL=https://devcle.test` for E2E tests!**
+- DO NOT use `host.docker.internal`
+- DO NOT add `host.docker.internal` to vite.config.ts allowedHosts
+- The correct setup uses nginx container IP in /etc/hosts pointing to devcle.test
 
 ## Troubleshooting
 

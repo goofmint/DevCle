@@ -16,22 +16,24 @@
 
 import { test, expect } from '@playwright/test';
 
+const BASE_URL = process.env['BASE_URL'] || 'https://devcle.test';
+
 // Tests plugin runs page using plugin key (drowl-plugin-test)
 // API now supports string keys for plugin identification
 test.describe('Plugin Runs Page', () => {
   test.beforeEach(async ({ page }) => {
     // Login as test user
-    await page.goto('https://devcle.test/login');
+    await page.goto(`${BASE_URL}/login`);
     await page.fill('input[name="email"]', 'test@example.com');
     await page.fill('input[name="password"]', 'password123');
     await page.click('button[type="submit"]');
-    await page.waitForURL('https://devcle.test/dashboard');
+    await page.waitForURL(`${BASE_URL}/dashboard`);
   });
 
   test('should display runs page with correct structure', async ({ page }) => {
     // Navigate directly to plugin runs page
     // Note: drowl-plugin-test has jobs defined but no menu link, so we navigate directly
-    await page.goto('https://devcle.test/dashboard/plugins/drowl-plugin-test/runs');
+    await page.goto(`${BASE_URL}/dashboard/plugins/drowl-plugin-test/runs`);
 
     // Check page structure
     await expect(page.locator('h1')).toContainText('Execution History');
@@ -66,7 +68,7 @@ test.describe('Plugin Runs Page', () => {
 
   test('should filter runs by status', async ({ page }) => {
     // Navigate directly to plugin runs page
-    await page.goto('https://devcle.test/dashboard/plugins/drowl-plugin-test/runs');
+    await page.goto(`${BASE_URL}/dashboard/plugins/drowl-plugin-test/runs`);
 
     // Click on "Success" filter
     await page.click('[data-testid="filter-button-success"]');
@@ -93,7 +95,7 @@ test.describe('Plugin Runs Page', () => {
   });
 
   test('should filter runs by job name', async ({ page }) => {
-    await page.goto('https://devcle.test/dashboard/plugins/drowl-plugin-test/runs');
+    await page.goto(`${BASE_URL}/dashboard/plugins/drowl-plugin-test/runs`);
 
     // Type job name in filter input
     const jobNameInput = page.locator('[data-testid="job-name-filter-input"]');
@@ -117,7 +119,7 @@ test.describe('Plugin Runs Page', () => {
   });
 
   test('should paginate runs', async ({ page }) => {
-    await page.goto('https://devcle.test/dashboard/plugins/drowl-plugin-test/runs');
+    await page.goto(`${BASE_URL}/dashboard/plugins/drowl-plugin-test/runs`);
 
     // Check if pagination is present (only if there are multiple pages)
     const paginationNext = page.locator('[data-testid="pagination-next"]');
@@ -146,7 +148,7 @@ test.describe('Plugin Runs Page', () => {
   });
 
   test('should open and close run detail modal', async ({ page }) => {
-    await page.goto('https://devcle.test/dashboard/plugins/drowl-plugin-test/runs');
+    await page.goto(`${BASE_URL}/dashboard/plugins/drowl-plugin-test/runs`);
 
     // Click on "View Details" button for the first run
     const viewDetailsButton = page.locator('button:has-text("View Details")').first();
@@ -174,7 +176,7 @@ test.describe('Plugin Runs Page', () => {
   });
 
   test('should display status badges with correct colors', async ({ page }) => {
-    await page.goto('https://devcle.test/dashboard/plugins/drowl-plugin-test/runs');
+    await page.goto(`${BASE_URL}/dashboard/plugins/drowl-plugin-test/runs`);
 
     // Check for status badges
     const statusBadges = page.locator('[data-testid^="status-badge-"]');
@@ -195,7 +197,7 @@ test.describe('Plugin Runs Page', () => {
     // Set dark mode
     await page.emulateMedia({ colorScheme: 'dark' });
 
-    await page.goto('https://devcle.test/dashboard/plugins/drowl-plugin-test/runs');
+    await page.goto(`${BASE_URL}/dashboard/plugins/drowl-plugin-test/runs`);
 
     // Check dark mode classes are applied
     const table = page.locator('table');
@@ -218,7 +220,7 @@ test.describe('Plugin Runs Page', () => {
   });
 
   test('should check design alignment and spacing', async ({ page }) => {
-    await page.goto('https://devcle.test/dashboard/plugins/drowl-plugin-test/runs');
+    await page.goto(`${BASE_URL}/dashboard/plugins/drowl-plugin-test/runs`);
 
     // Check summary cards are evenly spaced
     const summaryCards = page.locator('[data-testid^="summary-card-"]');
