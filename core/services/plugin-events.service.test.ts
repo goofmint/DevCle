@@ -142,7 +142,7 @@ describe('Plugin Events Service', () => {
       const pendingResult = await listPluginEvents(
         TEST_TENANT,
         testPluginId,
-        ListEventsSchema.parse({ status: 'pending' })
+        ListEventsSchema.parse({ status: ['pending'] })
       );
       expect(pendingResult.total).toBe(1);
       if (pendingResult.items[0]) {
@@ -152,7 +152,7 @@ describe('Plugin Events Service', () => {
       const processedResult = await listPluginEvents(
         TEST_TENANT,
         testPluginId,
-        ListEventsSchema.parse({ status: 'processed' })
+        ListEventsSchema.parse({ status: ['processed'] })
       );
       expect(processedResult.total).toBe(1);
       if (processedResult.items[0]) {
@@ -162,7 +162,7 @@ describe('Plugin Events Service', () => {
       const failedResult = await listPluginEvents(
         TEST_TENANT,
         testPluginId,
-        ListEventsSchema.parse({ status: 'failed' })
+        ListEventsSchema.parse({ status: ['failed'] })
       );
       expect(failedResult.total).toBe(1);
       if (failedResult.items[0]) {
@@ -724,14 +724,14 @@ describe('Plugin Events Service', () => {
       const valid = ListEventsSchema.parse({
         page: '2',
         perPage: '50',
-        status: 'pending',
+        status: ['pending'],
         eventType: 'github:pull_request',
         sort: 'asc',
       });
 
       expect(valid.page).toBe(2);
       expect(valid.perPage).toBe(50);
-      expect(valid.status).toBe('pending');
+      expect(valid.status).toEqual(['pending']);
       expect(valid.eventType).toBe('github:pull_request');
       expect(valid.sort).toBe('asc');
     });

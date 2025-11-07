@@ -392,6 +392,11 @@ export async function verifyPluginToken(
     throw new Error('Invalid token format');
   }
 
+  // Validate base64 format (must only contain valid base64 characters)
+  if (!/^[A-Za-z0-9+/=]+$/.test(payloadBase64)) {
+    throw new Error('Invalid token encoding');
+  }
+
   // Decode payload
   let payload: string;
   try {
@@ -506,10 +511,10 @@ export async function cleanupExpiredNonces(): Promise<number> {
 
   const cutoffTime = new Date(Date.now() - cutoffSeconds * 1000);
 
-  // Delete old nonces
+  // Delete old nonces - use lt() operator for proper type handling
   const result = await db
     .delete(schema.pluginNonces)
-    .where(sql`${schema.pluginNonces.createdAt} < ${cutoffTime}`)
+    .where(sql`${schema.pluginNonces.createdAt} < ${cutoffTime.toISOString()}::timestamptz`)
     .returning({ nonceId: schema.pluginNonces.nonceId });
 
   return result.length;

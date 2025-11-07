@@ -181,7 +181,7 @@ export async function requirePluginAuth(
 
   // 2. Parse Bearer token
   const match = authHeader.match(/^Bearer\s+(.+)$/);
-  if (!match) {
+  if (!match || !match[1]) {
     throw new Response('Unauthorized: Invalid Authorization header format', {
       status: 401,
     });
@@ -189,9 +189,9 @@ export async function requirePluginAuth(
 
   const token = match[1];
 
-  // 3. Get PLUGIN_INTERNAL_SECRET from environment
-  const secret = process.env['PLUGIN_INTERNAL_SECRET'] as string | undefined;
-  if (!secret) {
+  // 3. Get PLUGIN_INTERNAL_SECRET and verify it's configured
+  const envSecret = process.env['PLUGIN_INTERNAL_SECRET'];
+  if (!envSecret) {
     console.error('PLUGIN_INTERNAL_SECRET not configured');
     throw new Response('Internal Server Error: Auth not configured', {
       status: 500,
@@ -200,7 +200,8 @@ export async function requirePluginAuth(
 
   // 4. Verify plugin token
   try {
-    const pluginContext = await verifyPluginToken(token, secret as string);
+    // Cast to string after validation - TypeScript control flow doesn't narrow process.env properly
+    const pluginContext = await verifyPluginToken(token, envSecret as string);
     return pluginContext;
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';

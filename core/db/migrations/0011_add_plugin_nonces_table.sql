@@ -16,3 +16,21 @@ ALTER TABLE "plugin_nonces" ADD CONSTRAINT "plugin_nonces_tenant_id_tenants_tena
 
 -- Create index on created_at for efficient garbage collection
 CREATE INDEX IF NOT EXISTS "idx_plugin_nonces_created_at" ON "plugin_nonces" ("created_at");
+
+-- Enable Row Level Security for tenant isolation
+ALTER TABLE "plugin_nonces" ENABLE ROW LEVEL SECURITY;
+
+-- Create RLS policies for tenant isolation
+-- SELECT/INSERT require tenant context for security
+CREATE POLICY plugin_nonces_select_insert
+  ON plugin_nonces
+  FOR ALL
+  TO PUBLIC
+  USING (tenant_id = current_setting('app.current_tenant_id', TRUE)::text);
+
+-- DELETE allowed for cleanup operations (runs without tenant context)
+CREATE POLICY plugin_nonces_delete_cleanup
+  ON plugin_nonces
+  FOR DELETE
+  TO PUBLIC
+  USING (true);

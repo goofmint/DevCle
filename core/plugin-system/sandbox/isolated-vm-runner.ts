@@ -35,7 +35,6 @@
  * ```
  */
 
-// @ts-expect-error - isolated-vm is a native module with no type definitions
 import ivm from 'isolated-vm';
 import { PluginHttpClient, type HttpClientConfig } from './http-client.js';
 
