@@ -24,7 +24,7 @@ test.describe('Plugin Webhooks', () => {
     };
 
     const response = await request.post(
-      `${BASE_URL}/api/plugins/drowl-plugin-test/webhooks/webhook`,
+      `${BASE_URL}/api/plugins/drowl-plugin-test/webhook`,
       {
         data: webhookPayload,
         headers: {
@@ -43,7 +43,7 @@ test.describe('Plugin Webhooks', () => {
 
   test('rejects webhook for non-existent plugin', async ({ request }) => {
     const response = await request.post(
-      `${BASE_URL}/api/plugins/non-existent-plugin/webhooks/test`,
+      `${BASE_URL}/api/plugins/non-existent-plugin/test`,
       {
         data: { test: 'data' },
         headers: {
@@ -59,7 +59,7 @@ test.describe('Plugin Webhooks', () => {
 
   test('rejects webhook for non-existent route', async ({ request }) => {
     const response = await request.post(
-      `${BASE_URL}/api/plugins/drowl-plugin-test/webhooks/non-existent-route`,
+      `${BASE_URL}/api/plugins/drowl-plugin-test/non-existent-route`,
       {
         data: { test: 'data' },
         headers: {
@@ -78,7 +78,7 @@ test.describe('Plugin Webhooks', () => {
 
   test('handles webhook with invalid body', async ({ request }) => {
     const response = await request.post(
-      `${BASE_URL}/api/plugins/drowl-plugin-test/webhooks/webhook`,
+      `${BASE_URL}/api/plugins/drowl-plugin-test/webhook`,
       {
         // Send invalid JSON (string instead of object)
         data: 'invalid-json-string',
@@ -103,7 +103,7 @@ test.describe('Plugin Webhooks', () => {
     };
 
     await page.request.post(
-      `${BASE_URL}/api/plugins/drowl-plugin-test/webhooks/webhook`,
+      `${BASE_URL}/api/plugins/drowl-plugin-test/webhook`,
       {
         data: webhookPayload,
         headers: {

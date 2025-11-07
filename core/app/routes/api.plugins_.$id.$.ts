@@ -2,7 +2,7 @@
  * Plugin Webhook Handler Route
  *
  * Handles incoming webhooks for plugins.
- * Route pattern: /api/plugins/:id/webhooks/*
+ * Route pattern: /api/plugins/:id/*
  *
  * Workflow:
  * 1. Parse plugin ID and webhook path from URL
@@ -21,10 +21,10 @@
  * - External API access limited to capabilities.network
  *
  * Example:
- * POST /api/plugins/github/webhooks/push
+ * POST /api/plugins/github/webhook
  * → Looks up 'github' plugin
- * → Matches route '/webhook/push' in plugin.json
- * → Executes handler at 'handlers/github-webhook.js'
+ * → Matches route '/webhook' in plugin.json
+ * → Executes handler at 'dist/handlers/github-webhook.js'
  */
 
 import type { ActionFunctionArgs } from '@remix-run/node';
@@ -43,7 +43,7 @@ import path from 'node:path';
  */
 export async function action({ request, params }: ActionFunctionArgs) {
   const pluginKey = params['id'];
-  const webhookPath = params['*']; // Splat route captures everything after /webhooks/
+  const webhookPath = params['*']; // Splat route captures path after /api/plugins/:id/
 
   if (!pluginKey) {
     return json({ error: 'Plugin ID required' }, { status: 400 });
