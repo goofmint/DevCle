@@ -37,6 +37,8 @@ export interface HttpClientConfig {
   pluginToken: string;
   /** Allowed external domains from capabilities.network */
   allowedDomains: string[];
+  /** Fetch function to use for HTTP requests */
+  fetch: typeof globalThis.fetch;
 }
 
 /**
@@ -63,11 +65,13 @@ export class PluginHttpClient {
   private baseUrl: string;
   private pluginToken: string;
   private allowedDomains: string[];
+  private fetch: typeof globalThis.fetch;
 
   constructor(config: HttpClientConfig) {
     this.baseUrl = config.baseUrl;
     this.pluginToken = config.pluginToken;
     this.allowedDomains = config.allowedDomains;
+    this.fetch = config.fetch;
   }
 
   /**
@@ -189,6 +193,8 @@ export class PluginHttpClient {
     const fullUrl = this.buildUrl(url);
     const headers = this.buildHeaders(url, customHeaders);
 
+    console.log(`[PluginHttpClient] ${method} ${fullUrl}`);
+
     const options: RequestInit = {
       method,
       headers,
@@ -198,7 +204,17 @@ export class PluginHttpClient {
       options.body = JSON.stringify(body);
     }
 
-    const response = await fetch(fullUrl, options);
+    try {
+      const response = await this.fetch(fullUrl, options);
+      console.log(`[PluginHttpClient] Response: ${response.status}`);
+      return await this.parseResponse<T>(response);
+    } catch (error) {
+      console.error(`[PluginHttpClient] Fetch error:`, error);
+      throw error;
+    }
+  }
+
+  private async parseResponse<T>(response: Response): Promise<HttpResponse<T>> {
 
     // Parse response
     const contentType = response.headers.get('content-type') || '';

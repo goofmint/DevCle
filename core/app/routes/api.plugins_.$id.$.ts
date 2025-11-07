@@ -193,8 +193,11 @@ export async function action({ request, params }: ActionFunctionArgs) {
     let success = false;
     let errorMessage: string | null = null;
 
+    console.log('[Webhook] About to execute handler with isolated-vm');
     try {
+      console.log('[Webhook] Calling runner.execute()...');
       success = await runner.execute(handlerCode, webhookRequest);
+      console.log('[Webhook] runner.execute() returned:', success);
     } catch (error) {
       errorMessage =
         error instanceof Error ? error.message : 'Unknown error';

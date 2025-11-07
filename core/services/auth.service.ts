@@ -22,6 +22,7 @@ import * as schema from '../db/schema/index.js';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import { eq, and, sql } from 'drizzle-orm';
+import crypto from 'crypto';
 
 /**
  * Dummy bcrypt hash for constant-time comparison
@@ -322,8 +323,6 @@ export function generatePluginToken(
   tenantId: string,
   secret: string
 ): string {
-  const crypto = require('crypto');
-
   // Generate cryptographically secure nonce (UUID v4)
   const nonce = crypto.randomUUID();
 
@@ -377,8 +376,6 @@ export async function verifyPluginToken(
   token: string,
   secret: string
 ): Promise<PluginAuthContext> {
-  const crypto = require('crypto');
-
   // 1. Parse token format
   const parts = token.split('.');
   if (parts.length !== 2) {

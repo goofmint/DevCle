@@ -98,7 +98,7 @@ test.describe('Plugin Webhooks', () => {
     // First, send a webhook
     const webhookPayload = {
       action: 'test-log',
-      developerId: '123e4567-e89b-12d3-a456-426614174001',
+      developerId: '123e4567-e89b-12d3-a456-426614174000',
       testExternalApi: false,
     };
 
@@ -116,7 +116,7 @@ test.describe('Plugin Webhooks', () => {
     // Login to dashboard
     await page.goto(`${BASE_URL}/login`);
     await page.fill('input[name="email"]', 'admin@example.com');
-    await page.fill('input[name="password"]', 'admin123');
+    await page.fill('input[name="password"]', 'admin123456');
     await page.click('button[type="submit"]');
     await page.waitForURL(`${BASE_URL}/dashboard`);
 

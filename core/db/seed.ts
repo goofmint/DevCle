@@ -276,12 +276,13 @@ async function seedOrganizations(): Promise<Record<string, string>> {
 /**
  * Seed sample developers
  *
- * Creates 5 test developers with different characteristics:
+ * Creates 6 test developers with different characteristics:
  * - Alice: Frontend developer at Acme (email + org)
  * - Bob: Backend developer at Startup Labs (email + org)
  * - Charlie: DevOps developer without email/org (unresolved case)
  * - Diana: Community member (email + org)
  * - Eve: Fullstack developer at Acme (email + org)
+ * - Test Webhook Developer: Test developer for E2E webhook tests
  *
  * @param {Record<string, string>} orgIds - Map of organization names to UUIDs
  * @returns {Promise<Record<string, string>>} Map of developer names to UUIDs
@@ -299,8 +300,9 @@ async function seedDevelopers(
   const charlieId = '30000000-0000-4000-8000-000000000003';
   const dianaId = '30000000-0000-4000-8000-000000000004';
   const eveId = '30000000-0000-4000-8000-000000000005';
+  const testWebhookId = '123e4567-e89b-12d3-a456-426614174000'; // For E2E test
 
-  // Insert 5 developers with different profiles
+  // Insert 6 developers with different profiles
   await db
     .insert(schema.developers)
     .values([
@@ -349,10 +351,19 @@ async function seedDevelopers(
         consentAnalytics: true,
         tags: ['fullstack', 'typescript'],
       },
+      {
+        developerId: testWebhookId,
+        tenantId: 'default',
+        displayName: 'Test Webhook Developer',
+        primaryEmail: 'webhook-test@example.com',
+        orgId: null,
+        consentAnalytics: true,
+        tags: ['test', 'webhook'],
+      },
     ])
     .onConflictDoNothing();
 
-  console.log('    ✅ Developers seeded (5)');
+  console.log('    ✅ Developers seeded (6)');
 
   // Return map for use in account/activity seeding
   return {
@@ -1393,7 +1404,7 @@ async function seed(): Promise<void> {
     console.log('  - Plugins: 2');
     console.log('  - Plugin Events: 25 (10 processed, 8 failed, 7 pending)');
     console.log('  - Organizations: 3');
-    console.log('  - Developers: 5');
+    console.log('  - Developers: 6');
     console.log('  - Accounts: 4');
     console.log('  - Campaigns: 3');
     console.log('  - Budgets: 5');

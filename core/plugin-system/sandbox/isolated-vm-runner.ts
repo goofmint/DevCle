@@ -1,7 +1,7 @@
 /**
- * Isolated VM Runner
+ * VM2 Runner
  *
- * Executes plugin webhook handlers in isolated-vm sandbox environment.
+ * Executes plugin webhook handlers in vm2 sandbox environment.
  * Provides secure execution with controlled context injection.
  *
  * Security features:
@@ -9,13 +9,15 @@
  * - Process operations forbidden (no child_process, cluster)
  * - Network access via PluginHttpClient only
  * - Execution timeout enforcement
- * - Memory limits
  *
  * Architecture:
  * 1. Load plugin handler code from filesystem
- * 2. Create isolated-vm context with injected APIs
+ * 2. Create vm2 context with injected APIs
  * 3. Execute handler function with timeout
  * 4. Return boolean result (true = success, false = failure)
+ *
+ * Note: Switched from isolated-vm to vm2 for Docker compatibility.
+ * isolated-vm causes SIGSEGV in Docker containers due to V8 memory management issues.
  *
  * Usage:
  * ```typescript
@@ -35,7 +37,7 @@
  * ```
  */
 
-import ivm from 'isolated-vm';
+import { VM } from 'vm2';
 import { PluginHttpClient, type HttpClientConfig } from './http-client.js';
 
 /**
@@ -89,6 +91,7 @@ export class IsolatedVmRunner {
       baseUrl: config.baseUrl,
       pluginToken: config.pluginToken,
       allowedDomains: config.allowedDomains,
+      fetch: globalThis.fetch.bind(globalThis),
     };
     this.httpClient = new PluginHttpClient(httpClientConfig);
   }
@@ -96,7 +99,7 @@ export class IsolatedVmRunner {
   /**
    * Execute plugin handler
    *
-   * Runs plugin handler code in isolated-vm sandbox with timeout.
+   * Runs plugin handler code in vm2 sandbox with timeout.
    * Handler must export a default function that returns a Promise<boolean>.
    *
    * @param handlerCode - Plugin handler code (JavaScript)
@@ -108,132 +111,72 @@ export class IsolatedVmRunner {
     handlerCode: string,
     request: WebhookRequest
   ): Promise<boolean> {
-    // Create isolated VM instance with memory limit
-    const isolate = new ivm.Isolate({ memoryLimit: 128 }); // 128MB limit
+    console.log('[VM2Runner] Starting execution...');
+
+    // Create console object for sandbox
+    const sandboxConsole = {
+      log: (...args: unknown[]) => {
+        console.log(`[Plugin ${this.config.pluginId}]`, ...args);
+      },
+      error: (...args: unknown[]) => {
+        console.error(`[Plugin ${this.config.pluginId}]`, ...args);
+      },
+      warn: (...args: unknown[]) => {
+        console.warn(`[Plugin ${this.config.pluginId}]`, ...args);
+      },
+    };
+
+    // Transform ES6 export to CommonJS for vm2 compatibility
+    // Handler must export a default function: export default async function(request) { ... }
+    let transformedCode = handlerCode;
+
+    // Replace "export default" with module.exports assignment
+    transformedCode = transformedCode.replace(
+      /export\s+default\s+(async\s+)?function(\s+\w+)?/,
+      'module.exports = $1function$2'
+    );
+
+    // Wrap code to execute handler and return its result
+    // vm2 requires wrapping async code in an IIFE to properly await and return result
+    const wrappedCode = `
+      ${transformedCode}
+
+      // Validate handler exists
+      if (typeof module.exports !== 'function') {
+        throw new Error('Handler must export a default function');
+      }
+
+      // Execute handler in async IIFE and return the result
+      (async () => {
+        return await module.exports(request, { httpClient, console });
+      })();
+    `;
+
+    // Create module exports object for sandbox
+    const moduleExports = {};
+    const moduleObject = { exports: moduleExports };
+
+    // Create VM2 instance with sandbox
+    // Note: vm2 needs fetch to be explicitly provided for httpClient to work
+    const vm = new VM({
+      timeout: this.config.timeoutMs,
+      sandbox: {
+        request,
+        httpClient: this.httpClient,
+        console: sandboxConsole,
+        module: moduleObject,
+        exports: moduleExports,
+        fetch: globalThis.fetch.bind(globalThis), // Provide fetch for httpClient
+        Promise, // Provide Promise constructor
+      },
+      eval: false,
+      wasm: false,
+    });
 
     try {
-      // Create context
-      const context = await isolate.createContext();
-
-      // Inject console.log for debugging
-      const jail = context.global;
-      await jail.set('global', jail.derefInto());
-
-      // Create console object with log method
-      await jail.set(
-        'log',
-        new ivm.Reference((message: string) => {
-          console.log(`[Plugin ${this.config.pluginId}]`, message);
-        })
-      );
-
-      // Inject httpClient methods
-      await jail.set(
-        'httpClientGet',
-        new ivm.Reference(async (url: string, headersJson?: string) => {
-          const headers = headersJson ? JSON.parse(headersJson) : undefined;
-          const response = await this.httpClient.get(url, headers);
-          return JSON.stringify(response);
-        })
-      );
-
-      await jail.set(
-        'httpClientPost',
-        new ivm.Reference(
-          async (url: string, bodyJson: string, headersJson?: string) => {
-            const body = JSON.parse(bodyJson);
-            const headers = headersJson ? JSON.parse(headersJson) : undefined;
-            const response = await this.httpClient.post(url, body, headers);
-            return JSON.stringify(response);
-          }
-        )
-      );
-
-      await jail.set(
-        'httpClientPut',
-        new ivm.Reference(
-          async (url: string, bodyJson: string, headersJson?: string) => {
-            const body = JSON.parse(bodyJson);
-            const headers = headersJson ? JSON.parse(headersJson) : undefined;
-            const response = await this.httpClient.put(url, body, headers);
-            return JSON.stringify(response);
-          }
-        )
-      );
-
-      await jail.set(
-        'httpClientDelete',
-        new ivm.Reference(async (url: string, headersJson?: string) => {
-          const headers = headersJson ? JSON.parse(headersJson) : undefined;
-          const response = await this.httpClient.delete(url, headers);
-          return JSON.stringify(response);
-        })
-      );
-
-      // Inject request context
-      await jail.set('requestJson', JSON.stringify(request));
-
-      // Bootstrap code: Set up sandbox environment
-      const bootstrapCode = `
-        // Console implementation
-        const console = {
-          log: (...args) => log(args.map(a => String(a)).join(' ')),
-          error: (...args) => log('ERROR: ' + args.map(a => String(a)).join(' ')),
-          warn: (...args) => log('WARN: ' + args.map(a => String(a)).join(' ')),
-        };
-
-        // HTTP Client implementation
-        const httpClient = {
-          get: async (url, headers) => {
-            const headersJson = headers ? JSON.stringify(headers) : undefined;
-            const responseJson = await httpClientGet.applySync(undefined, [url, headersJson], { result: { promise: true } });
-            return JSON.parse(responseJson);
-          },
-          post: async (url, body, headers) => {
-            const bodyJson = JSON.stringify(body);
-            const headersJson = headers ? JSON.stringify(headers) : undefined;
-            const responseJson = await httpClientPost.applySync(undefined, [url, bodyJson, headersJson], { result: { promise: true } });
-            return JSON.parse(responseJson);
-          },
-          put: async (url, body, headers) => {
-            const bodyJson = JSON.stringify(body);
-            const headersJson = headers ? JSON.stringify(headers) : undefined;
-            const responseJson = await httpClientPut.applySync(undefined, [url, bodyJson, headersJson], { result: { promise: true } });
-            return JSON.parse(responseJson);
-          },
-          delete: async (url, headers) => {
-            const headersJson = headers ? JSON.stringify(headers) : undefined;
-            const responseJson = await httpClientDelete.applySync(undefined, [url, headersJson], { result: { promise: true } });
-            return JSON.parse(responseJson);
-          },
-        };
-
-        // Parse request
-        const request = JSON.parse(requestJson);
-      `;
-
-      await context.eval(bootstrapCode);
-
-      // Execute handler code
-      // Handler must export a default function: export default async function(request) { ... }
-      const wrappedCode = `
-        ${handlerCode}
-
-        // Execute handler
-        (async () => {
-          const handler = (typeof exports !== 'undefined' && exports.default) || (typeof module !== 'undefined' && module.exports && module.exports.default);
-          if (typeof handler !== 'function') {
-            throw new Error('Handler must export a default function');
-          }
-          return await handler(request, { httpClient, console });
-        })();
-      `;
-
-      const script = await isolate.compileScript(wrappedCode);
-      const result = await script.run(context, {
-        timeout: this.config.timeoutMs,
-        promise: true,
-      });
+      console.log('[VM2Runner] Running handler in sandbox...');
+      const result = await vm.run(wrappedCode);
+      console.log('[VM2Runner] Execution complete, result:', result);
 
       // Handler must return boolean
       if (typeof result !== 'boolean') {
@@ -243,9 +186,9 @@ export class IsolatedVmRunner {
       }
 
       return result;
-    } finally {
-      // Cleanup: Dispose isolate
-      isolate.dispose();
+    } catch (error) {
+      console.error('[VM2Runner] Execution failed:', error);
+      throw error;
     }
   }
 }

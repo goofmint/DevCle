@@ -7,6 +7,7 @@
 import { withTenantContext } from '../db/connection.js';
 import * as schema from '../db/schema/index.js';
 import { CreateActivitySchema, type CreateActivityInput } from './activity.schemas.js';
+import { webcrypto as crypto } from 'node:crypto';
 
 /**
  * Create new activity
