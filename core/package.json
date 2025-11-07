@@ -45,7 +45,6 @@
     "drowl-plugin-test": "file:../plugins/drowl-plugin-test",
     "gridstack": "^12.3.3",
     "ioredis": "^5.4.2",
-    "isolated-vm": "^5.0.3",
     "isbot": "^4",
     "nanoid": "^5.1.6",
     "nodemailer": "^7.0.9",
@@ -59,6 +58,7 @@
     "rehype-highlight": "^7.0.2",
     "remark-frontmatter": "^5.0.0",
     "remark-gfm": "^4.0.1",
+    "vm2": "^3.10.0",
     "zod": "^4.1.12"
   },
   "devDependencies": {

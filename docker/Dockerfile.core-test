@@ -5,7 +5,13 @@
 # ============================================
 # Base stage: Node.js 20 with pnpm
 # ============================================
-FROM node:20-alpine AS base
+# IMPORTANT: Use Debian-based image (not Alpine) for isolated-vm compatibility
+# isolated-vm requires glibc and does not work with Alpine's musl libc
+FROM node:20-slim AS base
+
+# Install build dependencies for native modules (e.g., isolated-vm)
+# python3, make, g++ are required for node-gyp to build native addons
+RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
 
 # Enable corepack and install pnpm
 RUN corepack enable && corepack prepare pnpm@latest --activate

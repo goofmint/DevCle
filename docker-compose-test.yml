@@ -46,12 +46,21 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-devcle_test}
       POSTGRES_USER: ${POSTGRES_USER:-devcle}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      # Database URL for Remix/Drizzle ORM
+      DATABASE_URL: ${DATABASE_URL}
       # Database host points to postgres service in docker network
       DATABASE_HOST: postgres
       # Redis connection URL points to redis service in docker network
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+      # Application configuration
+      SESSION_SECRET: ${SESSION_SECRET}
       # Encryption key for sensitive data (from .env.test)
       ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      # Application domain and URL
+      APP_DOMAIN: ${APP_DOMAIN}
+      BASE_URL: ${BASE_URL}
+      # Plugin system
+      PLUGIN_INTERNAL_SECRET: ${PLUGIN_INTERNAL_SECRET}
       # Plugins directory path
       PLUGINS_DIR: /workspace/plugins
       ADMIN_EMAIL: ${ADMIN_EMAIL}
@@ -68,6 +77,9 @@ services:
       - "3001:3000"
     # Override command to install dependencies and run development server
     command: sh -c "pnpm install --frozen-lockfile && pnpm dev"
+    # Security capabilities for isolated-vm (V8 isolate creation)
+    # isolated-vm requires privileged mode to create V8 isolates in Docker
+    privileged: true
     depends_on:
       postgres:
         condition: service_healthy
