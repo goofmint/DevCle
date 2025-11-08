@@ -173,22 +173,40 @@ export async function action({ request }: ActionFunctionArgs) {
     const tenantId = user.tenantId;
     const userId = user.userId;
 
-    // 2. Parse request body as JSON
-    const body = await request.json();
+    // 2. Parse request body as JSON with error handling
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch (error) {
+      // Handle invalid JSON syntax
+      if (error instanceof SyntaxError) {
+        return json({ error: 'Invalid JSON body' }, { status: 400 });
+      }
+      throw error;
+    }
 
-    // 3. Convert date string to Date object if expiresAt is provided
+    // 3. Validate body is a non-null object
+    if (body === null || typeof body !== 'object') {
+      return json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
+
+    // 4. Convert date string to Date object if expiresAt is provided
     // Zod expects Date object but API receives ISO 8601 string
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const bodyRecord = body as Record<string, any>;
     const input: CreateTokenInput = {
-      name: body.name,
-      scopes: body.scopes,
-      expiresAt: body.expiresAt ? new Date(body.expiresAt) : undefined,
+      name: bodyRecord['name'],
+      scopes: bodyRecord['scopes'],
+      expiresAt: bodyRecord['expiresAt']
+        ? new Date(bodyRecord['expiresAt'])
+        : undefined,
     };
 
-    // 4. Call service layer to create token (tenant isolation handled inside)
+    // 5. Call service layer to create token (tenant isolation handled inside)
     // This validates input, generates token, hashes it, and stores in database
     const result = await createToken(tenantId, userId, input);
 
-    // 5. Return success response with token data (including plain text token)
+    // 6. Return success response with token data (including plain text token)
     // Status 201 Created indicates successful resource creation
     return json(result, { status: 201 });
   } catch (error) {
