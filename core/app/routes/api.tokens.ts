@@ -10,21 +10,22 @@
  * - Delegates business logic to Token Service
  * - Enforces tenant context via RLS
  *
- * Endpoints (Task 8.16):
- * - GET    /api/tokens       - List API tokens (with pagination and status filtering)
- *
- * Future endpoints (Task 8.17):
- * - POST   /api/tokens       - Create a new API token
+ * Endpoints:
+ * - GET    /api/tokens       - List API tokens (with pagination and status filtering) (Task 8.16)
+ * - POST   /api/tokens       - Create a new API token (Task 8.17)
  */
 
 import {
   json,
   type LoaderFunctionArgs,
+  type ActionFunctionArgs,
 } from '@remix-run/node';
 import { requireAuth } from '~/auth.middleware.js';
 import {
   listTokens,
   type ListTokensInput,
+  createToken,
+  type CreateTokenInput,
 } from '../../services/token.service.js';
 import { z } from 'zod';
 
@@ -125,6 +126,128 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
     // Handle unexpected errors (shouldn't happen, but just in case)
     console.error('Unexpected error in GET /api/tokens:', error);
+    return json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+/**
+ * POST /api/tokens - Create a new API token
+ *
+ * Request Body:
+ * {
+ *   name: string,           // Token name (1-100 chars, required)
+ *   scopes: string[],       // Permission scopes (at least one, required)
+ *   expiresAt?: string      // ISO 8601 date string (optional)
+ * }
+ *
+ * Response:
+ * 201 Created
+ * {
+ *   tokenId: "...",
+ *   name: "...",
+ *   token: "drowltok_...",       // ⚠️ Plain text token - ONLY returned on creation
+ *   tokenPrefix: "drowltok_ABCDE...",
+ *   scopes: ["webhook:write"],
+ *   expiresAt: "2025-12-31T23:59:59Z" | null,
+ *   createdAt: "2025-01-01T00:00:00Z",
+ *   createdBy: "..."
+ * }
+ *
+ * Error Responses:
+ * - 400 Bad Request: Invalid request body, validation errors, duplicate name
+ * - 401 Unauthorized: Missing or invalid authentication
+ * - 500 Internal Server Error: Database error
+ *
+ * Security:
+ * - Plain text token is NEVER stored in database (only SHA256 hash)
+ * - Plain text token is returned ONLY on creation (cannot be retrieved later)
+ * - token_prefix (first 16 chars) stored for display purposes only
+ * - RLS ensures tenant isolation via withTenantContext()
+ * - Unique constraint on (tenant_id, name) prevents duplicate names
+ */
+export async function action({ request }: ActionFunctionArgs) {
+  try {
+    // 1. Authentication check using requireAuth middleware
+    // This throws a redirect to /login if not authenticated
+    const user = await requireAuth(request);
+    const tenantId = user.tenantId;
+    const userId = user.userId;
+
+    // 2. Parse request body as JSON with error handling
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch (error) {
+      // Handle invalid JSON syntax
+      if (error instanceof SyntaxError) {
+        return json({ error: 'Invalid JSON body' }, { status: 400 });
+      }
+      throw error;
+    }
+
+    // 3. Validate body is a non-null object
+    if (body === null || typeof body !== 'object') {
+      return json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
+
+    // 4. Convert date string to Date object if expiresAt is provided
+    // Zod expects Date object but API receives ISO 8601 string
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const bodyRecord = body as Record<string, any>;
+    const input: CreateTokenInput = {
+      name: bodyRecord['name'],
+      scopes: bodyRecord['scopes'],
+      expiresAt: bodyRecord['expiresAt']
+        ? new Date(bodyRecord['expiresAt'])
+        : undefined,
+    };
+
+    // 5. Call service layer to create token (tenant isolation handled inside)
+    // This validates input, generates token, hashes it, and stores in database
+    const result = await createToken(tenantId, userId, input);
+
+    // 6. Return success response with token data (including plain text token)
+    // Status 201 Created indicates successful resource creation
+    return json(result, { status: 201 });
+  } catch (error) {
+    // Handle errors and return appropriate HTTP status codes
+
+    // Handle requireAuth() redirect (API should return 401 instead of redirect)
+    // requireAuth() throws a Response with status 302 when user is not authenticated
+    if (error instanceof Response && error.status === 302) {
+      return json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Handle Zod validation errors (invalid request body)
+    if (error instanceof z.ZodError) {
+      return json(
+        {
+          error: 'Validation failed',
+          details: error.flatten().fieldErrors,
+        },
+        { status: 400 }
+      );
+    }
+
+    // Handle service layer errors (database errors, business logic errors)
+    if (error instanceof Error) {
+      // Special handling for duplicate name error
+      if (error.message.includes('already exists')) {
+        return json(
+          { error: 'Token name already exists' },
+          { status: 400 }
+        );
+      }
+
+      // Log detailed error for debugging
+      console.error('Failed to create API token:', error);
+
+      // Return generic error message to client (don't expose internal details)
+      return json({ error: 'Failed to create API token' }, { status: 500 });
+    }
+
+    // Handle unexpected errors (shouldn't happen, but just in case)
+    console.error('Unexpected error in POST /api/tokens:', error);
     return json({ error: 'Internal server error' }, { status: 500 });
   }
 }
