@@ -6,6 +6,7 @@
  * Only hashed values are stored in database, never plain text.
  */
 
+import crypto from 'crypto';
 import { withTenantContext } from '../db/connection.js';
 import * as schema from '../db/schema/index.js';
 import { eq, and, isNull, sql, type SQL, lte } from 'drizzle-orm';
@@ -38,6 +39,44 @@ export type ListTokensParams = z.infer<typeof ListTokensSchema>;
  */
 export type TokenItem = typeof schema.apiTokens.$inferSelect & {
   status: 'active' | 'expired' | 'revoked';
+};
+
+/**
+ * Zod schema for creating a new API token
+ *
+ * Validates input for token creation endpoint.
+ * - name: 1-100 characters (required)
+ * - scopes: array of strings with at least one element (required)
+ * - expiresAt: expiration date (optional)
+ */
+export const CreateTokenSchema = z.object({
+  name: z.string().min(1).max(100),
+  scopes: z.array(z.string()).min(1),
+  expiresAt: z.date().optional(),
+});
+
+/**
+ * Input type for createToken (raw/unvalidated data)
+ */
+export type CreateTokenInput = z.input<typeof CreateTokenSchema>;
+
+/**
+ * Validated parameters after schema parsing
+ */
+export type CreateTokenParams = z.infer<typeof CreateTokenSchema>;
+
+/**
+ * Response type for createToken (includes plain text token)
+ */
+export type TokenResponse = {
+  tokenId: string;
+  name: string;
+  token: string; // ⚠️ Plain text token - only returned on creation
+  tokenPrefix: string;
+  scopes: string[];
+  expiresAt: Date | null;
+  createdAt: Date;
+  createdBy: string;
 };
 
 /**
@@ -167,6 +206,149 @@ export async function listTokens(
     } catch (error) {
       console.error('Failed to list API tokens:', error);
       throw new Error('Failed to retrieve API tokens from database');
+    }
+  });
+}
+
+/**
+ * Generate a cryptographically secure API token
+ *
+ * @returns Token string in format: drowltok_<32 random characters> (41 chars total)
+ *
+ * Implementation:
+ * - Uses crypto.randomBytes() for cryptographically secure random generation
+ * - Converts to base64url encoding (URL-safe characters: A-Za-z0-9_-)
+ * - 24 bytes generates approximately 32 characters in base64url
+ * - Prefix "drowltok_" (9 chars) + random part (32 chars) = 41 chars total
+ *
+ * Example output: "drowltok_AbC123XyZ456def789ghiJKL012MNo"
+ */
+export function generateToken(): string {
+  const randomBytes = crypto.randomBytes(24);
+  const randomString = randomBytes.toString('base64url');
+  return `drowltok_${randomString}`;
+}
+
+/**
+ * Hash a token using SHA256
+ *
+ * @param token - Plain text token to hash
+ * @returns SHA256 hash as 64-character hexadecimal string
+ *
+ * Implementation:
+ * - Uses SHA256 cryptographic hash algorithm
+ * - Returns hexadecimal representation (64 chars)
+ * - This hash is stored in database, never the plain text token
+ * - Used for token verification by comparing hashes
+ */
+export function hashToken(token: string): string {
+  return crypto.createHash('sha256').update(token).digest('hex');
+}
+
+/**
+ * Create a new API token
+ *
+ * @param tenantId - Tenant ID for multi-tenant isolation
+ * @param userId - User ID of the token creator
+ * @param input - Raw/unvalidated token creation parameters
+ * @returns Token response including plain text token (⚠️ only time it's returned)
+ * @throws {Error} If validation fails, name already exists, or database error occurs
+ *
+ * Implementation flow:
+ * 1. Validate input using CreateTokenSchema.parse()
+ * 2. Generate plain text token using generateToken()
+ * 3. Extract token_prefix (first 16 characters for display)
+ * 4. Calculate token_hash using hashToken()
+ * 5. Insert into database within withTenantContext() for RLS
+ * 6. Return response with plain text token
+ *
+ * Security:
+ * - Plain text token is NEVER stored in database (only hash)
+ * - Plain text token is returned ONLY on creation (cannot be retrieved later)
+ * - token_prefix (first 16 chars) stored for display purposes only
+ * - RLS ensures tenant isolation via withTenantContext()
+ * - Unique constraint on (tenant_id, name) prevents duplicate names
+ *
+ * Error handling:
+ * - Validation errors: thrown by Zod (caller handles 400 response)
+ * - Duplicate name: PostgreSQL error code 23505 (unique violation)
+ * - Other database errors: wrapped and re-thrown
+ */
+export async function createToken(
+  tenantId: string,
+  userId: string,
+  input: CreateTokenInput
+): Promise<TokenResponse> {
+  // 1. Validate input
+  const params: CreateTokenParams = CreateTokenSchema.parse(input);
+
+  // 2. Generate plain text token
+  const token = generateToken();
+
+  // 3. Extract token prefix (first 16 characters for display)
+  const tokenPrefix = token.substring(0, 16);
+
+  // 4. Calculate token hash for storage
+  const tokenHash = hashToken(token);
+
+  // 5. Insert into database with tenant context
+  return await withTenantContext(tenantId, async (tx) => {
+    try {
+      const [created] = await tx
+        .insert(schema.apiTokens)
+        .values({
+          tokenId: crypto.randomUUID(),
+          tenantId,
+          name: params.name,
+          tokenPrefix,
+          tokenHash,
+          scopes: params.scopes,
+          expiresAt: params.expiresAt ?? null,
+          createdBy: userId,
+          createdAt: new Date(),
+          lastUsedAt: null,
+          revokedAt: null,
+        })
+        .returning();
+
+      if (!created) {
+        throw new Error('Failed to create API token: no row returned');
+      }
+
+      // 6. Return response with plain text token (⚠️ only time it's returned)
+      return {
+        tokenId: created.tokenId,
+        name: created.name,
+        token, // ⚠️ Plain text token - only returned on creation
+        tokenPrefix: created.tokenPrefix,
+        scopes: created.scopes,
+        expiresAt: created.expiresAt,
+        createdAt: created.createdAt,
+        createdBy: created.createdBy,
+      };
+    } catch (error) {
+      // Handle unique constraint violation (duplicate name)
+      // Drizzle wraps PostgreSQL errors, so check both the error and its cause
+      const pgError =
+        error &&
+        typeof error === 'object' &&
+        'cause' in error &&
+        error.cause &&
+        typeof error.cause === 'object'
+          ? error.cause
+          : error;
+
+      if (
+        pgError &&
+        typeof pgError === 'object' &&
+        'code' in pgError &&
+        pgError.code === '23505'
+      ) {
+        throw new Error('Token name already exists');
+      }
+
+      console.error('Failed to create API token:', error);
+      throw new Error('Failed to create API token in database');
     }
   });
 }
