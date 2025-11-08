@@ -80,7 +80,7 @@ export async function action({ request }: ActionFunctionArgs) {
         return json(
           {
             error: 'Validation failed',
-            details: validationError.errors,
+            details: validationError.issues,
           },
           { status: 400 }
         );
