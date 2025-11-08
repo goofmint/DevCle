@@ -1163,21 +1163,23 @@
   - 外部API呼び出しはcapabilities.networkドメイン検証
   - Webhook署名検証は未実装（GitHub/Slack等の署名検証は次のタスクで対応）
 
-### Task 8.16: APIトークン管理APIの実装（CRUD）
+### Task 8.16: APIトークン - データベーススキーマ + トークン一覧取得API
 
-外部システムからWebhookを送信する際の認証用APIトークン管理機能を実装する。
+外部システムからWebhookを送信する際の認証用APIトークン管理機能の基礎部分を実装する。
 
 **背景:**
 Task 8.15で実装したWebhook受信は`auth: "public"`で認証なしだが、本番環境では外部システムの認証が必要。各テナントごとにAPIトークンを発行し、Webhookリクエストに含めることで認証する。
 
+**ドキュメント**: [.tmp/tasks/task-8.16-api-token-management.md](.tmp/tasks/task-8.16-api-token-management.md)
+
 **実装内容:**
 
 - [ ] データベーススキーマ追加
-  - `api_tokens`テーブル作成
+  - `api_tokens`テーブル作成（Migration: `0013_add_api_tokens_table.sql`）
     - `token_id` (uuid, PK)
     - `tenant_id` (text, FK to tenants)
     - `name` (text, トークンの説明、例: "GitHub Webhook Token")
-    - `token_prefix` (text, 先頭8文字、表示用、例: "drmtok_12345678")
+    - `token_prefix` (text, 先頭16文字、表示用、例: "drowltok_ABCDEFG")
     - `token_hash` (text, SHA256ハッシュ値、検証用)
     - `scopes` (text[], 権限スコープ、例: ["webhook:write"])
     - `last_used_at` (timestamptz, nullable, 最終使用日時)
@@ -1187,46 +1189,118 @@ Task 8.15で実装したWebhook受信は`auth: "public"`で認証なしだが、
     - `revoked_at` (timestamptz, nullable, 無効化日時)
   - RLS有効化（tenant_id基準）
   - Unique constraint: (tenant_id, name)
-  - Migration: `0012_add_api_tokens_table.sql`
+  - Drizzle schema定義（`core/db/schema/admin.ts`に追加）
 
-- [ ] サービス層実装（`core/services/api-token.service.ts`）
-  - `generateApiToken()`: トークン生成（形式: `drmtok_<32文字ランダム>`）
-  - `createApiToken()`: トークン作成（token_prefixとtoken_hashを保存）
-  - `listApiTokens()`: トークン一覧取得（ページネーション、フィルタ）
-  - `getApiToken()`: トークン詳細取得
-  - `revokeApiToken()`: トークン無効化（revoked_atを設定）
-  - `verifyApiToken()`: トークン検証（SHA256ハッシュ比較、有効期限チェック、revoked_atチェック）
-  - `updateLastUsedAt()`: 最終使用日時更新
-  - Zod スキーマ（CreateApiTokenSchema, ListApiTokensSchema）
+- [ ] サービス層実装（`core/services/token.service.ts`）
+  - `listTokens()`: トークン一覧取得（ページネーション、ステータスフィルタ）
+  - Zod スキーマ（ListTokensSchema）
 
-- [ ] API実装
-  - `POST /api/api-tokens`: トークン作成
-    - リクエスト: `{ name, scopes, expiresAt? }`
-    - レスポンス: `{ tokenId, name, token, tokenPrefix, scopes, createdAt, expiresAt }`
-    - **注意**: 生トークンは作成時のみ返す（再表示不可）
-  - `GET /api/api-tokens`: トークン一覧取得
-    - レスポンス: `{ items: [{ tokenId, name, tokenPrefix, scopes, lastUsedAt, expiresAt, createdAt, revokedAt }], total, page, perPage }`
-  - `GET /api/api-tokens/:id`: トークン詳細取得
-  - `DELETE /api/api-tokens/:id`: トークン無効化（物理削除ではなくrevoked_at設定）
+- [ ] API実装（`core/app/routes/api.tokens.ts`）
+  - `GET /api/tokens`: トークン一覧取得
+    - クエリパラメータ: page, perPage, status (active/expired/revoked/all)
+    - レスポンス: `{ items: [{ tokenId, name, tokenPrefix, scopes, lastUsedAt, expiresAt, createdAt, revokedAt, status }], total, page, perPage }`
   - 認証: `requireAuth()`（ログインユーザーのみ）
-  - 権限チェック: admin roleまたは自分が作成したトークンのみ操作可能
 
 - [ ] 単体テスト作成（Vitest）
-  - `services/api-token.service.test.ts`
-  - `app/routes/api.api-tokens.test.ts`
-  - トークン生成、検証、有効期限、無効化のテスト
+  - `services/token.service.test.ts`: listTokens()のテスト
+  - `app/routes/api.tokens.test.ts`: GET /api/tokensのテスト
 
-- **完了条件**: APIトークンのCRUD APIが実装され、テストがパスする
+- **完了条件**: データベーススキーマとトークン一覧取得APIが実装され、テストがパスする
 - **依存**: Task 8.15
-- **推定時間**: 4 時間
+- **推定時間**: 2 時間
+- **注意**:
+  - トークンの形式: `drowltok_<32文字ランダム>`（プレフィックス9文字 + ランダム32文字 = 計41文字）
+  - token_prefixは先頭16文字を保存
+  - ステータス判定: active (revoked_at IS NULL AND (expires_at IS NULL OR expires_at > NOW())), expired (revoked_at IS NULL AND expires_at <= NOW()), revoked (revoked_at IS NOT NULL)
+
+### Task 8.17: APIトークン作成APIの実装
+
+`POST /api/tokens`エンドポイントを実装する。
+
+**実装内容:**
+
+- [ ] サービス層実装（`core/services/token.service.ts`に追加）
+  - `generateToken()`: トークン生成（形式: `drowltok_<32文字ランダム>`）
+  - `createToken()`: トークン作成（token_prefixとtoken_hashを保存、生トークンを返却）
+  - Zod スキーマ（CreateTokenSchema）
+
+- [ ] API実装（`core/app/routes/api.tokens.ts`に追加）
+  - `POST /api/tokens`: トークン作成
+    - リクエスト: `{ name, scopes, expiresAt? }`
+    - レスポンス: `{ tokenId, name, token, tokenPrefix, scopes, createdAt, expiresAt }`
+    - **注意**: 生トークン（`token`フィールド）は作成時のみ返却
+  - 認証: `requireAuth()`（ログインユーザーのみ）
+
+- [ ] 単体テスト作成（Vitest）
+  - `services/token.service.test.ts`: generateToken(), createToken()のテスト
+  - `app/routes/api.tokens.test.ts`: POST /api/tokensのテスト
+
+- **完了条件**: トークン作成APIが実装され、テストがパスする
+- **依存**: Task 8.16
+- **推定時間**: 2 時間
 - **注意**:
   - トークンの生値はDBに保存しない（SHA256ハッシュのみ保存）
-  - トークンの形式: `drmtok_<32文字ランダム>`（識別しやすいプレフィックス）
+  - token_prefix: 先頭16文字を保存
   - 作成時のみ生トークンを返す（再表示不可）
-  - 無効化は論理削除（revoked_at設定）
-  - 有効期限はオプション（未設定の場合は無期限）
+  - 重複名エラー: Unique constraint違反 → 400エラー
 
-### Task 8.17: APIトークン管理UIの実装（CRUD）
+### Task 8.18: APIトークン詳細取得APIの実装
+
+`GET /api/tokens/:id`エンドポイントを実装する。
+
+**実装内容:**
+
+- [ ] サービス層実装（`core/services/token.service.ts`に追加）
+  - `getToken()`: トークン詳細取得
+
+- [ ] API実装（`core/app/routes/api.tokens_.$id.ts`作成）
+  - `GET /api/tokens/:id`: トークン詳細取得
+    - レスポンス: `{ tokenId, name, tokenPrefix, scopes, lastUsedAt, expiresAt, createdAt, createdBy, revokedAt, status }`
+    - **注意**: 生トークンは含まない
+  - 認証: `requireAuth()`（ログインユーザーのみ）
+  - 存在しないトークン: 404エラー
+
+- [ ] 単体テスト作成（Vitest）
+  - `services/token.service.test.ts`: getToken()のテスト
+  - `app/routes/api.tokens_.$id.test.ts`: GET /api/tokens/:idのテスト
+
+- **完了条件**: トークン詳細取得APIが実装され、テストがパスする
+- **依存**: Task 8.17
+- **推定時間**: 1.5 時間
+- **注意**:
+  - 生トークンは絶対に返さない
+  - 存在しないトークンは404エラー
+  - 他テナントのトークンはRLSでアクセス不可
+
+### Task 8.19: APIトークン無効化APIの実装
+
+`DELETE /api/tokens/:id`エンドポイントを実装する。
+
+**実装内容:**
+
+- [ ] サービス層実装（`core/services/token.service.ts`に追加）
+  - `revokeToken()`: トークン無効化（revoked_atを設定）
+
+- [ ] API実装（`core/app/routes/api.tokens_.$id.ts`に追加）
+  - `DELETE /api/tokens/:id`: トークン無効化
+    - 処理: revoked_at = NOW()に更新（論理削除）
+    - レスポンス: `{ success: true }`
+  - 認証: `requireAuth()`（ログインユーザーのみ）
+  - 存在しないトークン: 404エラー
+
+- [ ] 単体テスト作成（Vitest）
+  - `services/token.service.test.ts`: revokeToken()のテスト
+  - `app/routes/api.tokens_.$id.test.ts`: DELETE /api/tokens/:idのテスト
+
+- **完了条件**: トークン無効化APIが実装され、テストがパスする
+- **依存**: Task 8.18
+- **推定時間**: 1.5 時間
+- **注意**:
+  - 物理削除ではなく論理削除（revoked_at設定）
+  - 既に無効化済みのトークンも再度無効化可能（冪等性）
+  - 無効化後は即座にverifyToken()が失敗するようになる
+
+### Task 8.20: APIトークン管理UIの実装
 
 ダッシュボードにAPIトークン管理画面を追加する。
 
@@ -1275,74 +1349,13 @@ Task 8.15で実装したWebhook受信は`auth: "public"`で認証なしだが、
   - バリデーション（5 tests）
 
 - **完了条件**: APIトークン管理UIが動作し、E2Eテストがパスする
-- **依存**: Task 8.16
+- **依存**: Task 8.19
 - **推定時間**: 4 時間
 - **注意**:
   - 生トークンは作成直後の1回のみ表示
   - コピーボタン（clipboard API使用）
-  - トークンプレフィックスのみ表示（例: `drmtok_12345678...`）
+  - トークンプレフィックスのみ表示（例: `drowltok_ABCDEFG...`）
   - 無効化は論理削除（UIには"Revoked"と表示）
-
-### Task 8.18: APIトークンを使ったWebhook認証の実装
-
-Webhook受信時にAPIトークンで認証する機能を実装する。
-
-**背景:**
-Task 8.15で実装したWebhook受信は`auth: "public"`で認証なしだが、本番環境では外部システムの認証が必要。plugin.jsonの`auth`フィールドに基づいて認証方法を切り替える。
-
-**実装内容:**
-
-- [ ] plugin.jsonスキーマ拡張
-  - `routes[].auth`フィールドの値を拡張
-    - `"public"`: 認証なし（現状）
-    - `"token"`: APIトークン認証（新規）
-    - `"user"`: ユーザーセッション認証（将来用）
-    - `"plugin"`: プラグイン内部認証（現状、内部API用）
-
-- [ ] 認証ミドルウェア実装（`core/app/auth.middleware.ts`）
-  - `requireApiTokenAuth()`: APIトークン認証
-    - `Authorization: Bearer <token>`ヘッダーから取得
-    - `verifyApiToken()`でトークン検証
-    - スコープチェック（例: `webhook:write`が必要）
-    - 最終使用日時更新（`updateLastUsedAt()`）
-    - 成功時: `{ tenantId, tokenId, scopes }`を返す
-
-- [ ] Webhook受信API修正（`core/app/routes/api.plugins_.$id.$.ts`）
-  - `route.auth`に基づいて認証方法を切り替え
-    - `"public"`: 認証スキップ（現状維持）
-    - `"token"`: `requireApiTokenAuth()`を呼び出し
-    - `"user"`: `requireAuth()`を呼び出し（将来実装）
-    - `"plugin"`: エラー（内部API専用、Webhookでは使用不可）
-  - 認証失敗時: 401 Unauthorized
-
-- [ ] スコープ定義
-  - `webhook:write`: Webhook受信権限
-
-- [ ] テストプラグイン更新（`plugins/drowl-plugin-test/plugin.json`）
-  - `/webhook`ルートの`auth`を`"token"`に変更
-  - 既存の`"public"`ルートも残す（テスト用）
-
-- [ ] 単体テスト作成（Vitest）
-  - `app/auth.middleware.test.ts`（APIトークン認証）
-  - `app/routes/api.plugins_.$id.$.test.ts`（認証切り替え）
-
-- [ ] E2E テスト作成（Playwright）
-  - `e2e/plugin-webhooks-auth.spec.ts`（15 tests）
-    - トークンありでWebhook受信成功
-    - トークンなしで401エラー
-    - 無効なトークンで401エラー
-    - 期限切れトークンで401エラー
-    - 無効化されたトークンで401エラー
-    - 不足スコープで403エラー
-
-- **完了条件**: APIトークン認証が機能し、E2Eテストがパスする
-- **依存**: Task 8.17
-- **推定時間**: 4 時間
-- **注意**:
-  - `auth: "public"`は引き続きサポート（開発環境用）
-  - 本番環境では`auth: "token"`推奨
-  - トークンの最終使用日時を記録（監査用）
-  - スコープチェックで最小権限の原則を適用
 
 ---
 

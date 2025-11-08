@@ -1,10 +1,11 @@
 /**
  * Admin Schema
  *
- * Contains 6 core administrative tables for multi-tenant management:
+ * Contains 7 core administrative tables for multi-tenant management:
  * - tenants: Top-level tenant management (OSS defaults to single-tenant)
  * - users: Console users who log into the dashboard
  * - api_keys: API keys for programmatic access (hashed values only)
+ * - api_tokens: API tokens for webhook authentication (hashed values only)
  * - system_settings: Per-tenant settings (SMTP, AI, custom domains)
  * - notifications: Outbound notification history (email/slack/webhook)
  * - plugin_nonces: Nonce storage for plugin token anti-replay protection
@@ -102,6 +103,53 @@ export const apiKeys = pgTable('api_keys', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   revokedAt: timestamp('revoked_at', { withTimezone: true }),
 });
+
+/**
+ * API Tokens Table
+ *
+ * Stores API tokens for webhook authentication (Task 8.16-8.20).
+ * Only hashed token values are stored (never plain text).
+ * Tokens have format: drowltok_<32 random characters> (41 chars total).
+ *
+ * Fields:
+ * - token_id: UUID primary key
+ * - tenant_id: Foreign key to tenants (cascade delete)
+ * - name: Human-readable token name/description (e.g., "GitHub Webhook Token")
+ * - token_prefix: First 16 characters of token for display (e.g., "drowltok_ABCDEFG")
+ * - token_hash: SHA-256 hash of the full token (for verification)
+ * - scopes: Array of permission scopes (e.g., ["webhook:write"])
+ * - last_used_at: Last usage timestamp (updated on successful verification)
+ * - expires_at: Expiration timestamp (NULL = no expiration)
+ * - created_by: Foreign key to users (who created this token)
+ * - created_at: Creation timestamp
+ * - revoked_at: Revocation timestamp (NULL = active, non-NULL = revoked)
+ *
+ * Unique constraint: (tenant_id, name) - one token name per tenant
+ *
+ * Security considerations:
+ * - Plain text token shown ONLY once at creation time
+ * - Token hash computed using SHA-256 for verification
+ * - Token prefix stored for display in UI (e.g., "drowltok_ABCDEFG...")
+ * - Status determined by: active (revoked_at IS NULL AND (expires_at IS NULL OR expires_at > NOW()))
+ *                         expired (revoked_at IS NULL AND expires_at <= NOW())
+ *                         revoked (revoked_at IS NOT NULL)
+ */
+export const apiTokens = pgTable('api_tokens', {
+  tokenId: uuid('token_id').primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: text('tenant_id').notNull().references(() => tenants.tenantId, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  tokenPrefix: text('token_prefix').notNull(),
+  tokenHash: text('token_hash').notNull(),
+  scopes: text('scopes').array().notNull().default(sql`'{}'::text[]`),
+  lastUsedAt: timestamp('last_used_at', { withTimezone: true }),
+  expiresAt: timestamp('expires_at', { withTimezone: true }),
+  createdBy: uuid('created_by').notNull().references(() => users.userId, { onDelete: 'cascade' }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  revokedAt: timestamp('revoked_at', { withTimezone: true }),
+}, (t) => ({
+  // Unique constraint: one token name per tenant
+  uniqueTenantName: unique('api_tokens_tenant_name_unique').on(t.tenantId, t.name),
+}));
 
 /**
  * System Settings Table
