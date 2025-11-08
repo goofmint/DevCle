@@ -1170,6 +1170,8 @@
 **背景:**
 Task 8.15で実装したWebhook受信は`auth: "public"`で認証なしだが、本番環境では外部システムの認証が必要。各テナントごとにAPIトークンを発行し、Webhookリクエストに含めることで認証する。
 
+**ドキュメント**: [.tmp/tasks/task-8.16-api-token-management.md](.tmp/tasks/task-8.16-api-token-management.md)
+
 **実装内容:**
 
 - [ ] データベーススキーマ追加
