@@ -15,7 +15,7 @@
 
 import { redirect } from '@remix-run/node';
 import { getSession, destroySession } from './sessions.server';
-import { getUserById, type AuthUser } from '../services/auth.service.js';
+import { getUserById, type AuthUser, verifyPluginToken, type PluginAuthContext } from '../services/auth.service.js';
 
 /**
  * Require authentication for route
@@ -136,3 +136,78 @@ export async function getCurrentUser(
     return null;
   }
 }
+
+/**
+ * Require Plugin Authentication
+ *
+ * Validates plugin authentication token from Authorization header.
+ * Used by plugin webhook routes and internal plugin API calls.
+ *
+ * Workflow:
+ * 1. Extract Authorization header from request
+ * 2. Parse Bearer token
+ * 3. Verify plugin token (HMAC signature, timestamp, nonce)
+ * 4. Return plugin auth context
+ *
+ * Security features:
+ * - HMAC-SHA256 signature verification
+ * - Timestamp validation (5 min + ±30s clock skew)
+ * - Anti-replay protection (nonce storage in DB)
+ *
+ * @param request - Remix request object
+ * @returns Plugin auth context (pluginId, tenantId, nonce)
+ * @throws {Response} Returns 401 Unauthorized if token invalid
+ *
+ * Usage in plugin API routes:
+ * ```typescript
+ * export async function action({ request }: ActionFunctionArgs) {
+ *   const pluginContext = await requirePluginAuth(request);
+ *   // pluginContext.pluginId and pluginContext.tenantId are now available
+ *   // Use them to identify the plugin and tenant making the request
+ *   return json({ success: true });
+ * }
+ * ```
+ */
+export async function requirePluginAuth(
+  request: Request
+): Promise<PluginAuthContext> {
+  // 1. Extract Authorization header
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader) {
+    throw new Response('Unauthorized: Missing Authorization header', {
+      status: 401,
+    });
+  }
+
+  // 2. Parse Bearer token
+  const match = authHeader.match(/^Bearer\s+(.+)$/);
+  if (!match || !match[1]) {
+    throw new Response('Unauthorized: Invalid Authorization header format', {
+      status: 401,
+    });
+  }
+
+  const token = match[1];
+
+  // 3. Get PLUGIN_INTERNAL_SECRET and verify it's configured
+  const envSecret = process.env['PLUGIN_INTERNAL_SECRET'];
+  if (!envSecret) {
+    console.error('PLUGIN_INTERNAL_SECRET not configured');
+    throw new Response('Internal Server Error: Auth not configured', {
+      status: 500,
+    });
+  }
+
+  // 4. Verify plugin token
+  try {
+    // Cast to string after validation - TypeScript control flow doesn't narrow process.env properly
+    const pluginContext = await verifyPluginToken(token, envSecret as string);
+    return pluginContext;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    throw new Response(`Unauthorized: ${message}`, {
+      status: 401,
+    });
+  }
+}
+

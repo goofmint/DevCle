@@ -80,6 +80,7 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
             focus:outline-none focus:ring-2 focus:ring-indigo-500
           "
           aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+          data-testid="dark-mode-toggle"
         >
           {isDark ? (
             <SunIcon className="w-5 h-5" aria-hidden="true" />

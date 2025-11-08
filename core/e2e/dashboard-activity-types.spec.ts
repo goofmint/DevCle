@@ -536,8 +536,8 @@ test.describe('Activity Types Settings - Bug Regression Tests', () => {
     const deleteButton = testRow.locator('button:has-text("Delete")');
     await deleteButton.click();
 
-    // Wait for deletion to complete
-    await page.waitForTimeout(2000);
+    // Wait for deletion to complete and toast to appear
+    await page.waitForTimeout(1000);
 
     // Verify success toast appears (not Internal error)
     const toast = page.getByTestId('toast-notification');
@@ -549,6 +549,9 @@ test.describe('Activity Types Settings - Bug Regression Tests', () => {
       // Should NOT contain "Internal error"
       await expect(toast).not.toContainText(/internal error/i);
     }
+
+    // Wait for the row to be removed from DOM
+    await page.waitForSelector('tr:has(td:has-text("test-delete"))', { state: 'detached', timeout: 5000 });
 
     // Verify row count decreased
     const newCount = await page.locator('table tbody tr').count();

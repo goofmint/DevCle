@@ -58,6 +58,7 @@
     "rehype-highlight": "^7.0.2",
     "remark-frontmatter": "^5.0.0",
     "remark-gfm": "^4.0.1",
+    "vm2": "^3.10.0",
     "zod": "^4.1.12"
   },
   "devDependencies": {

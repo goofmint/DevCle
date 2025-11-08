@@ -7,6 +7,10 @@
 # ============================================
 FROM node:20-alpine AS base
 
+# Install build dependencies for native modules (e.g., isolated-vm)
+# python3, make, g++ are required for node-gyp to build native addons
+RUN apk add --no-cache python3 make g++
+
 # Enable corepack and install pnpm
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
@@ -23,6 +27,9 @@ COPY package.json pnpm-lock.yaml* ./
 # Install all dependencies (including devDependencies)
 # Use --frozen-lockfile to ensure reproducible builds
 RUN pnpm install --frozen-lockfile
+
+# Manually rebuild isolated-vm to ensure native module is compiled
+RUN cd node_modules/isolated-vm && npm run install
 
 # ============================================
 # Production dependencies stage

@@ -1,12 +1,13 @@
 /**
  * Admin Schema
  *
- * Contains 5 core administrative tables for multi-tenant management:
+ * Contains 6 core administrative tables for multi-tenant management:
  * - tenants: Top-level tenant management (OSS defaults to single-tenant)
  * - users: Console users who log into the dashboard
  * - api_keys: API keys for programmatic access (hashed values only)
  * - system_settings: Per-tenant settings (SMTP, AI, custom domains)
  * - notifications: Outbound notification history (email/slack/webhook)
+ * - plugin_nonces: Nonce storage for plugin token anti-replay protection
  *
  * All tables include tenant_id for multi-tenant isolation via PostgreSQL RLS.
  */
@@ -247,4 +248,40 @@ export const userPreferences = pgTable('user_preferences', {
 }, (t) => ({
   // Unique constraint: one value per key per user
   uniqueUserKey: unique('user_preferences_user_key_unique').on(t.userId, t.key),
+}));
+
+/**
+ * Plugin Nonces Table
+ *
+ * Stores nonces for plugin authentication tokens to prevent replay attacks.
+ * Nonces are stored with TTL and checked on every plugin API request.
+ *
+ * Fields:
+ * - nonce_id: UUID primary key
+ * - tenant_id: Foreign key to tenants (cascade delete)
+ * - plugin_id: Plugin identifier (text, not FK to allow checking before plugin lookup)
+ * - nonce: Nonce value (UUID format)
+ * - created_at: Creation timestamp for TTL-based cleanup
+ *
+ * Unique constraint: (tenant_id, plugin_id, nonce) - prevents nonce reuse
+ * Index: created_at - for periodic garbage collection of expired nonces
+ *
+ * Security considerations:
+ * - Primary nonce storage is Redis (with TTL auto-expire)
+ * - This table serves as fallback and provides persistence
+ * - Periodic GC job cleans up entries older than validity window + clock skew
+ * - Nonces are checked before allowing plugin token authentication
+ *
+ * Validity window: 5 minutes + ±30 seconds clock skew = 5.5 minutes
+ * GC runs every 10 minutes, deletes entries older than 6 minutes
+ */
+export const pluginNonces = pgTable('plugin_nonces', {
+  nonceId: uuid('nonce_id').primaryKey().default(sql`uuid_generate_v4()`),
+  tenantId: text('tenant_id').notNull().references(() => tenants.tenantId, { onDelete: 'cascade' }),
+  pluginId: text('plugin_id').notNull(),
+  nonce: text('nonce').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  // Unique constraint: prevents nonce reuse
+  uniqueNonce: unique('plugin_nonces_tenant_plugin_nonce_unique').on(t.tenantId, t.pluginId, t.nonce),
 }));

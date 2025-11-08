@@ -457,30 +457,21 @@ test.describe('Plugin Data Display Page', () => {
     // Verify light mode has light background
     expect(lightBgColor).toMatch(/rgb\(255, 255, 255\)|transparent|rgba\(0, 0, 0, 0\)/);
 
-    // Switch to dark mode if toggle exists
-    const darkModeToggle = page.locator('button[aria-label*="theme"]').or(
-      page.locator('button:has-text("Dark")')
-    ).or(
-      page.locator('button[title*="dark"]')
-    );
+    // Switch to dark mode
+    const darkModeToggle = page.getByTestId('dark-mode-toggle');
+    await expect(darkModeToggle, 'Dark mode toggle must be present').toBeVisible();
 
-    const toggleCount = await darkModeToggle.count();
-    if (toggleCount > 0) {
-      await darkModeToggle.first().click();
-      await page.waitForTimeout(300);
+    await darkModeToggle.click();
+    await page.waitForTimeout(300);
 
-      // Test dark mode colors
-      const darkBgColor = await firstRow.evaluate((el) => {
-        return window.getComputedStyle(el).backgroundColor;
-      });
+    // Test dark mode colors
+    const darkBgColor = await firstRow.evaluate((el) => {
+      return window.getComputedStyle(el).backgroundColor;
+    });
 
-      // Verify dark mode has dark background or transparent (inherits from parent dark bg)
-      // Note: Tailwind 4.x uses OKLCH color space by default
-      expect(darkBgColor).toMatch(/oklch\(0\.\d+\s+[\d.]+\s+[\d.]+\)|rgb\((31|55), (41|65), (51|85)\)|transparent|rgba\(0, 0, 0, 0\)/);
-    } else {
-      // Dark mode toggle not implemented yet - test passes if light mode works
-      console.log('Dark mode toggle not found - skipping dark mode test');
-    }
+    // Verify dark mode has dark background or transparent (inherits from parent dark bg)
+    // Note: Tailwind 4.x uses OKLCH color space by default
+    expect(darkBgColor).toMatch(/oklch\(0\.\d+\s+[\d.]+\s+[\d.]+\)|rgb\((31|55), (41|65), (51|85)\)|transparent|rgba\(0, 0, 0, 0\)/);
   });
 
   /**
@@ -552,9 +543,12 @@ test.describe('Plugin Data Display Page', () => {
     await page.locator('[data-testid="status-filter-failed"]').check();
     await page.waitForTimeout(1000);
 
+    // Wait for failed events table to load and show at least one row
+    await page.waitForSelector('table tbody tr', { timeout: 5000 });
+
     // Click to view event detail
-    await page.locator('button:has-text("View Detail")').first().click();
-    await page.waitForSelector('[data-testid="reprocess-button"]', { timeout: 2000 });
+    await page.locator('button:has-text("View Detail")').first().click({ timeout: 10000 });
+    await page.waitForSelector('[data-testid="reprocess-button"]', { timeout: 5000 });
     await page.locator('[data-testid="reprocess-button"]').click();
 
     // Verify toast appears
