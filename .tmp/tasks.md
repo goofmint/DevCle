@@ -1174,7 +1174,7 @@ Task 8.15で実装したWebhook受信は`auth: "public"`で認証なしだが、
 
 **実装内容:**
 
-- [ ] データベーススキーマ追加
+- [x] データベーススキーマ追加
   - `api_tokens`テーブル作成（Migration: `0013_add_api_tokens_table.sql`）
     - `token_id` (uuid, PK)
     - `tenant_id` (text, FK to tenants)
@@ -1191,23 +1191,24 @@ Task 8.15で実装したWebhook受信は`auth: "public"`で認証なしだが、
   - Unique constraint: (tenant_id, name)
   - Drizzle schema定義（`core/db/schema/admin.ts`に追加）
 
-- [ ] サービス層実装（`core/services/token.service.ts`）
+- [x] サービス層実装（`core/services/token.service.ts`）
   - `listTokens()`: トークン一覧取得（ページネーション、ステータスフィルタ）
   - Zod スキーマ（ListTokensSchema）
 
-- [ ] API実装（`core/app/routes/api.tokens.ts`）
+- [x] API実装（`core/app/routes/api.tokens.ts`）
   - `GET /api/tokens`: トークン一覧取得
     - クエリパラメータ: page, perPage, status (active/expired/revoked/all)
     - レスポンス: `{ items: [{ tokenId, name, tokenPrefix, scopes, lastUsedAt, expiresAt, createdAt, revokedAt, status }], total, page, perPage }`
   - 認証: `requireAuth()`（ログインユーザーのみ）
 
-- [ ] 単体テスト作成（Vitest）
+- [x] 単体テスト作成（Vitest）
   - `services/token.service.test.ts`: listTokens()のテスト
   - `app/routes/api.tokens.test.ts`: GET /api/tokensのテスト
 
-- **完了条件**: データベーススキーマとトークン一覧取得APIが実装され、テストがパスする
+- **完了条件**: データベーススキーマとトークン一覧取得APIが実装され、テストがパスする ✓
 - **依存**: Task 8.15
 - **推定時間**: 2 時間
+- **完了日**: 2025-11-08
 - **注意**:
   - トークンの形式: `drowltok_<32文字ランダム>`（プレフィックス9文字 + ランダム32文字 = 計41文字）
   - token_prefixは先頭16文字を保存
@@ -1217,10 +1218,13 @@ Task 8.15で実装したWebhook受信は`auth: "public"`で認証なしだが、
 
 `POST /api/tokens`エンドポイントを実装する。
 
+**ドキュメント**: [.tmp/tasks/task-8.17-api-token-create.md](.tmp/tasks/task-8.17-api-token-create.md)
+
 **実装内容:**
 
 - [ ] サービス層実装（`core/services/token.service.ts`に追加）
   - `generateToken()`: トークン生成（形式: `drowltok_<32文字ランダム>`）
+  - `hashToken()`: SHA256ハッシュ計算
   - `createToken()`: トークン作成（token_prefixとtoken_hashを保存、生トークンを返却）
   - Zod スキーマ（CreateTokenSchema）
 
@@ -1232,7 +1236,7 @@ Task 8.15で実装したWebhook受信は`auth: "public"`で認証なしだが、
   - 認証: `requireAuth()`（ログインユーザーのみ）
 
 - [ ] 単体テスト作成（Vitest）
-  - `services/token.service.test.ts`: generateToken(), createToken()のテスト
+  - `services/token.service.test.ts`: generateToken(), hashToken(), createToken()のテスト
   - `app/routes/api.tokens.test.ts`: POST /api/tokensのテスト
 
 - **完了条件**: トークン作成APIが実装され、テストがパスする
