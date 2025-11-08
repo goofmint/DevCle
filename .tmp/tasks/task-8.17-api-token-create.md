@@ -25,127 +25,47 @@ Task 8.16でデータベーススキーマとトークン一覧取得API（`GET 
 
 **目的**: 暗号学的に安全なトークン文字列の生成
 
-**シグネチャ:**
-```typescript
-export function generateToken(): string
-```
-
 **実装詳細:**
-- トークン形式: `drowltok_` + 32文字のランダム文字列
-- 合計長: 41文字（プレフィックス9文字 + ランダム32文字）
-- ランダム文字列生成: `crypto.randomBytes(24).toString('base64url')`
-  - 24バイトのランダムバイト列を生成
-  - base64url形式でエンコード（URL安全な文字のみ）
-  - 結果として約32文字の文字列が得られる
-
-**使用例:**
-```typescript
-const token = generateToken();
-// => "drowltok_AbC123XyZ456..."（41文字）
-```
-
-**セキュリティ:**
-- Node.js標準の`crypto.randomBytes()`を使用し、暗号学的に安全な乱数を生成
-- 推測不可能な十分な長さを確保
-- プレフィックス付きで識別可能
+- トークン形式: `drowltok_` + 32文字のランダム文字列（合計41文字）
+- `crypto.randomBytes(24).toString('base64url')`で生成
+- URL安全な文字のみ使用（base64url形式）
 
 #### 2. `hashToken(token: string): string`
 
 **目的**: トークンのSHA256ハッシュ値を計算
 
-**シグネチャ:**
-```typescript
-export function hashToken(token: string): string
-```
-
 **実装詳細:**
 - SHA256ハッシュアルゴリズムを使用
-- 実装: `crypto.createHash('sha256').update(token).digest('hex')`
 - 返り値: 64文字の16進数文字列
-
-**使用例:**
-```typescript
-const hash = hashToken('drowltok_AbC123XyZ456...');
-// => "a1b2c3d4e5f6..." (64文字の16進数)
-```
-
-**注意:**
 - データベースに保存するのはこのハッシュ値のみ
-- 生トークンは保存しない（検証時にハッシュ比較）
 
 #### 3. `createToken(tenantId, userId, input): Promise<TokenResponse>`
 
 **目的**: 新規APIトークンの作成とデータベース保存
 
-**シグネチャ:**
-```typescript
-export async function createToken(
-  tenantId: string,
-  userId: string,
-  input: CreateTokenInput
-): Promise<TokenResponse>
-```
+**入力**: `{ name: string; scopes: string[]; expiresAt?: Date }`
 
-**入力型:**
-```typescript
-export type CreateTokenInput = z.input<typeof CreateTokenSchema>;
-// { name: string; scopes: string[]; expiresAt?: Date }
-```
-
-**返り値型:**
-```typescript
-export type TokenResponse = {
-  tokenId: string;
-  name: string;
-  token: string;          // 生トークン（作成時のみ）
-  tokenPrefix: string;    // 先頭16文字（表示用）
-  scopes: string[];
-  expiresAt: Date | null;
-  createdAt: Date;
-  createdBy: string;
-};
-```
+**返り値**: トークン情報（tokenId, name, token, tokenPrefix, scopes, expiresAt, createdAt, createdBy）
 
 **実装フロー:**
-1. 入力データをZodスキーマで検証（`CreateTokenSchema.parse(input)`）
+1. Zodスキーマで入力検証
 2. `generateToken()`でトークン生成
-3. `token_prefix` = トークンの先頭16文字を抽出
-4. `token_hash` = `hashToken()`でハッシュ計算
-5. `withTenantContext()`内でデータベースに保存
-   - テーブル: `api_tokens`
-   - 保存項目: tokenId(uuid), tenantId, name, tokenPrefix, tokenHash, scopes, expiresAt, createdBy, createdAt
-6. 保存したレコードと**生トークン**を返却
-
-**エラー処理:**
-- 重複名（Unique constraint違反）: エラーをスロー（呼び出し側で400エラー処理）
-- バリデーションエラー: Zodがスロー
+3. `token_prefix`（先頭16文字）を抽出
+4. `hashToken()`でハッシュ計算
+5. `withTenantContext()`内でDB保存
+6. 生トークンを含むレスポンスを返却
 
 **重要な注意事項:**
-- **生トークン（`token`フィールド）は作成時のレスポンスでのみ返却**
-- データベースには`token_hash`のみ保存（生トークンは保存しない）
-- `token_prefix`（先頭16文字）はUI表示用に保存
-- テナント分離のため必ず`withTenantContext()`を使用
+- 生トークンは作成時のレスポンスでのみ返却
+- DBには`token_hash`のみ保存（生トークンは保存しない）
+- 重複名はUnique constraint違反でエラー
 
 ### Zodスキーマ
 
-#### CreateTokenSchema
-
-```typescript
-export const CreateTokenSchema = z.object({
-  name: z.string().min(1).max(100),
-  scopes: z.array(z.string()).min(1),
-  expiresAt: z.date().optional(),
-});
-
-export type CreateTokenInput = z.input<typeof CreateTokenSchema>;
-export type CreateTokenParams = z.infer<typeof CreateTokenSchema>;
-```
-
-**検証ルール:**
-- `name`: 1～100文字の文字列（必須）
-- `scopes`: 最低1つのスコープを含む配列（必須）
-  - 初期実装では`["webhook:write"]`のみサポート
-- `expiresAt`: 有効期限（オプション、未指定なら無期限）
+**CreateTokenSchema**:
+- `name`: 1～100文字（必須）
+- `scopes`: 文字列の配列、最低1つ（必須）
+- `expiresAt`: 有効期限（オプション）
 
 ## API実装
 
@@ -155,75 +75,27 @@ export type CreateTokenParams = z.infer<typeof CreateTokenSchema>;
 
 ### ファイル: `core/app/routes/api.tokens.ts`
 
-#### リクエスト仕様
-
 **HTTPメソッド:** POST
+**認証:** `requireAuth()`
+**Content-Type:** application/json
 
-**認証:** `requireAuth()`（ログインユーザーのみ）
+**リクエスト:**
+- `name`: トークン名（必須）
+- `scopes`: スコープ配列（必須）
+- `expiresAt`: 有効期限（オプション）
 
-**Content-Type:** `application/json`
+**レスポンス（201 Created）:**
+- `tokenId`, `name`, `token`（⚠️作成時のみ）, `tokenPrefix`, `scopes`, `expiresAt`, `createdAt`, `createdBy`
 
-**リクエストボディ:**
-```typescript
-{
-  name: string;        // トークンの説明（例: "GitHub Webhook Token"）
-  scopes: string[];    // 権限スコープ（例: ["webhook:write"]）
-  expiresAt?: string;  // ISO 8601形式の有効期限（オプション）
-}
-```
+**エラー:**
+- 400: バリデーションエラー、重複名
+- 401: 未認証
 
-**バリデーション:**
-- Zodスキーマで検証（`CreateTokenSchema.parse()`）
-- 日付文字列はDateオブジェクトに変換
-
-#### レスポンス仕様
-
-**成功レスポンス（201 Created）:**
-```typescript
-{
-  tokenId: string;
-  name: string;
-  token: string;          // ⚠️ 生トークン（作成時のみ）
-  tokenPrefix: string;    // 先頭16文字（例: "drowltok_AbC1234"）
-  scopes: string[];
-  expiresAt: string | null;  // ISO 8601形式
-  createdAt: string;         // ISO 8601形式
-  createdBy: string;         // ユーザーID
-}
-```
-
-**エラーレスポンス:**
-- **400 Bad Request**: バリデーションエラー、重複名エラー
-  ```json
-  { "error": "Validation failed: name is required" }
-  ```
-- **401 Unauthorized**: 未認証
-  ```json
-  { "error": "Authentication required" }
-  ```
-
-#### 実装詳細
-
-```typescript
-export async function action({ request }: ActionFunctionArgs) {
-  // 1. 認証チェック
-  const user = await requireAuth(request);
-
-  // 2. リクエストボディをJSON解析
-  const body = await request.json();
-
-  // 3. サービス層でトークン作成
-  const tokenData = await createToken(user.tenantId, user.userId, body);
-
-  // 4. レスポンス返却（201 Created）
-  return json(tokenData, { status: 201 });
-}
-```
-
-**注意事項:**
-- エラーハンドリングは適切に実装（try-catch）
-- 重複名エラーは400エラーとして返す
-- 生トークンは**このレスポンスでのみ**返却（再表示不可）
+**実装:**
+1. 認証チェック（`requireAuth()`）
+2. リクエストボディ解析
+3. `createToken()`でトークン作成
+4. 201ステータスでレスポンス返却
 
 ## テスト設計
 
@@ -427,94 +299,24 @@ try {
 
 ## 参考情報
 
-### トークン生成の実装例
+### トークン生成
 
 ```typescript
-import crypto from 'crypto';
-
-export function generateToken(): string {
-  const randomBytes = crypto.randomBytes(24);
-  const randomString = randomBytes.toString('base64url');
-  return `drowltok_${randomString}`;
-}
-
-export function hashToken(token: string): string {
-  return crypto.createHash('sha256').update(token).digest('hex');
-}
+// crypto.randomBytes(24).toString('base64url')で32文字のランダム文字列を生成
+// プレフィックス "drowltok_" を付与
 ```
 
-### createToken実装例（簡略版）
+### トークンハッシュ
 
 ```typescript
-export async function createToken(
-  tenantId: string,
-  userId: string,
-  input: CreateTokenInput
-): Promise<TokenResponse> {
-  // 1. バリデーション
-  const params = CreateTokenSchema.parse(input);
-
-  // 2. トークン生成
-  const token = generateToken();
-  const tokenPrefix = token.substring(0, 16);
-  const tokenHash = hashToken(token);
-
-  // 3. DB保存
-  return await withTenantContext(tenantId, async (tx) => {
-    const [created] = await tx
-      .insert(schema.apiTokens)
-      .values({
-        tokenId: crypto.randomUUID(),
-        tenantId,
-        name: params.name,
-        tokenPrefix,
-        tokenHash,
-        scopes: params.scopes,
-        expiresAt: params.expiresAt ?? null,
-        createdBy: userId,
-        createdAt: new Date(),
-      })
-      .returning();
-
-    // 4. レスポンス（生トークン含む）
-    return {
-      tokenId: created.tokenId,
-      name: created.name,
-      token, // ⚠️ 作成時のみ
-      tokenPrefix: created.tokenPrefix,
-      scopes: created.scopes,
-      expiresAt: created.expiresAt,
-      createdAt: created.createdAt,
-      createdBy: created.createdBy,
-    };
-  });
-}
+// crypto.createHash('sha256').update(token).digest('hex')
+// SHA256ハッシュ（64文字の16進数）
 ```
 
-### APIルート実装例（簡略版）
+### 実装の流れ
 
-```typescript
-export async function action({ request }: ActionFunctionArgs) {
-  // 認証
-  const user = await requireAuth(request);
-
-  try {
-    // リクエストボディ解析
-    const body = await request.json();
-
-    // トークン作成
-    const tokenData = await createToken(user.tenantId, user.userId, body);
-
-    // 201 Created
-    return json(tokenData, { status: 201 });
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return json({ error: 'Validation failed' }, { status: 400 });
-    }
-    if (error.message?.includes('already exists')) {
-      return json({ error: 'Token name already exists' }, { status: 400 });
-    }
-    throw error;
-  }
-}
-```
+1. **バリデーション**: CreateTokenSchema.parse()で入力検証
+2. **トークン生成**: generateToken()で生トークン作成
+3. **ハッシュ化**: hashToken()でSHA256ハッシュ計算
+4. **DB保存**: withTenantContext()内でtoken_prefixとtoken_hashを保存
+5. **レスポンス**: 生トークンを含むレスポンスを返却（作成時のみ）
