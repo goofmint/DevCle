@@ -402,12 +402,29 @@ export async function verifyPluginToken(
     throw new Error('Invalid token encoding');
   }
 
-  // 2. Verify HMAC signature
+  // 2. Verify HMAC signature using constant-time comparison
   const hmac = crypto.createHmac('sha256', secret);
   hmac.update(payload);
   const expectedSignature = hmac.digest('hex');
 
-  if (providedSignature !== expectedSignature) {
+  // Convert both signatures to buffers for constant-time comparison
+  let providedBuffer: Buffer;
+  let expectedBuffer: Buffer;
+
+  try {
+    providedBuffer = Buffer.from(providedSignature, 'hex');
+    expectedBuffer = Buffer.from(expectedSignature, 'hex');
+  } catch {
+    throw new Error('Invalid token signature');
+  }
+
+  // Verify lengths match before comparing (timing-safe for length check)
+  if (providedBuffer.length !== expectedBuffer.length) {
+    throw new Error('Invalid token signature');
+  }
+
+  // Use constant-time comparison to prevent timing attacks
+  if (!crypto.timingSafeEqual(providedBuffer, expectedBuffer)) {
     throw new Error('Invalid token signature');
   }
 

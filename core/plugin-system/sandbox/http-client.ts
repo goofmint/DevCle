@@ -70,7 +70,7 @@ export class PluginHttpClient {
   constructor(config: HttpClientConfig) {
     this.baseUrl = config.baseUrl;
     this.pluginToken = config.pluginToken;
-    this.allowedDomains = config.allowedDomains;
+    this.allowedDomains = config.allowedDomains ?? [];
     this.fetch = config.fetch;
   }
 

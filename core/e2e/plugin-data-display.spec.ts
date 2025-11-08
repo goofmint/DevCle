@@ -457,30 +457,21 @@ test.describe('Plugin Data Display Page', () => {
     // Verify light mode has light background
     expect(lightBgColor).toMatch(/rgb\(255, 255, 255\)|transparent|rgba\(0, 0, 0, 0\)/);
 
-    // Switch to dark mode if toggle exists
-    const darkModeToggle = page.locator('button[aria-label*="theme"]').or(
-      page.locator('button:has-text("Dark")')
-    ).or(
-      page.locator('button[title*="dark"]')
-    );
+    // Switch to dark mode
+    const darkModeToggle = page.getByTestId('dark-mode-toggle');
+    await expect(darkModeToggle, 'Dark mode toggle must be present').toBeVisible();
 
-    const toggleCount = await darkModeToggle.count();
-    if (toggleCount > 0) {
-      await darkModeToggle.first().click();
-      await page.waitForTimeout(300);
+    await darkModeToggle.click();
+    await page.waitForTimeout(300);
 
-      // Test dark mode colors
-      const darkBgColor = await firstRow.evaluate((el) => {
-        return window.getComputedStyle(el).backgroundColor;
-      });
+    // Test dark mode colors
+    const darkBgColor = await firstRow.evaluate((el) => {
+      return window.getComputedStyle(el).backgroundColor;
+    });
 
-      // Verify dark mode has dark background or transparent (inherits from parent dark bg)
-      // Note: Tailwind 4.x uses OKLCH color space by default
-      expect(darkBgColor).toMatch(/oklch\(0\.\d+\s+[\d.]+\s+[\d.]+\)|rgb\((31|55), (41|65), (51|85)\)|transparent|rgba\(0, 0, 0, 0\)/);
-    } else {
-      // Dark mode toggle not implemented yet - test passes if light mode works
-      console.log('Dark mode toggle not found - skipping dark mode test');
-    }
+    // Verify dark mode has dark background or transparent (inherits from parent dark bg)
+    // Note: Tailwind 4.x uses OKLCH color space by default
+    expect(darkBgColor).toMatch(/oklch\(0\.\d+\s+[\d.]+\s+[\d.]+\)|rgb\((31|55), (41|65), (51|85)\)|transparent|rgba\(0, 0, 0, 0\)/);
   });
 
   /**

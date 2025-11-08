@@ -186,7 +186,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
       pluginId: pluginKey,
       pluginToken,
       baseUrl,
-      allowedDomains: manifest.capabilities.network,
+      allowedDomains: manifest.capabilities?.network ?? [],
       timeoutMs: (route.timeoutSec || 60) * 1000,
     });
 
