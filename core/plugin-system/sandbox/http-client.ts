@@ -77,14 +77,26 @@ export class PluginHttpClient {
   /**
    * Check if URL is internal API call
    *
-   * Internal API calls start with '/api/' or are relative paths.
+   * Internal API calls start with '/api/'.
    * These calls are authenticated with the plugin token.
    *
    * @param url - URL to check
    * @returns True if internal API call
    */
   private isInternalApi(url: string): boolean {
-    return url.startsWith('/api/') || url.startsWith('/');
+    // For relative URLs, check if it starts with /api/
+    if (url.startsWith('/')) {
+      return url.startsWith('/api/');
+    }
+
+    // For absolute URLs, parse and check pathname
+    try {
+      const parsed = new URL(url);
+      return parsed.pathname.startsWith('/api/');
+    } catch {
+      // Invalid URL format - treat as external
+      return false;
+    }
   }
 
   /**

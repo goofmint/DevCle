@@ -481,11 +481,31 @@ export async function verifyPluginToken(
   }
 
   // 5. Store nonce to prevent future replay
-  await db.insert(schema.pluginNonces).values({
-    tenantId,
-    pluginId,
-    nonce,
-  });
+  // Race condition: Another request might insert the same nonce between check and insert.
+  // Catch unique constraint violation and throw clean replay error.
+  try {
+    await db.insert(schema.pluginNonces).values({
+      tenantId,
+      pluginId,
+      nonce,
+    });
+  } catch (err: unknown) {
+    // Check if this is a unique constraint violation for (tenant_id, plugin_id, nonce)
+    // PostgreSQL error code 23505 = unique_violation
+    // Constraint name: plugin_nonces_tenant_plugin_nonce_unique
+    if (
+      err &&
+      typeof err === 'object' &&
+      'code' in err &&
+      err.code === '23505' &&
+      'constraint' in err &&
+      err.constraint === 'plugin_nonces_tenant_plugin_nonce_unique'
+    ) {
+      throw new Error('Token replay detected');
+    }
+    // Other DB errors should surface normally
+    throw err;
+  }
 
   // Return plugin auth context
   return {
