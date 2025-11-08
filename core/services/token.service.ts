@@ -80,6 +80,20 @@ export type TokenResponse = {
 };
 
 /**
+ * Token detail response type (without plain text token and internal fields)
+ *
+ * Excludes:
+ * - token: Plain text token (never stored in DB)
+ * - tokenHash: SHA256 hash for verification (internal use only)
+ */
+export type TokenDetail = Omit<
+  typeof schema.apiTokens.$inferSelect,
+  'tokenHash'
+> & {
+  status: 'active' | 'expired' | 'revoked';
+};
+
+/**
  * List API tokens with pagination and status filtering
  *
  * @param tenantId - Tenant ID for multi-tenant isolation
@@ -349,6 +363,82 @@ export async function createToken(
 
       console.error('Failed to create API token:', error);
       throw new Error('Failed to create API token in database');
+    }
+  });
+}
+
+/**
+ * Get API token detail by ID
+ *
+ * @param tenantId - Tenant ID for multi-tenant isolation
+ * @param tokenId - Token ID to retrieve
+ * @returns Token detail with computed status (excludes tokenHash)
+ * @throws {Error} If token not found or database error occurs
+ *
+ * Implementation:
+ * 1. Execute within withTenantContext() for RLS enforcement
+ * 2. Query api_tokens table by token_id and tenant_id
+ * 3. If not found, throw error "Token not found"
+ * 4. Compute status based on revoked_at and expires_at
+ * 5. Exclude tokenHash from response (destructure and omit)
+ * 6. Return token detail with status (without tokenHash)
+ *
+ * Security:
+ * - Never returns plain text token (only token_prefix)
+ * - Never returns tokenHash (internal verification secret)
+ * - RLS ensures tenant isolation
+ * - Status computed based on current timestamp
+ */
+export async function getToken(
+  tenantId: string,
+  tokenId: string
+): Promise<TokenDetail> {
+  return await withTenantContext(tenantId, async (tx) => {
+    try {
+      // Query token by token_id and tenant_id (RLS enforced via withTenantContext)
+      const [token] = await tx
+        .select()
+        .from(schema.apiTokens)
+        .where(
+          and(
+            eq(schema.apiTokens.tokenId, tokenId),
+            eq(schema.apiTokens.tenantId, tenantId)
+          )
+        );
+
+      // If not found, throw error
+      if (!token) {
+        throw new Error('Token not found');
+      }
+
+      // Compute status based on revoked_at and expires_at
+      let status: 'active' | 'expired' | 'revoked';
+
+      if (token.revokedAt !== null) {
+        status = 'revoked';
+      } else if (token.expiresAt !== null && token.expiresAt <= new Date()) {
+        status = 'expired';
+      } else {
+        status = 'active';
+      }
+
+      // Exclude tokenHash from response (security: internal verification secret)
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { tokenHash, ...tokenData } = token;
+
+      // Return token detail with status (without tokenHash)
+      return {
+        ...tokenData,
+        status,
+      };
+    } catch (error) {
+      // Re-throw "Token not found" error as-is
+      if (error instanceof Error && error.message === 'Token not found') {
+        throw error;
+      }
+
+      console.error('Failed to get API token:', error);
+      throw new Error('Failed to retrieve API token from database');
     }
   });
 }
