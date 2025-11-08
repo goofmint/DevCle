@@ -543,9 +543,12 @@ test.describe('Plugin Data Display Page', () => {
     await page.locator('[data-testid="status-filter-failed"]').check();
     await page.waitForTimeout(1000);
 
+    // Wait for failed events table to load and show at least one row
+    await page.waitForSelector('table tbody tr', { timeout: 5000 });
+
     // Click to view event detail
-    await page.locator('button:has-text("View Detail")').first().click();
-    await page.waitForSelector('[data-testid="reprocess-button"]', { timeout: 2000 });
+    await page.locator('button:has-text("View Detail")').first().click({ timeout: 10000 });
+    await page.waitForSelector('[data-testid="reprocess-button"]', { timeout: 5000 });
     await page.locator('[data-testid="reprocess-button"]').click();
 
     // Verify toast appears
