@@ -85,6 +85,9 @@ export async function action({ request, params }: ActionFunctionArgs)
 - 存在しないトークンのエラー処理
 - テナント分離（RLS）の検証
 - verifyToken()が即座に失敗することの確認
+- 無効化したトークンがlistTokens(status: 'active')に含まれないこと
+- 無効化したトークンがlistTokens(status: 'revoked')に含まれること
+- getToken()でstatus: 'revoked'になること
 
 #### APIルート層テスト（`core/app/routes/api.tokens_.$id.test.ts`）
 
@@ -94,6 +97,8 @@ export async function action({ request, params }: ActionFunctionArgs)
 - 401エラー（認証なし）
 - 405エラー（DELETE以外のメソッド）
 - テナント分離の検証
+- 無効化後、GET /api/tokens（一覧）でstatus: 'active'に含まれないこと
+- 無効化後、GET /api/tokens/:id（詳細）でstatus: 'revoked'になること
 
 ## データフロー
 
