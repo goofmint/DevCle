@@ -52,7 +52,7 @@ export function RevokeTokenDialog({
                 </h3>
                 <div className="mt-2">
                   <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Are you sure you want to revoke the token <strong className="text-gray-900 dark:text-gray-100">'{tokenName}'</strong>? Webhooks using this token will stop working.
+                    Are you sure you want to revoke the token <strong className="text-gray-900 dark:text-gray-100">'{tokenName ?? 'this token'}'</strong>? Webhooks using this token will stop working.
                   </p>
                 </div>
               </div>

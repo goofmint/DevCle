@@ -10,29 +10,13 @@
 
 import { Icon } from '@iconify/react';
 import { formatDistanceToNow } from 'date-fns';
-
-/**
- * Token Item Type
- */
-interface TokenItem {
-  tokenId: string;
-  tenantId: string;
-  name: string;
-  tokenPrefix: string;
-  scopes: string[];
-  lastUsedAt: Date | null;
-  expiresAt: Date | null;
-  createdBy: string;
-  createdAt: Date;
-  revokedAt: Date | null;
-  status: 'active' | 'expired' | 'revoked';
-}
+import type { PublicTokenItem } from '../../../services/token.service.js';
 
 /**
  * Props for TokenListTable component
  */
 interface TokenListTableProps {
-  tokens: TokenItem[];
+  tokens: PublicTokenItem[];
   onViewDetail: (tokenId: string) => void;
   onRevoke: (tokenId: string, tokenName: string) => void;
 }
@@ -137,7 +121,7 @@ export function TokenListTable({ tokens, onViewDetail, onRevoke }: TokenListTabl
                 </td>
                 <td className="px-6 py-4">
                   <div className="flex flex-wrap gap-1">
-                    {token.scopes.map((scope) => (
+                    {token.scopes.map((scope: string) => (
                       <span
                         key={scope}
                         className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400"

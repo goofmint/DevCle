@@ -179,15 +179,30 @@ describe('JobScheduler', () => {
         );
 
         // Add jobs with different priorities (lower number = higher priority)
-        // Add high priority first to ensure it's processed first
-        await scheduler.addJob(TEST_PLUGIN_ID, 'priority-job-1', { id: 'high' }, { priority: 1 });
-        await new Promise((resolve) => setTimeout(resolve, 100)); // Small delay between jobs
-        await scheduler.addJob(TEST_PLUGIN_ID, 'priority-job-1', { id: 'medium' }, { priority: 5 });
-        await new Promise((resolve) => setTimeout(resolve, 100));
-        await scheduler.addJob(TEST_PLUGIN_ID, 'priority-job-1', { id: 'low' }, { priority: 10 });
+        const highJobId = await scheduler.addJob(TEST_PLUGIN_ID, 'priority-job-1', { id: 'high' }, { priority: 1 });
+        const mediumJobId = await scheduler.addJob(TEST_PLUGIN_ID, 'priority-job-1', { id: 'medium' }, { priority: 5 });
+        const lowJobId = await scheduler.addJob(TEST_PLUGIN_ID, 'priority-job-1', { id: 'low' }, { priority: 10 });
 
-        // Wait for jobs to execute
-        await new Promise((resolve) => setTimeout(resolve, 5000));
+        // Wait for all jobs to complete by checking their status
+        const waitForCompletion = async (jobId: string) => {
+          let attempts = 0;
+          const maxAttempts = 50; // 5 seconds total (50 * 100ms)
+          while (attempts < maxAttempts) {
+            const status = await scheduler.getJobStatus(TEST_PLUGIN_ID, 'priority-job-1', jobId);
+            if (status?.state === 'completed' || status?.state === 'failed') {
+              return;
+            }
+            await new Promise((resolve) => setTimeout(resolve, 100));
+            attempts++;
+          }
+          throw new Error(`Job ${jobId} did not complete within timeout`);
+        };
+
+        await Promise.all([
+          waitForCompletion(highJobId),
+          waitForCompletion(mediumJobId),
+          waitForCompletion(lowJobId),
+        ]);
 
         // Jobs should execute in priority order
         expect(executionOrder).toEqual(['high', 'medium', 'low']);
