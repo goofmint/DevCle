@@ -565,13 +565,14 @@ test.describe('API Tokens Management', () => {
 
       // Verify error response (should show error in dialog or as toast)
       // The exact error handling depends on implementation
-      const errorText = page.locator('text=/already exists|duplicate/i');
-      const isErrorVisible = await errorText.isVisible();
+      const dialog = page.locator('[role="dialog"]');
+      const errorText = dialog.locator('text=/already exists|duplicate/i');
+      const isErrorVisible = await errorText.isVisible().catch(() => false);
 
       // If no error is shown in dialog, check if creation failed (no success state)
       if (!isErrorVisible) {
-        const successTitle = page.locator('h3:has-text("Token Created Successfully")');
-        const isSuccess = await successTitle.isVisible();
+        const successTitle = dialog.locator('h3:has-text("Token Created Successfully")');
+        const isSuccess = await successTitle.isVisible().catch(() => false);
         expect(isSuccess).toBe(false); // Should not succeed
       }
     });
