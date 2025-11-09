@@ -1222,24 +1222,24 @@ Task 8.15で実装したWebhook受信は`auth: "public"`で認証なしだが、
 
 **実装内容:**
 
-- [ ] サービス層実装（`core/services/token.service.ts`に追加）
+- [x] サービス層実装（`core/services/token.service.ts`に追加）
   - `generateToken()`: トークン生成（形式: `drowltok_<32文字ランダム>`）
   - `hashToken()`: SHA256ハッシュ計算
   - `createToken()`: トークン作成（token_prefixとtoken_hashを保存、生トークンを返却）
   - Zod スキーマ（CreateTokenSchema）
 
-- [ ] API実装（`core/app/routes/api.tokens.ts`に追加）
+- [x] API実装（`core/app/routes/api.tokens.ts`に追加）
   - `POST /api/tokens`: トークン作成
     - リクエスト: `{ name, scopes, expiresAt? }`
     - レスポンス: `{ tokenId, name, token, tokenPrefix, scopes, createdAt, expiresAt }`
     - **注意**: 生トークン（`token`フィールド）は作成時のみ返却
   - 認証: `requireAuth()`（ログインユーザーのみ）
 
-- [ ] 単体テスト作成（Vitest）
+- [x] 単体テスト作成（Vitest）
   - `services/token.service.test.ts`: generateToken(), hashToken(), createToken()のテスト
   - `app/routes/api.tokens.test.ts`: POST /api/tokensのテスト
 
-- **完了条件**: トークン作成APIが実装され、テストがパスする
+- **完了条件**: トークン作成APIが実装され、テストがパスする ✅
 - **依存**: Task 8.16
 - **推定時間**: 2 時間
 - **注意**:

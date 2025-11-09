@@ -52,8 +52,8 @@ import * as schema from './schema/index.js';
 try {
   const isTestEnv = process.env['NODE_ENV'] === 'test';
   const envFileName = isTestEnv ? '.env.test' : '.env';
-  // seed.ts is in /workspace/core/db/, so go up 2 levels to /workspace/
-  const envPath = resolve(import.meta.dirname || __dirname, '..', '..', envFileName);
+  // seed.ts is in /workspace/core/db/, so go up 1 level to /workspace/core/
+  const envPath = resolve(import.meta.dirname || __dirname, '..', envFileName);
   const envFile = readFileSync(envPath, 'utf-8');
 
   envFile.split('\n').forEach(line => {
