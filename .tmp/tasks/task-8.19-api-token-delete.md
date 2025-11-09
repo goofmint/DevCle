@@ -50,11 +50,8 @@ export async function revokeToken(
 **処理内容:**
 - withTenantContext()内でUPDATE api_tokens SET revoked_at = NOW()を実行
 - WHERE条件: token_id = $1 AND tenant_id = $2 AND revoked_at IS NULL
-- RETURNINGで結果確認
-  - 空配列の場合: トークンが存在するか確認（SELECT）
-    - 存在しない → "Token not found"エラー
-    - 存在する（既に無効化済み） → 成功（voidを返す）
-- 冪等性: 既に無効化済みの場合、revoked_atを変更せず成功を返す
+- RETURNINGの結果に関わらず、常に成功（voidを返す）
+- 冪等性: トークンが存在しない、または既に無効化済みでも200成功を返す（情報漏洩防止）
 
 ### 2. APIルート層（`core/app/routes/api.tokens_.$id.ts`）
 
@@ -75,9 +72,10 @@ export async function action({ request, params }: ActionFunctionArgs)
 
 **エラーレスポンス:**
 - 401: Unauthorized
-- 404: Token not found
 - 405: Method not allowed
 - 500: Failed to revoke API token
+
+**注意**: トークンが存在しない場合も200を返す（情報漏洩防止）
 
 ### 3. テスト
 
@@ -86,9 +84,11 @@ export async function action({ request, params }: ActionFunctionArgs)
 - 有効なトークンの無効化
 - 冪等性（既に無効化済みのトークンの再無効化）
   - revoked_atが変更されないこと
-  - エラーが発生しないこと
-- 存在しないトークンのエラー処理
+  - エラーが発生しないこと（成功を返す）
+- 存在しないトークンの処理
+  - エラーが発生しないこと（成功を返す、情報漏洩防止）
 - テナント分離（RLS）の検証
+  - 他テナントのトークンでも成功を返す（情報漏洩防止）
 - verifyToken()が即座に失敗することの確認
 - 無効化したトークンがlistTokens(status: 'active')に含まれないこと
 - 無効化したトークンがlistTokens(status: 'revoked')に含まれること
@@ -97,11 +97,11 @@ export async function action({ request, params }: ActionFunctionArgs)
 #### APIルート層テスト（`core/app/routes/api.tokens_.$id.test.ts`）
 
 - 200 OK（success: true）
-- 冪等性確認
-- 404エラー（存在しないトークン）
+- 冪等性確認（既に無効化済みでも200成功）
+- 存在しないトークンでも200成功（情報漏洩防止）
 - 401エラー（認証なし）
 - 405エラー（DELETE以外のメソッド）
-- テナント分離の検証
+- 他テナントのトークンでも200成功（情報漏洩防止）
 - 無効化後、GET /api/tokens（一覧）でstatus: 'active'に含まれないこと
 - 無効化後、GET /api/tokens/:id（詳細）でstatus: 'revoked'になること
 
@@ -126,15 +126,16 @@ export async function action({ request, params }: ActionFunctionArgs)
 - 物理削除（DELETE）ではなく論理削除（UPDATE revoked_at）
 - 監査証跡を保持するため
 
-### 冪等性
+### 冪等性と情報漏洩防止
 
 - WHERE条件に`revoked_at IS NULL`を含める
-- UPDATEで影響行数が0の場合、SELECTでトークン存在確認
-  - トークンが存在しない → 404エラー
-  - トークンが存在する（既に無効化済み） → 200 成功（revoked_atは変更しない）
-- 既に無効化済みのトークンを再度無効化してもエラーにならない
+- UPDATEの結果に関わらず、常に200成功を返す
+  - トークンが存在しない → 200成功（404を返すと存在を漏らす）
+  - 既に無効化済み → 200成功（revoked_atは変更しない）
+  - 他テナントのトークン → 200成功（存在を漏らさない）
 - revoked_atの日時は最初の無効化時のまま保持される（監査証跡の正確性）
 - UIでの二重クリック対策、リトライ処理での安全性確保
+- トークンIDの存在を推測されないようにする（セキュリティ）
 
 ### RLS
 
