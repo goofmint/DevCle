@@ -162,31 +162,53 @@ describe('JobScheduler', () => {
       ).rejects.toThrow(/not registered/);
     });
 
-    it('should add job with priority', async () => {
-      let executionOrder: string[] = [];
+    it(
+      'should add job with priority',
+      async () => {
+        let executionOrder: string[] = [];
 
-      // Register job
-      await scheduler.registerJob(
-        TEST_PLUGIN_ID,
-        'priority-job-1',
-        async (_ctx, job) => {
-          const jobData = job.data as { pluginId: string; tenantId: string; data: { id: string } };
-          executionOrder.push(jobData.data.id);
-        },
-        TEST_TENANT_ID
-      );
+        // Register job
+        await scheduler.registerJob(
+          TEST_PLUGIN_ID,
+          'priority-job-1',
+          async (_ctx, job) => {
+            const jobData = job.data as { pluginId: string; tenantId: string; data: { id: string } };
+            executionOrder.push(jobData.data.id);
+          },
+          TEST_TENANT_ID
+        );
 
-      // Add jobs with different priorities (lower number = higher priority)
-      await scheduler.addJob(TEST_PLUGIN_ID, 'priority-job-1', { id: 'low' }, { priority: 10 });
-      await scheduler.addJob(TEST_PLUGIN_ID, 'priority-job-1', { id: 'high' }, { priority: 1 });
-      await scheduler.addJob(TEST_PLUGIN_ID, 'priority-job-1', { id: 'medium' }, { priority: 5 });
+        // Add jobs with different priorities (lower number = higher priority)
+        const highJobId = await scheduler.addJob(TEST_PLUGIN_ID, 'priority-job-1', { id: 'high' }, { priority: 1 });
+        const mediumJobId = await scheduler.addJob(TEST_PLUGIN_ID, 'priority-job-1', { id: 'medium' }, { priority: 5 });
+        const lowJobId = await scheduler.addJob(TEST_PLUGIN_ID, 'priority-job-1', { id: 'low' }, { priority: 10 });
 
-      // Wait for jobs to execute
-      await new Promise((resolve) => setTimeout(resolve, 3000));
+        // Wait for all jobs to complete by checking their status
+        const waitForCompletion = async (jobId: string) => {
+          let attempts = 0;
+          const maxAttempts = 50; // 5 seconds total (50 * 100ms)
+          while (attempts < maxAttempts) {
+            const status = await scheduler.getJobStatus(TEST_PLUGIN_ID, 'priority-job-1', jobId);
+            if (status?.state === 'completed' || status?.state === 'failed') {
+              return;
+            }
+            await new Promise((resolve) => setTimeout(resolve, 100));
+            attempts++;
+          }
+          throw new Error(`Job ${jobId} did not complete within timeout`);
+        };
 
-      // Jobs should execute in priority order
-      expect(executionOrder).toEqual(['high', 'medium', 'low']);
-    });
+        await Promise.all([
+          waitForCompletion(highJobId),
+          waitForCompletion(mediumJobId),
+          waitForCompletion(lowJobId),
+        ]);
+
+        // Jobs should execute in priority order
+        expect(executionOrder).toEqual(['high', 'medium', 'low']);
+      },
+      10000
+    );
   });
 
   describe('getJobStatus', () => {

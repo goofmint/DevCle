@@ -42,6 +42,12 @@ export type TokenItem = typeof schema.apiTokens.$inferSelect & {
 };
 
 /**
+ * Public token item type (excludes sensitive tokenHash field)
+ * Used for API responses and UI display
+ */
+export type PublicTokenItem = Omit<TokenItem, 'tokenHash'>;
+
+/**
  * Zod schema for creating a new API token
  *
  * Validates input for token creation endpoint.

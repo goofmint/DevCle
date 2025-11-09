@@ -41,6 +41,7 @@
     "@zunicornshift/mui-iconify-picker": "^0.3.1",
     "bcryptjs": "^3.0.2",
     "bullmq": "^5.36.1",
+    "date-fns": "^4.1.0",
     "drizzle-orm": "^0.44.6",
     "drowl-plugin-test": "file:../plugins/drowl-plugin-test",
     "gridstack": "^12.3.3",
