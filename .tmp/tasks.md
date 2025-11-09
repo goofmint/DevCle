@@ -1248,23 +1248,23 @@ Task 8.15で実装したWebhook受信は`auth: "public"`で認証なしだが、
   - 作成時のみ生トークンを返す（再表示不可）
   - 重複名エラー: Unique constraint違反 → 400エラー
 
-### Task 8.18: APIトークン詳細取得APIの実装
+### Task 8.18: APIトークン詳細取得APIの実装 ✅
 
 `GET /api/tokens/:id`エンドポイントを実装する。
 
 **実装内容:**
 
-- [ ] サービス層実装（`core/services/token.service.ts`に追加）
+- [x] サービス層実装（`core/services/token.service.ts`に追加）
   - `getToken()`: トークン詳細取得
 
-- [ ] API実装（`core/app/routes/api.tokens_.$id.ts`作成）
+- [x] API実装（`core/app/routes/api.tokens_.$id.ts`作成）
   - `GET /api/tokens/:id`: トークン詳細取得
     - レスポンス: `{ tokenId, name, tokenPrefix, scopes, lastUsedAt, expiresAt, createdAt, createdBy, revokedAt, status }`
     - **注意**: 生トークンは含まない
   - 認証: `requireAuth()`（ログインユーザーのみ）
   - 存在しないトークン: 404エラー
 
-- [ ] 単体テスト作成（Vitest）
+- [x] 単体テスト作成（Vitest）
   - `services/token.service.test.ts`: getToken()のテスト
   - `app/routes/api.tokens_.$id.test.ts`: GET /api/tokens/:idのテスト
 
