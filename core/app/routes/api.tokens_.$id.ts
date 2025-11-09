@@ -1,7 +1,7 @@
 /**
  * API Token Detail API - Resource Route
  *
- * Provides RESTful API for retrieving individual API token details (Task 8.18).
+ * Provides RESTful API for managing individual API tokens (Tasks 8.18-8.19).
  * Uses Token Service for business logic.
  *
  * Architecture:
@@ -12,11 +12,12 @@
  *
  * Endpoints:
  * - GET    /api/tokens/:id  - Get API token detail by ID (Task 8.18)
+ * - DELETE /api/tokens/:id  - Revoke API token (Task 8.19)
  */
 
-import { json, type LoaderFunctionArgs } from '@remix-run/node';
+import { json, type LoaderFunctionArgs, type ActionFunctionArgs } from '@remix-run/node';
 import { requireAuth } from '~/auth.middleware.js';
-import { getToken } from '../../services/token.service.js';
+import { getToken, revokeToken } from '../../services/token.service.js';
 
 /**
  * GET /api/tokens/:id - Get API token detail
@@ -95,6 +96,81 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
     // Handle unexpected errors (shouldn't happen, but just in case)
     console.error('Unexpected error in GET /api/tokens/:id:', error);
+    return json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+/**
+ * DELETE /api/tokens/:id - Revoke API token (logical delete)
+ *
+ * URL Parameters:
+ * - id: Token ID (UUID format)
+ *
+ * Response:
+ * 200 OK
+ * {
+ *   success: true
+ * }
+ *
+ * Error Responses:
+ * - 401 Unauthorized: Missing or invalid authentication
+ * - 405 Method Not Allowed: HTTP method is not DELETE
+ * - 500 Internal Server Error: Database error
+ *
+ * Security & Idempotency:
+ * - Always returns 200 success (never 404), even if:
+ *   - Token doesn't exist (prevents information leakage)
+ *   - Token already revoked (idempotency)
+ *   - Token belongs to different tenant (prevents information leakage)
+ * - Logical delete only (sets revoked_at, preserves audit trail)
+ * - revoked_at timestamp is immutable (first revocation time preserved)
+ * - RLS ensures tenant isolation
+ */
+export async function action({ request, params }: ActionFunctionArgs) {
+  try {
+    // 1. Verify HTTP method is DELETE (action handles POST/PUT/PATCH/DELETE)
+    if (request.method !== 'DELETE') {
+      return json({ error: 'Method not allowed' }, { status: 405 });
+    }
+
+    // 2. Authentication check using requireAuth middleware
+    // This throws a redirect to /login if not authenticated
+    const user = await requireAuth(request);
+    const tenantId = user.tenantId;
+
+    // 3. Validate URL parameter
+    const tokenId = params['id'];
+    if (!tokenId) {
+      return json({ error: 'Token ID is required' }, { status: 400 });
+    }
+
+    // 4. Call service layer to revoke token
+    // Service always succeeds (no throws) for idempotency and information leakage prevention
+    await revokeToken(tenantId, tokenId);
+
+    // 5. Return success response
+    // Always 200, even if token doesn't exist or already revoked
+    return json({ success: true }, { status: 200 });
+  } catch (error) {
+    // Handle errors and return appropriate HTTP status codes
+
+    // Handle requireAuth() redirect (API should return 401 instead of redirect)
+    // requireAuth() throws a Response with status 302 when user is not authenticated
+    if (error instanceof Response && error.status === 302) {
+      return json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Handle service layer errors (database errors - shouldn't happen as service catches all)
+    if (error instanceof Error) {
+      // Log detailed error for debugging
+      console.error('Failed to revoke API token:', error);
+
+      // Return generic error message to client (don't expose internal details)
+      return json({ error: 'Failed to revoke API token' }, { status: 500 });
+    }
+
+    // Handle unexpected errors (shouldn't happen, but just in case)
+    console.error('Unexpected error in DELETE /api/tokens/:id:', error);
     return json({ error: 'Internal server error' }, { status: 500 });
   }
 }
