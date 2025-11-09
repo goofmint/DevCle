@@ -149,6 +149,7 @@ export function TokenListTable({ tokens, onViewDetail, onRevoke }: TokenListTabl
                       onClick={() => onViewDetail(token.tokenId)}
                       className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
                       title="View details"
+                      aria-label="View details"
                     >
                       <Icon icon="mdi:eye" className="w-5 h-5" />
                     </button>
@@ -158,6 +159,7 @@ export function TokenListTable({ tokens, onViewDetail, onRevoke }: TokenListTabl
                         onClick={() => onRevoke(token.tokenId, token.name)}
                         className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
                         title="Revoke token"
+                        aria-label={`Revoke token ${token.name}`}
                       >
                         <Icon icon="mdi:cancel" className="w-5 h-5" />
                       </button>
