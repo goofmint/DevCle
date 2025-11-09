@@ -104,13 +104,15 @@ export async function loader({ request }: LoaderFunctionArgs) {
     const perPage = parseInt(url.searchParams.get('perPage') || '20', 10);
 
     // 3. Build API URL with query parameters
-    const apiUrl = new URL('/api/tokens', url.origin);
-    apiUrl.searchParams.set('status', status);
-    apiUrl.searchParams.set('page', page.toString());
-    apiUrl.searchParams.set('perPage', perPage.toString());
+    const apiParams = new URLSearchParams();
+    apiParams.set('status', status);
+    apiParams.set('page', page.toString());
+    apiParams.set('perPage', perPage.toString());
 
-    // 4. Fetch tokens from API
-    const response = await fetch(apiUrl.toString(), {
+    // 4. Fetch tokens from API (use BASE_URL for server-side fetch, fallback to request origin)
+    const baseUrl = process.env['BASE_URL'] || url.origin;
+    const apiUrl = `/api/tokens?${apiParams.toString()}`;
+    const response = await fetch(new URL(apiUrl, baseUrl).toString(), {
       headers: {
         Cookie: request.headers.get('Cookie') || '',
       },
@@ -176,7 +178,9 @@ export async function action({ request }: ActionFunctionArgs) {
       const scopes = scopesStr ? scopesStr.split(',') : [];
       const expiresAt = expiresAtStr ? new Date(expiresAtStr) : undefined;
 
-      const response = await fetch(new URL('/api/tokens', request.url).toString(), {
+      const url = new URL(request.url);
+      const baseUrl = process.env['BASE_URL'] || url.origin;
+      const response = await fetch(new URL('/api/tokens', baseUrl).toString(), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -205,7 +209,9 @@ export async function action({ request }: ActionFunctionArgs) {
       // Revoke token
       const tokenId = formData.get('tokenId') as string;
 
-      const response = await fetch(new URL(`/api/tokens/${tokenId}`, request.url).toString(), {
+      const url = new URL(request.url);
+      const baseUrl = process.env['BASE_URL'] || url.origin;
+      const response = await fetch(new URL(`/api/tokens/${tokenId}`, baseUrl).toString(), {
         method: 'DELETE',
         headers: {
           Cookie: request.headers.get('Cookie') || '',

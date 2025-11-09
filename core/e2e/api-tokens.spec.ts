@@ -80,8 +80,11 @@ test.describe('API Tokens Management', () => {
       await navigateToTokensSettings(page);
       await page.click('button:has-text("Create Token")');
 
-      // Submit empty form
-      await page.click('button:has-text("Create Token")');
+      // Wait for dialog to be visible
+      await expect(page.locator('h3:has-text("Create API Token")')).toBeVisible();
+
+      // Submit empty form (click the Create Token button inside the dialog)
+      await page.locator('form button[type="submit"]:has-text("Create Token")').click();
 
       // Check for validation errors
       await expect(page.locator('text=Name is required')).toBeVisible();
@@ -137,8 +140,9 @@ test.describe('API Tokens Management', () => {
       // Verify warning message is displayed
       await expect(page.locator('text=This token will only be shown once')).toBeVisible();
 
-      // Verify token is displayed (starts with "drowltok_")
-      const tokenElement = page.locator('code').filter({ hasText: 'drowltok_' });
+      // Verify token is displayed (starts with "drowltok_") - look in dialog only
+      const dialog = page.locator('[role="dialog"]');
+      const tokenElement = dialog.locator('code').filter({ hasText: 'drowltok_' });
       await expect(tokenElement).toBeVisible();
 
       const tokenText = await tokenElement.textContent();
@@ -158,11 +162,12 @@ test.describe('API Tokens Management', () => {
 
       await page.waitForTimeout(1000);
 
-      // Get token text
-      const tokenText = await page.locator('code').filter({ hasText: 'drowltok_' }).textContent();
+      // Get token text from dialog
+      const dialog = page.locator('[role="dialog"]');
+      const tokenText = await dialog.locator('code').filter({ hasText: 'drowltok_' }).textContent();
 
-      // Click copy button
-      await page.click('button[title="Copy to clipboard"]');
+      // Click copy button in dialog
+      await dialog.locator('button[title="Copy to clipboard"]').click();
 
       // Verify "Copied to clipboard!" message appears
       await expect(page.locator('text=Copied to clipboard!')).toBeVisible();
@@ -218,9 +223,11 @@ test.describe('API Tokens Management', () => {
 
     test('should verify dark mode and light mode color contrast in dialog', async ({ page }) => {
       await navigateToTokensSettings(page);
-      await page.click('button:has-text("Create Token")');
 
-      // Check light mode contrast
+      // Check light mode - open dialog
+      await page.click('button:has-text("Create Token")');
+      await page.waitForTimeout(300);
+
       const dialogTitle = page.locator('h3:has-text("Create API Token")');
       const lightTitleColor = await dialogTitle.evaluate((el) =>
         window.getComputedStyle(el).color
@@ -238,9 +245,18 @@ test.describe('API Tokens Management', () => {
       const lightContrast = getContrastRatio(lightTitleColor, lightBgColor);
       expect(lightContrast).toBeGreaterThan(4.5); // WCAG AA standard
 
+      // Close dialog to access dark mode toggle
+      await page.click('button:has-text("Cancel")');
+      await page.waitForTimeout(300);
+
       // Switch to dark mode
-      await page.locator('button[aria-label="Toggle dark mode"]').click();
+      const darkModeToggle = page.locator('button[data-testid="dark-mode-toggle"]');
+      await darkModeToggle.click();
       await page.waitForTimeout(500);
+
+      // Reopen dialog in dark mode
+      await page.click('button:has-text("Create Token")');
+      await page.waitForTimeout(300);
 
       // Check dark mode contrast
       const darkTitleColor = await dialogTitle.evaluate((el) =>

@@ -238,7 +238,6 @@ export function CreateTokenDialog({
                           id="token-expires-at"
                           value={expiresAt}
                           onChange={(e) => setExpiresAt(e.target.value)}
-                          min={new Date().toISOString().split('T')[0]}
                           className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${
                             errors['expiresAt']
                               ? 'border-red-300 dark:border-red-600 focus:border-red-500 focus:ring-red-500'
