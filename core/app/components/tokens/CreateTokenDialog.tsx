@@ -196,11 +196,11 @@ export function CreateTokenDialog({
                           id="token-name"
                           value={name}
                           onChange={(e) => setName(e.target.value)}
-                          className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${
+                          className={`mt-1 block w-full rounded-md border shadow-sm sm:text-sm px-3 py-2 ${
                             errors['name']
                               ? 'border-red-300 dark:border-red-600 focus:border-red-500 focus:ring-red-500'
                               : 'border-gray-300 dark:border-gray-600 focus:border-blue-500 focus:ring-blue-500'
-                          } dark:bg-gray-700 dark:text-gray-100`}
+                          } bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100`}
                           placeholder="e.g., Production Webhook"
                           maxLength={100}
                         />
@@ -238,11 +238,11 @@ export function CreateTokenDialog({
                           id="token-expires-at"
                           value={expiresAt}
                           onChange={(e) => setExpiresAt(e.target.value)}
-                          className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${
+                          className={`mt-1 block w-full rounded-md border shadow-sm sm:text-sm px-3 py-2 ${
                             errors['expiresAt']
                               ? 'border-red-300 dark:border-red-600 focus:border-red-500 focus:ring-red-500'
                               : 'border-gray-300 dark:border-gray-600 focus:border-blue-500 focus:ring-blue-500'
-                          } dark:bg-gray-700 dark:text-gray-100`}
+                          } bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100`}
                         />
                         {errors['expiresAt'] && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors['expiresAt']}</p>}
                       </div>
@@ -252,13 +252,13 @@ export function CreateTokenDialog({
               </div>
             </div>
 
-            <div className="bg-gray-50 dark:bg-gray-900 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6 gap-2">
+            <div className="bg-gray-50 dark:bg-gray-900 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6 gap-3 border-t border-gray-200 dark:border-gray-700">
               {createdToken ? (
                 // Close button after token created
                 <button
                   type="button"
                   onClick={onClose}
-                  className="inline-flex w-full justify-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 sm:w-auto"
+                  className="inline-flex w-full justify-center rounded-md px-4 py-2 text-sm font-medium text-white bg-blue-600 dark:bg-blue-700 hover:bg-blue-700 dark:hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:w-auto"
                 >
                   Close
                 </button>
@@ -268,7 +268,7 @@ export function CreateTokenDialog({
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="inline-flex w-full justify-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="inline-flex w-full justify-center rounded-md px-4 py-2 text-sm font-medium text-white bg-blue-600 dark:bg-blue-700 hover:bg-blue-700 dark:hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isSubmitting ? 'Creating...' : 'Create Token'}
                   </button>
@@ -276,7 +276,7 @@ export function CreateTokenDialog({
                     type="button"
                     onClick={onClose}
                     disabled={isSubmitting}
-                    className="mt-3 inline-flex w-full justify-center rounded-md bg-white dark:bg-gray-700 px-3 py-2 text-sm font-semibold text-gray-900 dark:text-gray-100 shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 sm:mt-0 sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="mt-3 inline-flex w-full justify-center rounded-md px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Cancel
                   </button>

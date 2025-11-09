@@ -403,7 +403,7 @@ export default function APITokensPage() {
       {/* Action Bar */}
       <div className="mb-6 flex justify-between items-center">
         {/* Filter */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <label htmlFor="status-filter" className="text-sm font-medium text-gray-700 dark:text-gray-300">
             Status:
           </label>
@@ -411,7 +411,7 @@ export default function APITokensPage() {
             id="status-filter"
             value={loaderData.status}
             onChange={(e) => handleStatusChange(e.target.value)}
-            className="block w-40 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+            className="block w-40 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm py-2 px-3"
           >
             <option value="all">All</option>
             <option value="active">Active</option>
@@ -424,7 +424,7 @@ export default function APITokensPage() {
         <button
           type="button"
           onClick={handleCreateClick}
-          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-900"
+          className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 dark:bg-blue-700 rounded-md hover:bg-blue-700 dark:hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
         >
           <Icon icon="mdi:plus" className="w-5 h-5 mr-2" />
           Create Token
