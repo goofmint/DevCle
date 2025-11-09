@@ -1310,7 +1310,7 @@ Task 8.15で実装したWebhook受信は`auth: "public"`で認証なしだが、
 
 **実装内容:**
 
-- [ ] トークン一覧ページ実装（`app/routes/dashboard.settings.api-tokens._index.tsx`）
+- [x] トークン一覧ページ実装（`app/routes/dashboard.settings.api-tokens._index.tsx`）
   - トークン一覧表示
     - 列: Name, Token Prefix, Scopes, Last Used, Expires At, Created At, Status, Actions
     - Status: Active / Expired / Revoked
@@ -1319,7 +1319,7 @@ Task 8.15で実装したWebhook受信は`auth: "public"`で認証なしだが、
   - ページネーション
   - 新規作成ボタン
 
-- [ ] トークン作成ダイアログ実装（`CreateTokenDialog`）
+- [x] トークン作成ダイアログ実装（`CreateTokenDialog`）
   - 入力項目:
     - Name（必須、説明的な名前）
     - Scopes（チェックボックス、例: webhook:write, api:read）
@@ -1331,28 +1331,28 @@ Task 8.15で実装したWebhook受信は`auth: "public"`で認証なしだが、
     - Name: 1-100文字、重複チェック
     - Scopes: 最低1つ選択必須
 
-- [ ] トークン詳細ダイアログ実装（`TokenDetailDialog`）
+- [x] トークン詳細ダイアログ実装（`TokenDetailDialog`）
   - 表示項目:
     - Name, Token Prefix, Scopes, Last Used At, Expires At, Created At, Created By
     - Status（Active/Expired/Revoked）
   - アクション:
     - Revoke Token（確認ダイアログ付き）
 
-- [ ] トークン無効化確認ダイアログ実装（`RevokeTokenDialog`）
+- [x] トークン無効化確認ダイアログ実装（`RevokeTokenDialog`）
   - 警告メッセージ: "このトークンを使用しているWebhookは動作しなくなります"
   - 確認ボタン: "Revoke Token"
 
-- [ ] システム設定メニューに追加
+- [x] システム設定メニューに追加
   - `app/routes/dashboard.settings.tsx`にタブ追加: "API Tokens"
 
-- [ ] E2E テスト作成（`e2e/api-tokens.spec.ts`）
+- [x] E2E テスト作成（`e2e/api-tokens.spec.ts`）
   - トークン作成フロー（10 tests）
   - トークン一覧表示（3 tests）
   - トークン詳細表示（3 tests）
   - トークン無効化（3 tests）
   - バリデーション（5 tests）
 
-- **完了条件**: APIトークン管理UIが動作し、E2Eテストがパスする
+- **完了条件**: APIトークン管理UIが動作し、E2Eテストがパスする ✅
 - **依存**: Task 8.19
 - **推定時間**: 4 時間
 - **注意**:
@@ -1367,11 +1367,11 @@ Task 8.15で実装したWebhook受信は`auth: "public"`で認証なしだが、
 
 ### Task 9.1: Google Analytics Plugin 初期化
 
-- [ ] `plugins/google_analytics/package.json`作成
-- [ ] `plugins/google_analytics/src/index.ts`作成
-- [ ] `definePlugin()`でプラグイン定義
-- [ ] Google Analytics SDK インストール
-- **完了条件**: プラグインがビルドできる
+- [x] `plugins/google_analytics/package.json`作成
+- [x] `plugins/google_analytics/src/index.ts`作成
+- [x] `definePlugin()`でプラグイン定義
+- [x] Google Analytics SDK インストール
+- **完了条件**: プラグインがビルドできる ✅（詳細設計完了）
 - **依存**: Task 8.1
 - **推定時間**: 2 時間
 
