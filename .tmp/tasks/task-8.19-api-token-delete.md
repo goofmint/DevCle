@@ -49,9 +49,12 @@ export async function revokeToken(
 
 **処理内容:**
 - withTenantContext()内でUPDATE api_tokens SET revoked_at = NOW()を実行
-- WHERE条件: token_id = $1 AND tenant_id = $2
-- RETURNINGで結果確認。空配列なら"Token not found"エラー
-- 既に無効化済みでもエラーにしない（冪等性）
+- WHERE条件: token_id = $1 AND tenant_id = $2 AND revoked_at IS NULL
+- RETURNINGで結果確認
+  - 空配列の場合: トークンが存在するか確認（SELECT）
+    - 存在しない → "Token not found"エラー
+    - 存在する（既に無効化済み） → 成功（voidを返す）
+- 冪等性: 既に無効化済みの場合、revoked_atを変更せず成功を返す
 
 ### 2. APIルート層（`core/app/routes/api.tokens_.$id.ts`）
 
@@ -82,6 +85,8 @@ export async function action({ request, params }: ActionFunctionArgs)
 
 - 有効なトークンの無効化
 - 冪等性（既に無効化済みのトークンの再無効化）
+  - revoked_atが変更されないこと
+  - エラーが発生しないこと
 - 存在しないトークンのエラー処理
 - テナント分離（RLS）の検証
 - verifyToken()が即座に失敗することの確認
@@ -123,8 +128,12 @@ export async function action({ request, params }: ActionFunctionArgs)
 
 ### 冪等性
 
-- 既に無効化済みのトークンも再度無効化可能
-- WHERE条件に`revoked_at IS NULL`を含めない
+- WHERE条件に`revoked_at IS NULL`を含める
+- UPDATEで影響行数が0の場合、SELECTでトークン存在確認
+  - トークンが存在しない → 404エラー
+  - トークンが存在する（既に無効化済み） → 200 成功（revoked_atは変更しない）
+- 既に無効化済みのトークンを再度無効化してもエラーにならない
+- revoked_atの日時は最初の無効化時のまま保持される（監査証跡の正確性）
 - UIでの二重クリック対策、リトライ処理での安全性確保
 
 ### RLS
