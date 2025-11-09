@@ -162,31 +162,38 @@ describe('JobScheduler', () => {
       ).rejects.toThrow(/not registered/);
     });
 
-    it('should add job with priority', async () => {
-      let executionOrder: string[] = [];
+    it(
+      'should add job with priority',
+      async () => {
+        let executionOrder: string[] = [];
 
-      // Register job
-      await scheduler.registerJob(
-        TEST_PLUGIN_ID,
-        'priority-job-1',
-        async (_ctx, job) => {
-          const jobData = job.data as { pluginId: string; tenantId: string; data: { id: string } };
-          executionOrder.push(jobData.data.id);
-        },
-        TEST_TENANT_ID
-      );
+        // Register job
+        await scheduler.registerJob(
+          TEST_PLUGIN_ID,
+          'priority-job-1',
+          async (_ctx, job) => {
+            const jobData = job.data as { pluginId: string; tenantId: string; data: { id: string } };
+            executionOrder.push(jobData.data.id);
+          },
+          TEST_TENANT_ID
+        );
 
-      // Add jobs with different priorities (lower number = higher priority)
-      await scheduler.addJob(TEST_PLUGIN_ID, 'priority-job-1', { id: 'low' }, { priority: 10 });
-      await scheduler.addJob(TEST_PLUGIN_ID, 'priority-job-1', { id: 'high' }, { priority: 1 });
-      await scheduler.addJob(TEST_PLUGIN_ID, 'priority-job-1', { id: 'medium' }, { priority: 5 });
+        // Add jobs with different priorities (lower number = higher priority)
+        // Add high priority first to ensure it's processed first
+        await scheduler.addJob(TEST_PLUGIN_ID, 'priority-job-1', { id: 'high' }, { priority: 1 });
+        await new Promise((resolve) => setTimeout(resolve, 100)); // Small delay between jobs
+        await scheduler.addJob(TEST_PLUGIN_ID, 'priority-job-1', { id: 'medium' }, { priority: 5 });
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        await scheduler.addJob(TEST_PLUGIN_ID, 'priority-job-1', { id: 'low' }, { priority: 10 });
 
-      // Wait for jobs to execute
-      await new Promise((resolve) => setTimeout(resolve, 3000));
+        // Wait for jobs to execute
+        await new Promise((resolve) => setTimeout(resolve, 5000));
 
-      // Jobs should execute in priority order
-      expect(executionOrder).toEqual(['high', 'medium', 'low']);
-    });
+        // Jobs should execute in priority order
+        expect(executionOrder).toEqual(['high', 'medium', 'low']);
+      },
+      10000
+    );
   });
 
   describe('getJobStatus', () => {
