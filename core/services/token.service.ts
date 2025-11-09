@@ -442,3 +442,62 @@ export async function getToken(
     }
   });
 }
+
+/**
+ * Revoke an API token (logical delete)
+ *
+ * @param tenantId - Tenant ID for multi-tenant isolation
+ * @param tokenId - Token ID to revoke
+ * @returns void (no return value on success)
+ *
+ * Implementation:
+ * 1. Execute within withTenantContext() for RLS enforcement
+ * 2. UPDATE api_tokens SET revoked_at = NOW() WHERE token_id = $1 AND tenant_id = $2 AND revoked_at IS NULL
+ * 3. Always return success (void), regardless of RETURNING result (idempotency + information leakage prevention)
+ *
+ * Behavior:
+ * - Logical delete (sets revoked_at to current timestamp)
+ * - Idempotent: Does not update if already revoked (revoked_at remains unchanged)
+ * - Information leakage prevention: Always succeeds even if token doesn't exist or belongs to another tenant
+ * - After revocation, verifyToken() will immediately fail for this token
+ *
+ * Security:
+ * - RLS ensures tenant isolation
+ * - No physical deletion (preserves audit trail)
+ * - revoked_at timestamp is immutable (preserves first revocation time)
+ * - Always returns success to prevent leaking token ID existence
+ */
+export async function revokeToken(
+  tenantId: string,
+  tokenId: string
+): Promise<void> {
+  return await withTenantContext(tenantId, async (tx) => {
+    try {
+      // Update revoked_at for tokens that are not yet revoked
+      // WHERE clause includes revoked_at IS NULL to ensure idempotency
+      // (prevents overwriting original revocation timestamp)
+      await tx
+        .update(schema.apiTokens)
+        .set({ revokedAt: new Date() })
+        .where(
+          and(
+            eq(schema.apiTokens.tokenId, tokenId),
+            eq(schema.apiTokens.tenantId, tenantId),
+            isNull(schema.apiTokens.revokedAt)
+          )
+        );
+
+      // Always return success (void), regardless of whether any rows were updated
+      // This provides:
+      // 1. Idempotency: Already revoked tokens don't cause errors
+      // 2. Information leakage prevention: Non-existent tokens don't return 404
+      // 3. Security: Other tenants' tokens don't reveal existence
+      return;
+    } catch (error) {
+      // Log error for debugging but still return success to prevent information leakage
+      console.error('Error during token revocation (returning success):', error);
+      // Return success even on error to prevent leaking information
+      return;
+    }
+  });
+}

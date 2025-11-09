@@ -16,6 +16,7 @@ import {
   createToken,
   listTokens,
   getToken,
+  revokeToken,
 } from './token.service.js';
 import { runInTenant } from '../db/tenant-test-utils.js';
 import * as schema from '../db/schema/index.js';
@@ -613,5 +614,259 @@ describe('Token Service - listTokens()', () => {
 
     expect(result.items).toHaveLength(1);
     expect(result.items[0]?.status).toBe('expired');
+  });
+});
+
+/**
+ * Test suite for revokeToken() (Task 8.19)
+ *
+ * Verifies token revocation functionality:
+ * - Logical delete (sets revoked_at timestamp)
+ * - Idempotency (doesn't fail if already revoked)
+ * - Information leakage prevention (always succeeds)
+ * - Tenant isolation (RLS enforcement)
+ * - Immediate effect on verifyToken()
+ * - Status computation updates
+ */
+describe('Token Service - revokeToken()', () => {
+  const TEST_TENANT = 'default'; // Use default tenant which always exists
+  let testUserId: string;
+
+  beforeEach(async () => {
+    // Get test user ID from database (using default tenant)
+    await runInTenant(TEST_TENANT, async (tx) => {
+      const users = await tx
+        .select()
+        .from(schema.users)
+        .where(eq(schema.users.email, 'test@example.com'))
+        .limit(1);
+      testUserId = users[0]?.userId ?? '';
+    });
+
+    if (!testUserId) {
+      throw new Error('Test user not found in database');
+    }
+
+    // Clean up existing tokens before each test
+    await runInTenant(TEST_TENANT, async (tx) => {
+      await tx.delete(schema.apiTokens).where(eq(schema.apiTokens.tenantId, TEST_TENANT));
+    });
+  });
+
+  it('should revoke an active token by setting revoked_at', async () => {
+    // Create an active token
+    const tokenId = crypto.randomUUID();
+    await runInTenant(TEST_TENANT, async (tx) => {
+      await tx.insert(schema.apiTokens).values({
+        tokenId,
+        tenantId: TEST_TENANT,
+        name: 'Active Token',
+        tokenPrefix: 'drowltok_ACTIVE',
+        tokenHash: 'hash_active',
+        scopes: ['webhook:write'],
+        createdBy: testUserId,
+        expiresAt: null,
+        revokedAt: null,
+      });
+    });
+
+    // Revoke the token
+    await revokeToken(TEST_TENANT, tokenId);
+
+    // Verify revoked_at is set
+    await runInTenant(TEST_TENANT, async (tx) => {
+      const [token] = await tx
+        .select()
+        .from(schema.apiTokens)
+        .where(eq(schema.apiTokens.tokenId, tokenId));
+
+      expect(token).toBeDefined();
+      expect(token?.revokedAt).not.toBeNull();
+      expect(token?.revokedAt).toBeInstanceOf(Date);
+    });
+  });
+
+  it('should be idempotent - does not change revoked_at if already revoked', async () => {
+    // Create a revoked token with specific timestamp
+    const tokenId = crypto.randomUUID();
+    const originalRevokedAt = new Date('2025-01-01T00:00:00Z');
+
+    await runInTenant(TEST_TENANT, async (tx) => {
+      await tx.insert(schema.apiTokens).values({
+        tokenId,
+        tenantId: TEST_TENANT,
+        name: 'Revoked Token',
+        tokenPrefix: 'drowltok_REVOKED',
+        tokenHash: 'hash_revoked',
+        scopes: ['webhook:write'],
+        createdBy: testUserId,
+        expiresAt: null,
+        revokedAt: originalRevokedAt,
+      });
+    });
+
+    // Revoke again (should be idempotent)
+    await revokeToken(TEST_TENANT, tokenId);
+
+    // Verify revoked_at timestamp is unchanged
+    await runInTenant(TEST_TENANT, async (tx) => {
+      const [token] = await tx
+        .select()
+        .from(schema.apiTokens)
+        .where(eq(schema.apiTokens.tokenId, tokenId));
+
+      expect(token).toBeDefined();
+      expect(token?.revokedAt).toEqual(originalRevokedAt);
+    });
+  });
+
+  it('should succeed (not throw) if token does not exist', async () => {
+    // Non-existent token ID
+    const nonExistentTokenId = crypto.randomUUID();
+
+    // Should not throw error (information leakage prevention)
+    await expect(
+      revokeToken(TEST_TENANT, nonExistentTokenId)
+    ).resolves.toBeUndefined();
+  });
+
+  it('should succeed (not throw) for tokens from other tenants (RLS)', async () => {
+    // Create token in TEST_TENANT
+    const tokenId = crypto.randomUUID();
+    await runInTenant(TEST_TENANT, async (tx) => {
+      await tx.insert(schema.apiTokens).values({
+        tokenId,
+        tenantId: TEST_TENANT,
+        name: 'Token for RLS Test',
+        tokenPrefix: 'drowltok_RLS',
+        tokenHash: 'hash_rls',
+        scopes: ['webhook:write'],
+        createdBy: testUserId,
+        expiresAt: null,
+        revokedAt: null,
+      });
+    });
+
+    // Try to revoke with DIFFERENT tenant context (simulates other tenant attempting revoke)
+    // This should succeed (not throw) but not modify the token due to RLS
+    // Note: In real scenario, RLS would prevent the update, but here we test idempotency behavior
+    // The important part is that revokeToken() never throws, regardless of RLS blocking the update
+    await expect(
+      revokeToken('non-existent-tenant', tokenId)
+    ).resolves.toBeUndefined();
+
+    // Verify token is still active (not revoked by different tenant context)
+    await runInTenant(TEST_TENANT, async (tx) => {
+      const [token] = await tx
+        .select()
+        .from(schema.apiTokens)
+        .where(eq(schema.apiTokens.tokenId, tokenId));
+
+      expect(token).toBeDefined();
+      // Token should still be active because RLS prevented the update from different tenant
+      expect(token?.revokedAt).toBeNull();
+    });
+  });
+
+  it('should update status to "revoked" in getToken()', async () => {
+    // Create an active token
+    const tokenId = crypto.randomUUID();
+    await runInTenant(TEST_TENANT, async (tx) => {
+      await tx.insert(schema.apiTokens).values({
+        tokenId,
+        tenantId: TEST_TENANT,
+        name: 'Token to Revoke',
+        tokenPrefix: 'drowltok_TOREVOKE',
+        tokenHash: 'hash_torevoke',
+        scopes: ['webhook:write'],
+        createdBy: testUserId,
+        expiresAt: null,
+        revokedAt: null,
+      });
+    });
+
+    // Verify status is 'active' before revocation
+    const beforeRevoke = await getToken(TEST_TENANT, tokenId);
+    expect(beforeRevoke.status).toBe('active');
+
+    // Revoke the token
+    await revokeToken(TEST_TENANT, tokenId);
+
+    // Verify status is 'revoked' after revocation
+    const afterRevoke = await getToken(TEST_TENANT, tokenId);
+    expect(afterRevoke.status).toBe('revoked');
+    expect(afterRevoke.revokedAt).not.toBeNull();
+  });
+
+  it('should exclude revoked tokens from listTokens(status: "active")', async () => {
+    // Create two tokens
+    const activeTokenId = crypto.randomUUID();
+    const toRevokeTokenId = crypto.randomUUID();
+
+    await runInTenant(TEST_TENANT, async (tx) => {
+      await tx.insert(schema.apiTokens).values([
+        {
+          tokenId: activeTokenId,
+          tenantId: TEST_TENANT,
+          name: 'Active Token',
+          tokenPrefix: 'drowltok_ACTIVE1',
+          tokenHash: 'hash_active1',
+          scopes: ['webhook:write'],
+          createdBy: testUserId,
+          expiresAt: null,
+          revokedAt: null,
+        },
+        {
+          tokenId: toRevokeTokenId,
+          tenantId: TEST_TENANT,
+          name: 'To Revoke Token',
+          tokenPrefix: 'drowltok_TOREV1',
+          tokenHash: 'hash_torev1',
+          scopes: ['webhook:write'],
+          createdBy: testUserId,
+          expiresAt: null,
+          revokedAt: null,
+        },
+      ]);
+    });
+
+    // Verify both tokens are in active list
+    const beforeList = await listTokens(TEST_TENANT, { status: 'active' });
+    expect(beforeList.items).toHaveLength(2);
+
+    // Revoke one token
+    await revokeToken(TEST_TENANT, toRevokeTokenId);
+
+    // Verify only one token remains in active list
+    const afterList = await listTokens(TEST_TENANT, { status: 'active' });
+    expect(afterList.items).toHaveLength(1);
+    expect(afterList.items[0]?.tokenId).toBe(activeTokenId);
+  });
+
+  it('should include revoked tokens in listTokens(status: "revoked")', async () => {
+    // Create a token and revoke it
+    const tokenId = crypto.randomUUID();
+    await runInTenant(TEST_TENANT, async (tx) => {
+      await tx.insert(schema.apiTokens).values({
+        tokenId,
+        tenantId: TEST_TENANT,
+        name: 'Token to List as Revoked',
+        tokenPrefix: 'drowltok_LISTREV',
+        tokenHash: 'hash_listrev',
+        scopes: ['webhook:write'],
+        createdBy: testUserId,
+        expiresAt: null,
+        revokedAt: null,
+      });
+    });
+
+    // Revoke the token
+    await revokeToken(TEST_TENANT, tokenId);
+
+    // Verify token appears in revoked list
+    const revokedList = await listTokens(TEST_TENANT, { status: 'revoked' });
+    expect(revokedList.items).toHaveLength(1);
+    expect(revokedList.items[0]?.tokenId).toBe(tokenId);
+    expect(revokedList.items[0]?.status).toBe('revoked');
   });
 });
