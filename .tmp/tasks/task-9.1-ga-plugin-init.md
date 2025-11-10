@@ -84,7 +84,7 @@ plugins/
   - `https://www.googleapis.com`: Google OAuth 2.0トークンエンドポイント
   - `https://analyticsdata.googleapis.com`: Google Analytics Data API v1
 - `secrets`:
-  - `google_service_account_key`: サービスアカウントのJSON秘密鍵（コア側で暗号化保存）
+  - `google_service_account_key`: サービスアカウントのJSON秘密鍵（`textarea`型で入力、コア側で暗号化保存）
 
 ### 設定スキーマ（settingsSchema）
 
@@ -102,9 +102,9 @@ plugins/
     {
       "key": "google_service_account_key",
       "label": "Service Account Key (JSON)",
-      "type": "secret",
+      "type": "textarea",
       "required": true,
-      "help": "Google Cloud ConsoleでダウンロードしたサービスアカウントのJSON秘密鍵"
+      "help": "Google Cloud ConsoleでダウンロードしたサービスアカウントのJSON秘密鍵の内容を貼り付けてください"
     },
     {
       "key": "sync_days",
@@ -134,12 +134,13 @@ plugins/
    - 必須項目
 
 2. **google_service_account_key**:
-   - サービスアカウントのJSON秘密鍵（JSONファイル全体をテキストとして保存）
+   - サービスアカウントのJSON秘密鍵（JSONファイルの内容全体をテキストエリアに貼り付け）
    - Google Cloud Consoleで作成したサービスアカウントの認証情報
    - 以下の権限が必要:
      - `https://www.googleapis.com/auth/analytics.readonly`
    - GA4プロパティにサービスアカウントのメールアドレスを閲覧者として追加する必要がある
-   - `secret`型なのでコア側で暗号化保存
+   - `textarea`型で入力（複数行のJSONテキスト）
+   - `secrets`配列に含まれているためコア側で暗号化保存
    - プラグイン実行時は環境変数またはファイルとして提供
 
 3. **sync_days**:
