@@ -46,7 +46,7 @@ plugins/
 ```json
 {
   "compatibility": {
-    "drowlMin": "0.9.0",
+    "drowlMin": "0.1.0",
     "drowlMax": "2.0.0"
   }
 }
@@ -134,9 +134,13 @@ plugins/
    - 必須項目
 
 2. **google_service_account_key**:
-   - サービスアカウントのJSON秘密鍵
+   - サービスアカウントのJSON秘密鍵（JSONファイル全体をテキストとして保存）
+   - Google Cloud Consoleで作成したサービスアカウントの認証情報
+   - 以下の権限が必要:
+     - `https://www.googleapis.com/auth/analytics.readonly`
+   - GA4プロパティにサービスアカウントのメールアドレスを閲覧者として追加する必要がある
    - `secret`型なのでコア側で暗号化保存
-   - プラグインには短寿命トークンとして委譲
+   - プラグイン実行時は環境変数またはファイルとして提供
 
 3. **sync_days**:
    - 初回同期時の取得範囲
@@ -422,10 +426,44 @@ Google Analytics 4のイベントデータをDRMに同期し、`click_id`によ�
 
 ### サービスアカウントの作成手順
 
-1. Google Cloud Consoleで新しいサービスアカウントを作成
-2. `Viewer`ロールを付与
-3. JSON形式の秘密鍵をダウンロード
-4. プラグイン設定画面でJSON内容を貼り付け
+#### 1. Google Cloud Projectでの設定
+
+1. **Google Cloud Console**にアクセス
+2. プロジェクトを選択（または新規作成）
+3. **APIs & Services > Credentials**に移動
+4. **CREATE CREDENTIALS > Service Account**を選択
+5. サービスアカウント名を入力（例: `drm-ga-sync`）
+6. **CREATE AND CONTINUE**をクリック
+7. ロールは設定不要（スキップ可能）
+8. **DONE**をクリック
+9. 作成したサービスアカウントをクリック
+10. **KEYS**タブに移動
+11. **ADD KEY > Create new key**を選択
+12. **JSON**形式を選択してダウンロード
+
+#### 2. Google Analytics Data APIの有効化
+
+1. **APIs & Services > Library**に移動
+2. "Google Analytics Data API"を検索
+3. **Google Analytics Data API v1**を選択
+4. **ENABLE**をクリック
+
+#### 3. GA4での権限設定
+
+1. **Google Analytics**にアクセス
+2. 対象のGA4プロパティを選択
+3. **Admin > Property > Property Access Management**に移動
+4. **Add users**をクリック
+5. サービスアカウントのメールアドレスを入力（例: `drm-ga-sync@project-id.iam.gserviceaccount.com`）
+6. ロール: **Viewer**を選択
+7. **Add**をクリック
+
+#### 4. DRMでの設定
+
+1. DRM管理画面でGoogle Analyticsプラグインの設定画面を開く
+2. **GA4 Property ID**にプロパティIDを入力
+3. **Service Account Key (JSON)**にダウンロードしたJSONファイルの内容を貼り付け
+4. **Save**をクリック
 
 ## データフロー
 
