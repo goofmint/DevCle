@@ -23,9 +23,6 @@ plugins/
     README.md             # プラグイン説明（本タスクで作成）
     src/
       index.ts            # プラグインエントリポイント（空のエクスポート）
-    schemas/
-      sync.request@1.0.json   # 同期リクエストスキーマ（今後のタスクで使用）
-      sync.response@1.0.json  # 同期レスポンススキーマ（今後のタスクで使用）
 ```
 
 ## 1. プラグインマニフェスト（plugin.json）
@@ -216,9 +213,7 @@ plugins/
       "auth": "plugin",
       "timeoutSec": 300,
       "idempotent": true,
-      "description": "Google Analyticsデータを同期",
-      "requestSchema": "schemas/sync.request@1.0.json",
-      "responseSchema": "schemas/sync.response@1.0.json"
+      "description": "Google Analyticsデータを同期"
     },
     {
       "method": "POST",
